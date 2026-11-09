@@ -44,6 +44,6 @@ Do not put internal ticket IDs, private repository details, credentials or perso
 
 ## Saving changes
 
-- Work on a branch. Do not push to `main`.
 - Use Conventional Commits, for example `docs(spec): add hooks contract`.
-- Open a pull request that says what changed and why.
+- **Until the first release:** commit on a branch, then fast-forward `main` and push. A pull request is not needed.
+- **Once a release process exists:** work on a branch and open a pull request that says what changed and why. Do not push to `main`. Update this section when the release process is added.
