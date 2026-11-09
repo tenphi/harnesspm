@@ -2,19 +2,19 @@
 
 **In short**
 
-- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `tack sync`, as on a laptop.
+- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop.
 - The personal layer needs one command in the container: in the person's own environment setup script, or asked of the agent.
 - Improving a personal harness from the cloud needs push access to its repository. Without it, the agent shows the change in the session.
 
 ## 9.1 Installing the personal layer
 
 ```bash
-npx -y @tenphi/tack personal add github:andrew/harness
+npx -y harnesspm personal add github:andrew/harness
 ```
 
 | Way | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
-| **Setup script** of the person's own environment | ✅ Runs before Claude Code starts. Cached for about 7 days. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y @tenphi/tack personal update` to the maintenance script for cached resumes. |
+| **Setup script** of the person's own environment | ✅ Runs before Claude Code starts. Cached for about 7 days. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y harnesspm personal update` to the maintenance script for cached resumes. |
 | **Ask the agent** in a session | ✅ Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs internet access in the agent phase, which is off by default. |
 
 A committed repository hook is not the place for personal content, because it belongs to the team.
@@ -51,7 +51,7 @@ Personal setup MUST go into the person's own environment:
 
 ## 9.5 Not confirmed yet
 
-The proof of concept MUST test each ❓ before the release. Where an output does not work, Tack falls back to the nearest one that does and says so in `tack status`.
+The proof of concept MUST test each ❓ before the release. Where an output does not work, harnesspm falls back to the nearest one that does and says so in `harnesspm status`.
 
 | Output | Claude Code cloud | Codex cloud |
 | --- | --- | --- |

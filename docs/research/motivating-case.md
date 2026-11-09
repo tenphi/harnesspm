@@ -1,6 +1,6 @@
 # Motivating case
 
-A real chain of packages, surveyed in November 2026. It shows the manual work Tack replaces.
+A real chain of packages, surveyed in November 2026. It shows the manual work harnesspm replaces.
 
 ```
 @tenphi/tasty (styles) ─┐
@@ -45,14 +45,14 @@ Nothing connects the two, so an agent in that application gets both instructions
 
 - UI Kit ships a probe library for agents to capture DOM and CSS. The command-line tool around it exists twice, once in UI Kit and once in an application, with hundreds of lines of difference.
 
-## What Tack changes here
+## What harnesspm changes here
 
-| Today | With Tack |
+| Today | With harnesspm |
 | --- | --- |
 | Symlinks and pack-time copies | `extends`, resolved to the installed versions |
 | Hand-written indexes | Generated indexes |
 | Restated or contradicting rules | One source, with `replace` in the layer that differs |
 | Forked policies and workflows | One harness-only package |
 | Write-once scaffolding | Outputs rewritten on every install |
-| A tool copied into each project | A script shipped once and run with `tack run` |
+| A tool copied into each project | A script shipped once and run with `harnesspm run` |
 | Agent-specific copies | Native outputs generated for each agent |

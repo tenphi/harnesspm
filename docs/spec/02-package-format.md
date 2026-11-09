@@ -3,7 +3,7 @@
 **In short**
 
 - A harness is a `harness/` folder at the package root. It is an [Agent Plugins 1.0](https://agent-plugins.org/) plugin: `plugin.json`, `skills/`, `mcp.json`.
-- Everything Tack adds lives in the standard's extension namespace: the `io.github.tenphi.tack` field in `plugin.json` and the folder of the same name.
+- Everything harnesspm adds lives in the standard's extension namespace: the `dev.harnesspm` field in `plugin.json` and the folder of the same name.
 - Every unit has an ID, `<plugin name>:<kind>/<name>`, used to exclude, replace or patch it.
 
 The smallest harness is two files:
@@ -11,19 +11,19 @@ The smallest harness is two files:
 ```text
 harness/
 ├── plugin.json                          {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "mylib"}
-└── io.github.tenphi.tack/rules/usage.md  one rule, always on
+└── dev.harnesspm/rules/usage.md  one rule, always on
 ```
 
-The portable parts (skills and MCP servers) work in any Agent Plugins client, even without Tack.
+The portable parts (skills and MCP servers) work in any Agent Plugins client, even without harnesspm.
 
 ## 2.1 Location
 
 1. A package MUST put its harness in a folder named `harness/` at the package root.
 2. A published npm package MUST include `harness` in the `files` field of `package.json`.
-3. Tack MUST NOT run any code from a package to discover its harness. Discovery reads files only.
-4. For compatibility, Tack also reads a package-root `skills/` folder, the layout pnpm and the `skills` CLI use. Such a package contributes skills only.
+3. harnesspm MUST NOT run any code from a package to discover its harness. Discovery reads files only.
+4. For compatibility, harnesspm also reads a package-root `skills/` folder, the layout pnpm and the `skills` CLI use. Such a package contributes skills only.
 
-> pnpm 12.11 and later link `skills/` folders from direct dependencies by themselves. Because Tack reads `harness/skills/`, the two do not link the same skills twice.
+> pnpm 12.11 and later link `skills/` folders from direct dependencies by themselves. Because harnesspm reads `harness/skills/`, the two do not link the same skills twice.
 
 ## 2.2 Layout
 
@@ -36,7 +36,7 @@ harness/
 │   └── uikit-review/
 │       └── SKILL.md
 ├── mcp.json                          ← Agent Plugins MCP configuration
-└── io.github.tenphi.tack/            ← Tack extension folder
+└── dev.harnesspm/            ← harnesspm extension folder
     ├── rules/
     │   ├── forms.md
     │   └── state-maps.md
@@ -51,11 +51,11 @@ harness/
 
 Every file is optional except `plugin.json`. A package that has only one rule is valid.
 
-The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` until the project has a domain of its own. See [13-open-questions.md](13-open-questions.md#133-extension-namespace).
+The extension folder name is the harnesspm namespace, `dev.harnesspm`, based on the domain `harnesspm.dev`. See [13-open-questions.md](13-open-questions.md#133-extension-namespace).
 
 ## 2.3 Manifest
 
-`plugin.json` follows Agent Plugins 1.0. Its schema is closed, so all Tack fields go under `extensions["io.github.tenphi.tack"]`.
+`plugin.json` follows Agent Plugins 1.0. Its schema is closed, so all harnesspm fields go under `extensions["dev.harnesspm"]`.
 
 ```json
 {
@@ -63,19 +63,19 @@ The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` u
   "name": "uikit",
   "description": "Rules, docs and tools for building UIs with @cube-dev/ui-kit",
   "extensions": {
-    "io.github.tenphi.tack": {
+    "dev.harnesspm": {
       "extends": ["@tenphi/tasty", "@tenphi/glaze"],
       "docs": { "dir": "../docs/components" },
       "scripts": {
         "probe": {
-          "file": "./io.github.tenphi.tack/scripts/probe.mjs",
+          "file": "./dev.harnesspm/scripts/probe.mjs",
           "description": "Capture a story's DOM and computed CSS",
           "allow": true
         },
-        "check-styles": { "file": "./io.github.tenphi.tack/scripts/check-styles.mjs" }
+        "check-styles": { "file": "./dev.harnesspm/scripts/check-styles.mjs" }
       },
       "exclude": ["tasty:rules/legacy-tokens"],
-      "replace": { "tasty:rules/lint-comments": "./io.github.tenphi.tack/rules/lint-comments.md" }
+      "replace": { "tasty:rules/lint-comments": "./dev.harnesspm/rules/lint-comments.md" }
     }
   }
 }
@@ -86,11 +86,11 @@ The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` u
 | Field | Required | Notes |
 | --- | --- | --- |
 | `$schema` | yes | The Agent Plugins schema identifier. |
-| `name` | yes | The **plugin name**. Lowercase letters, digits, `-` and `.`. Tack uses it as the prefix in unit IDs and script names. |
-| `version` | no | If missing, Tack uses `version` from `package.json`. |
+| `name` | yes | The **plugin name**. Lowercase letters, digits, `-` and `.`. harnesspm uses it as the prefix in unit IDs and script names. |
+| `version` | no | If missing, harnesspm uses `version` from `package.json`. |
 | `description`, `author`, `homepage`, `repository`, `license`, `keywords` | no | Metadata, as defined by Agent Plugins. |
 
-### Tack extension fields
+### harnesspm extension fields
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -102,7 +102,7 @@ The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` u
 | `scripts` | object | Script name → script definition. See [05-executables.md](05-executables.md#51-scripts). |
 | `projects` | object | Git remote → folder with units for that project. Read only in personal harnesses. See [07-personal.md](07-personal.md#72-example). |
 
-Unknown fields inside the extension MUST make `tack check` fail, so typos do not ship.
+Unknown fields inside the extension MUST make `harnesspm check` fail, so typos do not ship.
 
 ## 2.4 Unit kinds
 
@@ -112,12 +112,12 @@ Unknown fields inside the extension MUST make `tack check` fail, so typos do not
 | Skill | `skills/<name>/SKILL.md` | [Agent Skills](https://agentskills.io/specification) | The agent loads it when relevant or when asked. |
 | Sub-agent | `<ns>/agents/*.md` | Markdown: `name` and `description` frontmatter, instructions in the body. See [2.6](#26-sub-agents). | The agent starts it. |
 | Doc | The folder named in `docs` | Markdown | Listed in an index. The agent reads a page when needed. |
-| Script | Named in `scripts` | Any executable file | Run through `tack run`. |
+| Script | Named in `scripts` | Any executable file | Run through `harnesspm run`. |
 | Hook | `<ns>/hooks.json` | See [05-executables.md](05-executables.md#52-hooks) | The agent runs it on an event. |
 | MCP server | `mcp.json` | Agent Plugins MCP configuration | The agent starts it. |
 | Permission | `<ns>/permissions.json`, and `allow` on scripts | See [05-executables.md](05-executables.md#54-permissions) | The agent applies it. |
 
-`<ns>` is the extension folder, `io.github.tenphi.tack`.
+`<ns>` is the extension folder, `dev.harnesspm`.
 
 ## 2.5 Rules
 
@@ -141,7 +141,7 @@ paths: ["**/*.tsx", "**/*.ts"]
 | `paths`, with or without `description` | **File-scoped.** Active when the agent works on matching files. The description, if any, is the text of the pointer line. |
 | `description` only | **On demand.** Listed with its description. The agent reads it when relevant. |
 
-Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `tack check` reports the size of a package's always-on text.
+Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `harnesspm check` reports the size of a package's always-on text.
 
 A package SHOULD split a rule into small sections with `##` headings, so that others can change one section with a patch.
 
@@ -165,7 +165,7 @@ Use `oxlint-disable-next-line`. `eslint-disable` comments are ignored in this pr
 4. Text before the first heading of the patch is **added** at the end of the rule.
 5. `remove` in the frontmatter lists headings whose sections are **removed**.
 
-A patch keeps the rule's ID. `tack why` lists the patches applied to a unit. Patches work on rules only. Where patches come from and in which order they apply is defined in [03-resolution.md](03-resolution.md#34-priority).
+A patch keeps the rule's ID. `harnesspm why` lists the patches applied to a unit. Patches work on rules only. Where patches come from and in which order they apply is defined in [03-resolution.md](03-resolution.md#34-priority).
 
 ## 2.6 Sub-agents
 
@@ -196,8 +196,8 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 ```
 
 1. `dir` is relative to `harness/`. It MAY point outside `harness/` but MUST stay inside the package.
-2. If `<dir>/llms.txt` exists, Tack uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
-3. Otherwise Tack builds the index from each page's first heading and its frontmatter `description`.
+2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
+3. Otherwise harnesspm builds the index from each page's first heading and its frontmatter `description`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
 
 ## 2.8 Unit IDs
@@ -206,7 +206,7 @@ Every unit has an ID: `<plugin name>:<kind>/<name>`.
 
 | Unit | ID |
 | --- | --- |
-| `harness/io.github.tenphi.tack/rules/state-maps.md` in plugin `tasty` | `tasty:rules/state-maps` |
+| `harness/dev.harnesspm/rules/state-maps.md` in plugin `tasty` | `tasty:rules/state-maps` |
 | `harness/skills/uikit-review/` in plugin `uikit` | `uikit:skills/uikit-review` |
 | script `probe` in plugin `uikit` | `uikit:scripts/probe` |
 | server `docs` in `mcp.json` of plugin `uikit` | `uikit:mcp/docs` |
@@ -216,19 +216,19 @@ Every unit has an ID: `<plugin name>:<kind>/<name>`.
 
 ## 2.9 Naming rules
 
-1. Plugin names MUST be unique within one resolved graph. On a clash, Tack stops and names both packages. The consumer can then exclude one of them.
-2. **Tack never renames a skill.** The Agent Skills format requires a skill's `name` to match its folder name, and agents look skills up by that name.
-3. Skill names SHOULD start with the plugin name, such as `uikit-review`, so names from different packages do not collide. `tack check` warns when they do not.
-4. When two layers ship a skill with the same name, the higher layer wins and Tack prints a warning.
+1. Plugin names MUST be unique within one resolved graph. On a clash, harnesspm stops and names both packages. The consumer can then exclude one of them.
+2. **harnesspm never renames a skill.** The Agent Skills format requires a skill's `name` to match its folder name, and agents look skills up by that name.
+3. Skill names SHOULD start with the plugin name, such as `uikit-review`, so names from different packages do not collide. `harnesspm check` warns when they do not.
+4. When two layers ship a skill with the same name, the higher layer wins and harnesspm prints a warning.
 5. Script names MUST be unique within a plugin. Agents call them as `<plugin name>:<script>`, such as `uikit:probe`.
 
 ## 2.10 Validation
 
-`tack check` runs at `prepack` and fails when:
+`harnesspm check` runs at `prepack` and fails when:
 
 - `plugin.json` or `mcp.json` breaks the Agent Plugins schema;
 - a skill breaks the Agent Skills format;
-- a Tack extension field is unknown or has the wrong type;
+- a harnesspm extension field is unknown or has the wrong type;
 - a path points outside the package, or at a file the npm tarball would not include;
 - a link in a rule, skill or doc points at a file that will not be published.
 

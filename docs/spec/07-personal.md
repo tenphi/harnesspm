@@ -19,7 +19,7 @@ A personal harness holds what should live outside every project repository:
 | Personal tools | Scripts, hooks, MCP servers | A script that opens a local preview of linked repositories |
 | Changes for one project | Project entry | A local staging address, a replaced team rule |
 
-This is the "memory" a person keeps across projects and machines. Notes that an agent saves by itself, such as Claude Code auto memory, stay with the agent and are not part of Tack.
+This is the "memory" a person keeps across projects and machines. Notes that an agent saves by itself, such as Claude Code auto memory, stay with the agent and are not part of harnesspm.
 
 ## 7.2 Example
 
@@ -28,7 +28,7 @@ andrew-harness/                    a git repository, on any host
 ├── AGENTS.md                      how to change this repository, including how to save changes
 └── harness/
     ├── plugin.json
-    ├── io.github.tenphi.tack/rules/
+    ├── dev.harnesspm/rules/
     │   └── workflow.md            always on
     ├── notes/                     read on demand
     │   ├── llms.txt               index of the notes
@@ -37,7 +37,7 @@ andrew-harness/                    a git repository, on any host
     │   └── andrew-release/SKILL.md
     └── projects/
         └── cube-ui-kit/           same layout as harness/; plugin.json is optional
-            └── io.github.tenphi.tack/rules/local-setup.md
+            └── dev.harnesspm/rules/local-setup.md
 ```
 
 ```json
@@ -45,7 +45,7 @@ andrew-harness/                    a git repository, on any host
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "andrew",
   "extensions": {
-    "io.github.tenphi.tack": {
+    "dev.harnesspm": {
       "docs": { "dir": "./notes" },
       "projects": {
         "github.com/cube-js/cube-ui-kit": "./projects/cube-ui-kit"
@@ -61,9 +61,9 @@ A project entry is matched by the project's git remote, so it also works in a fr
 
 | Source | Example | Editable | Where it lives |
 | --- | --- | --- | --- |
-| Git repository | `github:andrew/harness`, `git:https://git.example.com/andrew/harness.git` | yes | A working copy in `~/.tack/personal/<name>/` |
+| Git repository | `github:andrew/harness`, `git:https://git.example.com/andrew/harness.git` | yes | A working copy in `~/.harnesspm/personal/<name>/` |
 | Folder | `~/dev/andrew-harness` | yes | In place |
-| npm package | `npm:@andrew/harness` | no | A cache in `~/.tack/cache/` |
+| npm package | `npm:@andrew/harness` | no | A cache in `~/.harnesspm/cache/` |
 
 Git sources work with any host. npm and git sources never touch the project's `package.json` or lockfile.
 
@@ -71,8 +71,8 @@ Git sources work with any host. npm and git sources never touch the project's `p
 
 | Scope | How to add | Recorded in | Outputs |
 | --- | --- | --- | --- |
-| **Everywhere** | `npx tack personal add <source>` | `~/.tack/config.json` | User-level folders, see [04-outputs.md](04-outputs.md#44-personal-outputs-scope-everywhere) |
-| **This project** | `npx tack personal add <source> --project`, or a project entry in a harness added everywhere | `tack.local.json` in the project, excluded from git | Project outputs, see [04-outputs.md](04-outputs.md#43-project-outputs) |
+| **Everywhere** | `npx harnesspm personal add <source>` | `~/.harnesspm/config.json` | User-level folders, see [04-outputs.md](04-outputs.md#44-personal-outputs-scope-everywhere) |
+| **This project** | `npx harnesspm personal add <source> --project`, or a project entry in a harness added everywhere | `harnesspm.local.json` in the project, excluded from git | Project outputs, see [04-outputs.md](04-outputs.md#43-project-outputs) |
 
 Both files have one field:
 
@@ -86,5 +86,5 @@ Units with scope "this project" come after units with scope "everywhere", so the
 
 1. Personal outputs are never written into tracked files. Per-machine files are excluded through `.git/info/exclude`.
 2. CI ignores the personal layer.
-3. `tack status` lists every personal change to team units, so it stays visible to the person.
+3. `harnesspm status` lists every personal change to team units, so it stays visible to the person.
 4. In a cloud environment shared by several people, personal setup belongs in the person's own environment. See [09-cloud.md](09-cloud.md).

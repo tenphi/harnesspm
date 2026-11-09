@@ -2,30 +2,30 @@
 
 **In short**
 
-- Tack writes each agent's **native** files, where the agent already looks.
-- Only the managed block in `AGENTS.md` and `tack.lock.json` are committed. Everything else is written on each machine and kept out of git.
+- harnesspm writes each agent's **native** files, where the agent already looks.
+- Only the managed block in `AGENTS.md` and `harnesspm.lock.json` are committed. Everything else is written on each machine and kept out of git.
 - People never edit outputs. Every output names its source.
 
 Package authors do not need this chapter. It defines what implementations write.
 
 ## 4.1 Principles
 
-1. **Native files only.** No agent has to understand a Tack format.
+1. **Native files only.** No agent has to understand a harnesspm format.
 2. **Commit only what reviewers need.** The managed block in `AGENTS.md` shows rule changes in pull requests. The lock shows every other unit change. All other outputs are per machine.
-3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. Tack never edits `.gitignore`.
-4. **Personal units never enter a tracked file.** Tack MUST refuse to write one there.
+3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. harnesspm never edits `.gitignore`.
+4. **Personal units never enter a tracked file.** harnesspm MUST refuse to write one there.
 5. **Outputs are marked.** Each generated file or block says it is generated and names the sources to edit.
-6. **Tack edits only its own entries** in files that people or agents also write, and keeps the rest unchanged.
+6. **harnesspm edits only its own entries** in files that people or agents also write, and keeps the rest unchanged.
 
 ## 4.2 Stable package paths
 
-Package managers place packages at paths that differ between machines. Tack creates one stable link per harness package and uses only these paths in outputs:
+Package managers place packages at paths that differ between machines. harnesspm creates one stable link per harness package and uses only these paths in outputs:
 
 ```
-node_modules/.tack/pkgs/@tenphi/tasty  →  <real location of the package>
+node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
-A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/tack fetch --frozen`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
+A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch --frozen`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
 
 ## 4.3 Project outputs
 
@@ -39,62 +39,62 @@ These hold the dependency and project layers, plus personal units with scope "th
 | On-demand rules | Pointer line with its description | Pointer line with its description |
 | Skills | Link in `.claude/skills/<name>` | Link in `.agents/skills/<name>` |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
-| Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/tack.rules` |
+| Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/harnesspm.rules` |
 | MCP servers | Local scope: `claude mcp add-json <name> '<json>' --scope local` | `[mcp_servers.<id>]` in `.codex/config.toml` |
 
 Notes:
 
-1. `CLAUDE.local.md` counts as a `CLAUDE.md` for Claude Code. In a repository with only `AGENTS.md`, Tack MUST start `CLAUDE.local.md` with `@AGENTS.md`, or Claude would stop reading `AGENTS.md`.
-2. Tack owns `.codex/` and writes it on each machine. If a team already commits `.codex/config.toml`, Tack does not touch it and `tack status` lists the units Codex is missing. The team moves those settings into `harness/`, which feeds both agents.
-3. A personal `exclude` or `patch` of a team always-on rule cannot change committed text. Tack writes the change into the personal block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
+1. `CLAUDE.local.md` counts as a `CLAUDE.md` for Claude Code. In a repository with only `AGENTS.md`, harnesspm MUST start `CLAUDE.local.md` with `@AGENTS.md`, or Claude would stop reading `AGENTS.md`.
+2. harnesspm owns `.codex/` and writes it on each machine. If a team already commits `.codex/config.toml`, harnesspm does not touch it and `harnesspm status` lists the units Codex is missing. The team moves those settings into `harness/`, which feeds both agents.
+3. A personal `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the personal block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 
 ## 4.4 Personal outputs, scope "everywhere"
 
-These go to the agents' user-level folders, so they work in every repository, including ones without Tack.
+These go to the agents' user-level folders, so they work in every repository, including ones without harnesspm.
 
 | Unit | Claude Code | Codex |
 | --- | --- | --- |
 | Rules | Managed block in `~/.claude/CLAUDE.md` | Managed block in `~/.codex/AGENTS.md` |
 | Skills | Link in `~/.claude/skills/` | Link in `~/.agents/skills/` |
 | Sub-agents | Generated in `~/.claude/agents/` | Generated in `~/.codex/agents/` |
-| Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/tack.rules` |
+| Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/harnesspm.rules` |
 | MCP servers | User scope (`--scope user`) | `[mcp_servers.<id>]` in `~/.codex/config.toml` |
 | Write access to the personal working copy | `permissions.additionalDirectories` | `sandbox_workspace_write.writable_roots` |
 
 ## 4.5 Monorepos
 
 1. A workspace with its own units gets a managed block in `<workspace>/AGENTS.md`. Codex joins `AGENTS.md` files from the root down to the current folder.
-2. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`. Tack writes `<workspace>/CLAUDE.md` with `@AGENTS.md` when it is missing. Both files are committed.
+2. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`. harnesspm writes `<workspace>/CLAUDE.md` with `@AGENTS.md` when it is missing. Both files are committed.
 3. Skills and executable units are written at the root.
 
 ## 4.6 Managed blocks
 
-A managed block is the only part of a Markdown file Tack owns. Text outside it never changes. Without markers, Tack appends a block at the end.
+A managed block is the only part of a Markdown file harnesspm owns. Text outside it never changes. Without markers, harnesspm appends a block at the end.
 
 ```markdown
-<!-- BEGIN:tack — generated by `tack sync`. Do not edit. To change a rule, run `npx tack why <ID>`. -->
+<!-- BEGIN:harnesspm — generated by `harnesspm sync`. Do not edit. To change a rule, run `npx harnesspm why <ID>`. -->
 ## @tenphi/tasty 3.17.1 (via @cube-dev/ui-kit)
 
 - Never put dynamic values into styles. Use tokens. (tasty:rules/style-values)
-- When editing `**/*.tsx`, read node_modules/.tack/pkgs/@tenphi/tasty/harness/io.github.tenphi.tack/rules/state-maps.md (tasty:rules/state-maps)
-- Docs: node_modules/.tack/pkgs/@tenphi/tasty/docs/llms.txt
+- When editing `**/*.tsx`, read node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md (tasty:rules/state-maps)
+- Docs: node_modules/.harnesspm/pkgs/@tenphi/tasty/docs/llms.txt
 
 ## @cube-dev/ui-kit 0.206.1
 
 - …
-- Scripts: `npx tack run uikit:probe <story>` — capture a story's DOM and computed CSS
-<!-- END:tack -->
+- Scripts: `npx harnesspm run uikit:probe <story>` — capture a story's DOM and computed CSS
+<!-- END:harnesspm -->
 ```
 
-Every line carries its unit ID, so an agent can find the source with `tack why`.
+Every line carries its unit ID, so an agent can find the source with `harnesspm why`.
 
 ## 4.7 Files shared with people
 
-`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files Tack changes only its managed block or the entries it created. It records its entries in a per-machine state file so it can remove them later.
+`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file so it can remove them later.
 
 ## 4.8 Why native files and not plugins
 
-Both agents have plugin systems. Tack does not generate plugins in v1, because Claude Code cloud sessions do not install plugins that a repository declares, and plugins hide changes from pull request review. See [13-open-questions.md](13-open-questions.md#135-plugin-output-mode).
+Both agents have plugin systems. harnesspm does not generate plugins in v1, because Claude Code cloud sessions do not install plugins that a repository declares, and plugins hide changes from pull request review. See [13-open-questions.md](13-open-questions.md#135-plugin-output-mode).
 
 ## 4.9 Size limits
 
@@ -103,4 +103,4 @@ Both agents have plugin systems. Tack does not generate plugins in v1, because C
 | Codex | `AGENTS.md` files are joined up to `project_doc_max_bytes`, 32 KiB by default. The rest is cut off. |
 | Claude Code | No hard limit. The vendor advises under about 200 lines per `CLAUDE.md`. |
 
-`tack status` reports the always-on size per agent and per package, and warns near a limit.
+`harnesspm status` reports the always-on size per agent and per package, and warns near a limit.

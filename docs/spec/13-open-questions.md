@@ -12,7 +12,7 @@
 
 "Memory" here means everything a person wants agents to know that should live outside a project's repository: how they work, context, how their projects relate. It is the content of the personal harness ([07-personal.md](07-personal.md#71-what-goes-in-it)). Agents keep it current by improving the personal harness ([08-improving.md](08-improving.md)).
 
-Notes that Claude Code or Codex save by themselves (Claude Code auto memory, Codex memories) are part of each agent's own harness. Tack does not move or merge them.
+Notes that Claude Code or Codex save by themselves (Claude Code auto memory, Codex memories) are part of each agent's own harness. harnesspm does not move or merge them.
 
 ### 13.2 Partial edits of rules
 
@@ -22,11 +22,9 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.3 Extension namespace
 
-**Decision:** register a short domain before the first public release and switch the namespace to it. A later change would break every published harness.
+**Decision:** `dev.harnesspm`, based on the domain `harnesspm.dev`. Agent Plugins requires the namespace to be based on a domain the client controls.
 
-**Candidate:** `tackpm.dev` → namespace `dev.tackpm`. It was not registered when checked through RDAP in November 2026, and it matches the tagline "the harness package manager". Other free candidates: `tackkit.dev`, `tackhq.dev`, `harnesspm.dev`. `tack.dev` is taken.
-
-Until the domain is registered, the spec keeps `io.github.tenphi.tack`. The switch is one mechanical rename in the spec and in `harness/`.
+**Before the first public release:** register `harnesspm.dev`. It was not registered when checked through RDAP in November 2026. The namespace cannot change after release, because every published harness uses it as a folder name.
 
 ### 13.4 Sub-agents for Codex
 
@@ -38,11 +36,11 @@ Until the domain is registered, the spec keeps `io.github.tenphi.tack`. The swit
 
 ### 13.6 CI without an install
 
-**Decision:** `tack fetch --frozen` downloads only the harness packages in the lock and fills `node_modules/.tack/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
+**Decision:** `harnesspm fetch --frozen` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
 
 ### 13.7 Team lock on rules (rejected)
 
-A team cannot mark a rule as one a person cannot exclude. Nothing could enforce it on a person's machine, and `tack status` already shows personal changes.
+A team cannot mark a rule as one a person cannot exclude. Nothing could enforce it on a person's machine, and `harnesspm status` already shows personal changes.
 
 ## Waiting for the proof of concept
 
@@ -52,11 +50,11 @@ v1 writes Claude Code hooks and permissions into the untracked `.claude/settings
 
 ### 13.9 Upgrade report
 
-After an upgrade, the diff of the managed block and the lock shows what changed. **Signal:** reviewers find the raw diff hard to read. **Then:** add `tack diff`.
+After an upgrade, the diff of the managed block and the lock shows what changed. **Signal:** reviewers find the raw diff hard to read. **Then:** add `harnesspm diff`.
 
 ### 13.10 Structured project relations
 
-A person's notes describe how repositories relate, such as "UI Kit builds on Tasty". v1 keeps them as plain notes. **Signal:** a task in the proof of concept needs Tack itself to act on relations, such as finding local clones of related repositories.
+A person's notes describe how repositories relate, such as "UI Kit builds on Tasty". v1 keeps them as plain notes. **Signal:** a task in the proof of concept needs harnesspm itself to act on relations, such as finding local clones of related repositories.
 
 ### 13.11 Agent behavior not confirmed yet
 
@@ -67,10 +65,10 @@ Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md)
 | Removed | Why | Comes back if |
 | --- | --- | --- |
 | Four layers, with a global personal layer below dependencies | Hard to explain. Three layers and two personal scopes say the same thing. | A real case needs personal defaults that team rules override by ID. |
-| `include` and `self` in `tack.json` | No scenario needed them. `exclude` covers narrowing. | A project needs an allowlist. |
+| `include` and `self` in `harnesspm.json` | No scenario needed them. `exclude` covers narrowing. | A project needs an allowlist. |
 | Committed Claude Code settings and `.mcp.json` entries | Two rules for two agents. Now: commit only the block and the lock. | See 13.8. |
 | `AGENTS.override.md` as a copy of `AGENTS.md` for Codex | Copies go stale. `developer_instructions` adds personal rules without a copy. | `developer_instructions` is not read from project config. |
-| `tack personal save`, `push`, `pull`, `diff`, `status`, `extend` and a patch outbox | Tack does not need to wrap git. The owner's rules decide how changes are saved, and agents have their own git tools. | Agents turn out unable to follow owner rules reliably. |
+| `harnesspm personal save`, `push`, `pull`, `diff`, `status`, `extend` and a patch outbox | harnesspm does not need to wrap git. The owner's rules decide how changes are saved, and agents have their own git tools. | Agents turn out unable to follow owner rules reliably. |
 | A folder picked up automatically as a personal harness | One more rule to learn. `personal add --project` does the same. | — |
 | A separate lock for personal sources | Personal sources follow their branch or range. | People need reproducible personal setups. |
 | Variables and slots in rules | Patches by section cover the same cases with one mechanism. | Patches copy most of a rule to change a word. |

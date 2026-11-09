@@ -23,8 +23,8 @@ Tools and conventions for sharing agent harness, checked in November 2026. The q
 - **APM** resolves a full dependency tree for several agents, but only from git, so its versions can drift from the npm versions a project installed.
 - **Next.js 16.3** ships its docs inside the package and writes a managed block into `AGENTS.md` that points at them. It retired its "knowledge" skills in favor of that block. ([blog](https://nextjs.org/blog/next-16-3-ai-improvements))
 - **Vercel's agent evaluation** found that a short docs index in `AGENTS.md` beat skills that agents had to choose to load. ([blog](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals))
-- **Earlier `package.json` field proposals** for agent assets were closed. Tack therefore uses a folder, not a field.
+- **Earlier `package.json` field proposals** for agent assets were closed. harnesspm therefore uses a folder, not a field.
 
 ## Conclusion
 
-No tool combines npm as the source, transitive layering, per-unit overrides, rules as well as skills, and executable units with trust. Tack builds that part and reuses standards for everything else ([11-standards.md](../spec/11-standards.md)).
+No tool combines npm as the source, transitive layering, per-unit overrides, rules as well as skills, and executable units with trust. harnesspm builds that part and reuses standards for everything else ([11-standards.md](../spec/11-standards.md)).

@@ -4,7 +4,7 @@ Instructions for agents and people who work on this repository.
 
 ## What this repository is
 
-The specification of **Tack**, the harness package manager. There is no code yet. The spec lives in `docs/spec/`, background research in `docs/research/`.
+The specification of **harnesspm**, the harness package manager. There is no code yet. The spec lives in `docs/spec/`, background research in `docs/research/`.
 
 ## Writing rules
 
@@ -32,11 +32,11 @@ The size and strictness of each part must match how important, how hard and how 
 
 ## Standards first
 
-Before adding a format, check `docs/spec/11-standards.md`. Reuse a standard when it fits. When Tack goes beyond one, say so there.
+Before adding a format, check `docs/spec/11-standards.md`. Reuse a standard when it fits. When harnesspm goes beyond one, say so there.
 
 ## Dogfooding
 
-This repository uses and publishes its own harness (`docs/spec/12-dogfooding.md`). A change to any format in the spec MUST update `tack.json` and `harness/` in the same change.
+This repository uses and publishes its own harness (`docs/spec/12-dogfooding.md`). A change to any format in the spec MUST update `harnesspm.json` and `harness/` in the same change.
 
 ## Privacy
 

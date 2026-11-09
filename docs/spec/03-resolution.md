@@ -11,20 +11,20 @@
 | Layer | Source | Committed outputs? |
 | --- | --- | --- |
 | 📦 **Dependencies** | Harness packages in the project's dependencies, and what they `extends` | yes |
-| 🏢 **Project** | `tack.json` and the project's own `harness/` | yes |
+| 🏢 **Project** | `harnesspm.json` and the project's own `harness/` | yes |
 | 🙋 **Personal** | The person's harnesses (see [07-personal.md](07-personal.md)). Scope "everywhere" first, then scope "this project" | no |
 
 Committed outputs MUST be computed from the dependency and project layers only. Two teammates with different personal harnesses produce identical committed files.
 
 ## 3.2 Discovery
 
-For each workspace, Tack starts from its `dependencies`, `devDependencies` and `optionalDependencies`:
+For each workspace, harnesspm starts from its `dependencies`, `devDependencies` and `optionalDependencies`:
 
 1. Resolve each one from the workspace folder, the way Node.js does.
 2. Keep it if it has a `harness/` folder (or a package-root `skills/` folder).
 3. Follow `extends` of every kept package (see [3.3](#33-extends)).
 
-Tack reads files only. It never runs code from a dependency during discovery. Every dependency with a harness is included unless the project excludes it.
+harnesspm reads files only. It never runs code from a dependency during discovery. Every dependency with a harness is included unless the project excludes it.
 
 ## 3.3 Extends
 
@@ -35,7 +35,7 @@ Tack reads files only. It never runs code from a dependency during discovery. Ev
 ```
 
 1. Each name MUST be resolved **from the folder of the package that declares it**, so the version is the one that package uses.
-2. Tack follows `extends` recursively and stops with an error on a cycle.
+2. harnesspm follows `extends` recursively and stops with an error on a cycle.
 3. Only `extends` passes harness on. A library's other dependencies, including its development tools, never reach its users.
 4. A package's `exclude`, `replace` and `patch` change what it passes on. A middle package can fix an upstream rule for all its users.
 
@@ -54,15 +54,15 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 | Two skills have the same name | The later one wins, with a warning. |
 | An override names a unit that does not exist | Warning. It usually means an upstream unit was renamed. |
 
-For one rule, Tack takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. A patch from a layer below the winning `replace` is dropped with a warning.
+For one rule, harnesspm takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. A patch from a layer below the winning `replace` is dropped with a warning.
 
-When an upgrade changes a section that a patch replaces or removes, `tack sync` warns and names the section, because the patch may now be out of date. The lock stores a hash of each such section to detect this.
+When an upgrade changes a section that a patch replaces or removes, `harnesspm sync` warns and names the section, because the patch may now be out of date. The lock stores a hash of each such section to detect this.
 
 ## 3.5 One package, several versions
 
 1. A workspace's direct dependency wins.
 2. Otherwise the copy closest to the workspace in the `extends` chain wins.
-3. Tack warns and names both versions.
+3. harnesspm warns and names both versions.
 
 ## 3.6 Monorepos
 
@@ -72,7 +72,7 @@ When an upgrade changes a section that a patch replaces or removes, `tack sync` 
 
 ## 3.7 Project configuration
 
-`tack.json` is committed. Every field is optional.
+`harnesspm.json` is committed. Every field is optional.
 
 ```json
 {
@@ -95,4 +95,4 @@ The project's own `harness/`, if it has one, is always part of the project layer
 
 ## 3.8 CI
 
-With `CI=true` or `--no-local`, Tack ignores the personal layer. `tack sync --check` then fails when a committed output differs from what Tack would write.
+With `CI=true` or `--no-local`, harnesspm ignores the personal layer. `harnesspm sync --check` then fails when a committed output differs from what harnesspm would write.
