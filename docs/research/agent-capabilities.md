@@ -26,6 +26,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Claude Code reloads settings files when they change, including `permissions` and `hooks`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | Hooks: event → matcher group → handlers. Entries merge across settings files and identical handlers run once. Exit `0` continues, exit `2` blocks with stderr as the reason. `${CLAUDE_PROJECT_DIR}` is available. | ✅ | [hooks](https://code.claude.com/docs/en/hooks) |
 | Permission rules look like `Bash(npm run test *)`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
+| `permissions.additionalDirectories` gives access to folders outside the project. From a committed file it applies after workspace trust. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 
 ### Skills, sub-agents, MCP, memory
 
@@ -64,6 +65,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Global: the first non-empty of `~/.codex/AGENTS.override.md` and `~/.codex/AGENTS.md`. Project: from the root down to the current folder, at most one file per folder, `AGENTS.override.md` before `AGENTS.md`. Later files come later in the prompt. | ✅ | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
 | Files are joined up to `project_doc_max_bytes`, 32 KiB by default. | ✅ | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
 | `developer_instructions` and `model_instructions_file` exist in `config.toml`. | ✅ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
+| `developer_instructions` is read from a project's `.codex/config.toml`. It is not on the list of keys a project file cannot set, but no example confirms it. Tack uses it for personal rules with scope "this project". | ❓ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
 
 ### Configuration, hooks, rules, MCP
 

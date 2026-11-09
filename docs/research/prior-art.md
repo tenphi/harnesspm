@@ -27,4 +27,4 @@ Tools and conventions for sharing agent harness, checked in November 2026. The q
 
 ## Conclusion
 
-No tool combines npm as the source, transitive layering, per-unit overrides, rules as well as skills, and executable units with trust. Tack builds that part and reuses standards for everything else ([10-standards.md](../spec/10-standards.md)).
+No tool combines npm as the source, transitive layering, per-unit overrides, rules as well as skills, and executable units with trust. Tack builds that part and reuses standards for everything else ([11-standards.md](../spec/11-standards.md)).

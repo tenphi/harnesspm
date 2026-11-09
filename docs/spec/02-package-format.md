@@ -1,8 +1,20 @@
 # 2. Package format
 
-A harness package is any npm package, git repository or folder that contains a `harness/` folder. The `harness/` folder is a plugin in the [Agent Plugins 1.0](https://agent-plugins.org/) format. Tack's own data lives in the plugin's client-extension namespace, as that standard requires.
+**In short**
 
-The result: the portable parts (skills and MCP servers) work in any Agent Plugins client, even without Tack. Tack adds the parts no standard covers yet.
+- A harness is a `harness/` folder at the package root. It is an [Agent Plugins 1.0](https://agent-plugins.org/) plugin: `plugin.json`, `skills/`, `mcp.json`.
+- Everything Tack adds lives in the standard's extension namespace: the `io.github.tenphi.tack` field in `plugin.json` and the folder of the same name.
+- Every unit has an ID, `<plugin name>:<kind>/<name>`, used to replace or exclude it.
+
+The smallest harness is two files:
+
+```text
+harness/
+├── plugin.json                          {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "mylib"}
+└── io.github.tenphi.tack/rules/usage.md  one rule, always on
+```
+
+The portable parts (skills and MCP servers) work in any Agent Plugins client, even without Tack.
 
 ## 2.1 Location
 
@@ -14,6 +26,8 @@ The result: the portable parts (skills and MCP servers) work in any Agent Plugin
 > pnpm 12.11 and later link `skills/` folders from direct dependencies by themselves. Because Tack reads `harness/skills/`, the two do not link the same skills twice.
 
 ## 2.2 Layout
+
+A package that uses every unit kind:
 
 ```text
 harness/
@@ -37,7 +51,7 @@ harness/
 
 Every file is optional except `plugin.json`. A package that has only one rule is valid.
 
-The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` until the project has a domain of its own. See [12-open-questions.md](12-open-questions.md#123-extension-namespace).
+The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` until the project has a domain of its own. See [13-open-questions.md](13-open-questions.md#133-extension-namespace).
 
 ## 2.3 Manifest
 
@@ -85,9 +99,9 @@ The extension folder name is the Tack namespace. It is `io.github.tenphi.tack` u
 | `replace` | object | Unit ID → path of a file that takes that unit's place. |
 | `docs` | object | Where the docs are and how to index them. See [2.6](#26-docs). |
 | `scripts` | object | Script name → script definition. See [05-executables.md](05-executables.md#51-scripts). |
-| `projects` | object | Read only in personal layers. See [07-personal.md](07-personal.md#73-per-project-entries). |
+| `projects` | object | Git remote → folder with units for that project. Read only in personal harnesses. See [07-personal.md](07-personal.md#72-example). |
 
-Unknown fields inside the extension MUST make `tack pack-check` fail, so typos do not ship.
+Unknown fields inside the extension MUST make `tack check` fail, so typos do not ship.
 
 ## 2.4 Unit kinds
 
@@ -126,7 +140,7 @@ paths: ["**/*.tsx", "**/*.ts"]
 | `paths`, with or without `description` | **File-scoped.** Active when the agent works on matching files. The description, if any, is the text of the pointer line. |
 | `description` only | **On demand.** Listed with its description. The agent reads it when relevant. |
 
-Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `tack pack-check` reports the size of a package's always-on text.
+Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `tack check` reports the size of a package's always-on text.
 
 ## 2.6 Docs
 
@@ -157,13 +171,13 @@ Every unit has an ID: `<plugin name>:<kind>/<name>`.
 
 1. Plugin names MUST be unique within one resolved graph. On a clash, Tack stops and names both packages. The consumer can then exclude one of them.
 2. **Tack never renames a skill.** The Agent Skills format requires a skill's `name` to match its folder name, and agents look skills up by that name.
-3. Skill names SHOULD start with the plugin name, such as `uikit-review`, so names from different packages do not collide. `tack pack-check` warns when they do not.
+3. Skill names SHOULD start with the plugin name, such as `uikit-review`, so names from different packages do not collide. `tack check` warns when they do not.
 4. When two layers ship a skill with the same name, the higher layer wins and Tack prints a warning.
 5. Script names MUST be unique within a plugin. Agents call them as `<plugin name>:<script>`, such as `uikit:probe`.
 
 ## 2.9 Validation
 
-`tack pack-check` runs at `prepack` and fails when:
+`tack check` runs at `prepack` and fails when:
 
 - `plugin.json` or `mcp.json` breaks the Agent Plugins schema;
 - a skill breaks the Agent Skills format;

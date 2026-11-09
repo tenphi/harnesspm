@@ -1,50 +1,44 @@
 # 7. Personal harness
 
-Every developer can add their own rules, skills, sub-agents, scripts, hooks, MCP servers and permissions on top of the team's harness. A personal harness is an ordinary harness package (see [02-package-format.md](02-package-format.md)) that belongs to one person.
+**In short**
 
-## 7.1 Two personal layers
+- A personal harness is an ordinary harness that belongs to one person: their workflow rules, context notes, skills, scripts, and entries for specific projects.
+- It applies **everywhere** on the machine, and its project entries apply to the matching projects.
+- It never changes the project's repository.
+- Agents can improve it, as described in [08-improving.md](08-improving.md).
 
-| Layer | Applies to | Configured in | Outputs |
-| --- | --- | --- | --- |
-| 🌍 1. Global personal | Every project on this machine, including projects without Tack | `~/.tack/config.json` | User-level agent folders, see [04-outputs.md](04-outputs.md#45-global-personal-outputs-layer-1) |
-| 🙋 4. Local personal | One project | `tack.local.json`, `harness.local/`, or a `projects` entry in a personal harness | Git-excluded project files, see [04-outputs.md](04-outputs.md#44-local-personal-outputs-layer-4) |
+## 7.1 What goes in it
 
-The local personal layer is the highest layer, so a developer has the last word on their own machine. `tack status` shows every personal change to team units, so it stays visible.
+A personal harness holds what should live outside every project repository:
 
-## 7.2 Sources
+| Content | Unit kind | Example |
+| --- | --- | --- |
+| How the person works | Always-on rule | Commit style, review habits, preferred tools |
+| Context the agent reads when needed | Docs (notes) | Which repositories exist and how they relate, environments, people to ask |
+| Repeated workflows | Skills | Releasing a package, preparing a weekly update |
+| Personal tools | Scripts, hooks, MCP servers | A script that opens a local preview of linked repositories |
+| Changes for one project | Project entry | A local staging address, a replaced team rule |
 
-| Source | Example | Editable? | Where it lives |
-| --- | --- | --- | --- |
-| Folder in the project | `./harness.local` | yes | In place. Excluded from git. Picked up even without `tack.local.json`. |
-| Folder on disk | `~/dev/my-harness` | yes | In place. Usually the developer's own git repository. |
-| Git repository | `github:andrew/harness#main` | yes | A git working copy in `~/.tack/personal/<plugin name>/` |
-| npm package | `npm:@andrew/harness@^2` | no | `~/.tack/cache/`. Installed with `--ignore-scripts`. |
+This is the "memory" a person keeps across projects and machines. Notes that an agent saves by itself, such as Claude Code auto memory, stay with the agent and are not part of Tack.
 
-npm and git sources never touch the project's `package.json` or lockfile. Exact versions and hashes go into `tack.local.lock.json` or `~/.tack/state.json`.
+## 7.2 Example
 
-### Adding a source
-
-```bash
-npx tack personal add github:andrew/harness            # global: every project
-npx tack personal add ./harness.local --project        # this project only
+```text
+andrew-harness/                    a git repository, on any host
+├── AGENTS.md                      how to change this repository, including how to save changes
+└── harness/
+    ├── plugin.json
+    ├── io.github.tenphi.tack/rules/
+    │   └── workflow.md            always on
+    ├── notes/                     read on demand
+    │   ├── llms.txt               index of the notes
+    │   └── projects.md            repositories and how they relate
+    ├── skills/
+    │   └── andrew-release/SKILL.md
+    └── projects/
+        └── cube-ui-kit/           same layout as harness/; plugin.json is optional
+            └── io.github.tenphi.tack/rules/local-setup.md
 ```
-
-`~/.tack/config.json` (global) and `tack.local.json` (one project) have the same shape:
-
-```json
-{
-  "extends": ["github:andrew/harness#main", "~/dev/work-harness"],
-  "exclude": ["uikit:skills/uikit-storybook"],
-  "replace": { "tasty:rules/lint-comments": "./harness.local/rules/lint-comments.md" },
-  "trust": { "github:andrew/harness": true }
-}
-```
-
-A developer can have several personal harnesses, for example one for work and one for private projects.
-
-## 7.3 Per-project entries
-
-A personal harness can carry tweaks for specific projects. They are matched by the project's git remote, so they also work in a fresh clone in a cloud session.
 
 ```json
 {
@@ -52,70 +46,45 @@ A personal harness can carry tweaks for specific projects. They are matched by t
   "name": "andrew",
   "extensions": {
     "io.github.tenphi.tack": {
+      "docs": { "dir": "./notes" },
       "projects": {
-        "github.com/cube-js/cube-ui-kit": "./projects/cube-ui-kit",
-        "github.com/tenphi/cookbook": "./projects/cookbook"
+        "github.com/cube-js/cube-ui-kit": "./projects/cube-ui-kit"
       }
     }
   }
 }
 ```
 
-Each value is a folder inside the personal harness. That folder is a harness root of its own: it can hold rules, skills, scripts, a `plugin.json` with `replace` and `exclude`, and so on. Its units join the **local personal** layer of the matching project.
+A project entry is matched by the project's git remote, so it also works in a fresh clone in a cloud session. It can hold its own units and its own `replace` and `exclude` for team units.
 
-## 7.4 Editing and pushing back
+## 7.3 Sources
 
-A developer must be able to improve their personal harness from any project and any session, then save the change to their own repository. This covers every unit kind: rules, skills, sub-agents, scripts, hooks, MCP servers, permissions, per-project entries, and the harness's own `extends`.
+| Source | Example | Editable | Where it lives |
+| --- | --- | --- | --- |
+| Git repository | `github:andrew/harness`, `git:https://git.example.com/andrew/harness.git` | yes | A working copy in `~/.tack/personal/<name>/` |
+| Folder | `~/dev/andrew-harness` | yes | In place |
+| npm package | `npm:@andrew/harness` | no | A cache in `~/.tack/cache/` |
 
-### 7.4.1 Edit in place
+Git sources work with any host. npm and git sources never touch the project's `package.json` or lockfile.
 
-1. Git and folder sources are **working copies**. Tack never copies them, so there is one place to edit.
-2. Skill, sub-agent and file-scoped rule outputs are **links** into the working copy. Editing a linked file edits the source.
-3. Generated text, such as the block in `CLAUDE.local.md`, names the source file of each rule. Agents MUST edit the source, never the output. Tack's own harness ships a rule that says so (see [11-dogfooding.md](11-dogfooding.md)).
-4. Tack gives the agents write access to the working copies:
+## 7.4 Scopes
 
-| Agent | Setting |
-| --- | --- |
-| Claude Code | The working copy is added to `permissions.additionalDirectories` (user settings for global sources, `.claude/settings.local.json` for project sources) |
-| Codex | The working copy is added to `sandbox_workspace_write.writable_roots` (user config for global sources, the generated `.codex/config.toml` for project sources) |
+| Scope | How to add | Recorded in | Outputs |
+| --- | --- | --- | --- |
+| **Everywhere** | `npx tack personal add <source>` | `~/.tack/config.json` | User-level folders, see [04-outputs.md](04-outputs.md#44-personal-outputs-scope-everywhere) |
+| **This project** | `npx tack personal add <source> --project`, or a project entry in a harness added everywhere | `tack.local.json` in the project, excluded from git | Project outputs, see [04-outputs.md](04-outputs.md#43-project-outputs) |
 
-### 7.4.2 Create new units
+Both files have one field:
 
-```bash
-npx tack personal new rule commit-style            # global
-npx tack personal new skill andrew-review          # global
-npx tack personal new rule staging-tenant --project  # only this project, under projects/<repo>/
-npx tack personal extend npm:@tenphi/entropy       # add to the personal harness's own extends
+```json
+{ "personal": ["github:andrew/harness", "~/dev/work-notes"] }
 ```
 
-`new` writes a valid file from a template in the right folder and runs `tack sync`, so the agent can use the unit right away.
+Units with scope "this project" come after units with scope "everywhere", so they win.
 
-Tack's own harness ships the skill `tack-personal`. It tells agents how to choose between global and per-project, where each unit kind goes, and how to save.
+## 7.5 Keeping the project clean
 
-### 7.4.3 Save, push and pull
-
-| Command | What it does |
-| --- | --- |
-| `tack personal status` | Lists changed files in every working copy. |
-| `tack personal diff` | Shows the changes. |
-| `tack personal save -m "<message>"` | Validates the harness (the same checks as `tack pack-check`) and commits in the working copy. |
-| `tack personal push` | Pushes the commits. `--branch <name>` pushes to a new branch instead, for review. |
-| `tack personal pull` | Fetches and rebases. On a conflict it stops and reports. It never drops local changes. |
-
-Rules:
-
-1. `save` MUST refuse to commit when validation fails.
-2. `save` MUST refuse to commit files that look like secrets (tokens, private keys, `.env` files) and name them.
-3. When `push` has no access to the remote, Tack writes the commits as a patch to `~/.tack/outbox/<time>.patch` and prints how to apply it elsewhere. Nothing is lost.
-4. Several projects and sessions on one machine share one working copy. `save` commits all pending changes in it and lists them first.
-5. npm sources are read-only. To change one, edit its git source and publish a new version.
-
-## 7.5 Privacy
-
-1. Personal units MUST NOT be written into tracked files (see [04-outputs.md](04-outputs.md#41-principles)).
-2. CI ignores personal layers (see [03-resolution.md](03-resolution.md#39-ci)).
-3. In a cloud environment that several people share, the environment's setup script and cache are shared too. Personal setup belongs in the developer's own environment. See [08-cloud.md](08-cloud.md).
-
-## 7.6 Memory
-
-"Memory" is not part of v1. Editing and pushing back (7.4) already lets an agent keep what it learned as rules, notes or skills in the personal harness. What a dedicated memory unit would add is an open question. See [12-open-questions.md](12-open-questions.md#121-memory).
+1. Personal outputs are never written into tracked files. Per-machine files are excluded through `.git/info/exclude`.
+2. CI ignores the personal layer.
+3. `tack status` lists every personal change to team units, so it stays visible to the person.
+4. In a cloud environment shared by several people, personal setup belongs in the person's own environment. See [09-cloud.md](09-cloud.md).

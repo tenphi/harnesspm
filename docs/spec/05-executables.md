@@ -1,9 +1,11 @@
 # 5. Executables
 
-Scripts, hooks, MCP servers and permissions are part of v1. They follow two rules:
+**In short**
 
-1. **One format for both agents.** A producer writes each unit once. Tack translates it.
-2. **Nothing runs without trust.** See [06-trust.md](06-trust.md).
+- A package declares **scripts**. Agents, hooks and MCP servers run them through one command: `npx tack run <plugin>:<script>`.
+- Hooks and MCP servers are written once and translated for each agent.
+- A package can allow only its own scripts. It can always restrict (deny, ask).
+- Nothing executable runs unless the project trusts the package ([06-trust.md](06-trust.md)).
 
 ## 5.1 Scripts
 
@@ -69,9 +71,6 @@ Claude Code and Codex use nearly the same hook model: event → matcher → comm
         "run": "check-styles",
         "timeout": 30
       }
-    ],
-    "SessionStart": [
-      { "id": "print-env", "run": "print-env" }
     ]
   }
 }
@@ -89,7 +88,7 @@ Claude Code and Codex use nearly the same hook model: event → matcher → comm
 
 Portable events, supported by both agents: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SubagentStart`, `SubagentStop`, `Stop`.
 
-An event that only one agent supports MUST set `agents`. `tack pack-check` fails otherwise.
+An event that only one agent supports MUST set `agents`. `tack check` fails otherwise.
 
 ### Contract for hook scripts
 
@@ -153,5 +152,5 @@ Tack adds a gate. It does not remove the agents' own gates:
 
 | Agent | Own gate |
 | --- | --- |
-| Claude Code | Workspace trust dialog before project allow rules and hooks apply. A prompt before each project MCP server is first used. |
+| Claude Code | Allow rules in the untracked `.claude/settings.local.json` apply without the workspace trust step, because the file belongs to the person. Tack's trust is the main gate here. |
 | Codex | Project `.codex/` files load only when the project is trusted. Each hook is reviewed by its hash in `/hooks`. |

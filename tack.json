@@ -1,5 +1,4 @@
 {
   "$schema": "https://unpkg.com/@tenphi/tack/schema/tack.schema.json",
-  "agents": ["claude", "codex"],
-  "self": true
+  "agents": ["claude", "codex"]
 }
