@@ -19,7 +19,8 @@ npx tack init
 Run `npx tack status`. It lists the packages, pending tools and the always-on size.
 
 - **Pending tools** come from packages the project does not trust yet. Ask the user before adding a package to `trust` in `tack.json`. Then run `npx tack sync`.
-- **One upstream rule does not fit** the project: add a `replace` or `exclude` entry with its unit ID to `tack.json`.
+- **One upstream rule does not fit** the project: run `npx tack new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `tack.json` to change or drop a whole unit.
+- **A job that does not install dependencies**, such as a review bot, runs `npx -y @tenphi/tack fetch --frozen` first.
 
 ## 3. Install the user's personal harness
 

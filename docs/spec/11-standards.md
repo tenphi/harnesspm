@@ -26,9 +26,9 @@
 | Trust, permissions, approvals | Agent Plugins lists "permission and approval UX" as a future consideration | `trust`, hash locks, allow rules only for a package's own scripts |
 | Always-on and file-scoped rules | None. Each agent has its own format | Markdown rules with `paths` and `description` frontmatter |
 | Hooks | Agent Plugins [PR #89](https://github.com/agentplugins/agent-plugins-spec/pull/89) proposes portable hooks for 1.1. It is open, and one reviewer objects to putting hook execution in the core spec | Hooks in the shape Claude Code and Codex share |
-| Sub-agents | None | The Claude Code sub-agent format, Claude Code only in v1 |
+| Sub-agents | None. Claude Code uses Markdown files, Codex uses TOML files | One Markdown file with portable `name`, `description` and body, plus per-agent keys, converted for each agent |
 | Scripts for agents | Agent Skills allows `scripts/` inside a skill, with no runner or permission model | Named scripts, one runner, generated permissions |
-| Overrides across packages | None | `replace` and `exclude` by unit ID |
+| Overrides across packages | None | `exclude` and `replace` by unit ID, and `patch` by Markdown section |
 | A personal layer | None | Personal harnesses with two scopes, improved under their owner's rules |
 
 ## 11.3 Proposing upstream

@@ -2,7 +2,7 @@
 
 **In short**
 
-- Projects use `init`, `sync`, `status`, `why`, `approve` and `run`.
+- Projects use `init`, `sync`, `status`, `why`, `approve` and `run`. Jobs that do not install dependencies use `fetch`.
 - Authors use `check` and `new`.
 - People use `personal add`, `personal remove` and `personal update`.
 - Saving changes to a harness is not a Tack command. The owner's rules decide it ([08-improving.md](08-improving.md)).
@@ -21,13 +21,14 @@ The package is `@tenphi/tack` and the command is `tack`. Use `npx tack …` in a
 | `tack why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
 | `tack approve [<package>]` | Approves pending or changed executable units and updates the lock. |
 | `tack run <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). |
+| `tack fetch --frozen` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
 
 `tack mcp <plugin>:<server>` also exists. Agents call it to start MCP servers. People do not need it.
 
 ```text
 $ npx tack status
 📦 dependencies  @cube-dev/ui-kit 0.206.1 → @tenphi/tasty 3.17.1, @tenphi/glaze 2.0.0
-🏢 project       tack.json: 2 replaces
+🏢 project       tack.json: 1 replace · 1 patch
 🙋 personal      github:andrew/harness (everywhere) · project entry cube-ui-kit
 ⏳ pending       some-third-party: 1 hook (not trusted)
 📏 always-on     Codex 18.4 KiB of 32 KiB · Claude Code 212 lines
@@ -37,8 +38,9 @@ $ npx tack status
 
 | Command | What it does |
 | --- | --- |
-| `tack check [<folder>]` | Validates a harness ([02-package-format.md](02-package-format.md#29-validation)) and warns about files that look like secrets. Run it at `prepack`. |
+| `tack check [<folder>]` | Validates a harness ([02-package-format.md](02-package-format.md#210-validation)) and warns about files that look like secrets. Run it at `prepack`. |
 | `tack new <kind> <name>` | Writes a valid rule, skill, sub-agent, script, hook or MCP server from a template. `--personal` writes it into the personal harness, `--personal --project` into its entry for this project. |
+| `tack new patch <rule ID>` | Writes a patch with a copy of the rule's sections and registers it in `tack.json` (or the personal harness with `--personal`). Edit the sections to change and delete the others. |
 
 ## 10.3 People
 

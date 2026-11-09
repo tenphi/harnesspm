@@ -1,6 +1,6 @@
 # Tack specification
 
-**Version:** 0.2 draft
+**Version:** 0.3 draft
 **Status:** Under discussion. Everything here can change before the first release.
 
 ## Reading order

@@ -4,7 +4,7 @@
 
 - Three layers, lowest to highest: **dependencies**, **project**, **personal**.
 - A dependency passes on the harness of other packages only through `extends`.
-- A higher layer wins on the same unit ID, and can `replace` or `exclude` units below it.
+- A higher layer wins on the same unit ID. It can `exclude` a unit below it, `replace` it, or `patch` some sections of a rule.
 
 ## 3.1 Layers
 
@@ -37,7 +37,7 @@ Tack reads files only. It never runs code from a dependency during discovery. Ev
 1. Each name MUST be resolved **from the folder of the package that declares it**, so the version is the one that package uses.
 2. Tack follows `extends` recursively and stops with an error on a cycle.
 3. Only `extends` passes harness on. A library's other dependencies, including its development tools, never reach its users.
-4. A package's `exclude` and `replace` change what it passes on. A middle package can fix an upstream rule for all its users.
+4. A package's `exclude`, `replace` and `patch` change what it passes on. A middle package can fix an upstream rule for all its users.
 
 Example: an app depends only on `@cube-dev/ui-kit`, which extends Tasty and Glaze. The app gets all three, in the versions UI Kit installed.
 
@@ -48,10 +48,15 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 | Situation | Result |
 | --- | --- |
 | Two units have the same ID | The later one wins (higher layer, or downstream package). |
-| `replace` names a unit | The new file takes the unit's ID and place. |
 | `exclude` names a unit or a package | It is dropped, with everything only it extends. |
+| `replace` names a unit | The new file takes the unit's ID and place. |
+| `patch` names a rule | Its sections change as defined in [02-package-format.md](02-package-format.md#25-rules). |
 | Two skills have the same name | The later one wins, with a warning. |
-| `replace` or `exclude` names a unit that does not exist | Warning. It usually means an upstream unit was renamed. |
+| An override names a unit that does not exist | Warning. It usually means an upstream unit was renamed. |
+
+For one rule, Tack takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. A patch from a layer below the winning `replace` is dropped with a warning.
+
+When an upgrade changes a section that a patch replaces or removes, `tack sync` warns and names the section, because the patch may now be out of date. The lock stores a hash of each such section to detect this.
 
 ## 3.5 One package, several versions
 
@@ -73,7 +78,7 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 {
   "agents": ["claude", "codex"],
   "exclude": ["@tenphi/glaze"],
-  "replace": { "tasty:rules/lint-comments": "./agents/lint-comments.md" },
+  "patch": { "tasty:rules/lint-comments": "./agents/lint-comments.patch.md" },
   "trust": { "@cube-dev/ui-kit": true }
 }
 ```
@@ -83,6 +88,7 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 | `agents` | `["claude", "codex"]` | Which agents get outputs. |
 | `exclude` | `[]` | Packages or unit IDs to drop. |
 | `replace` | `{}` | Unit ID → path of a project file that takes its place. |
+| `patch` | `{}` | Rule ID → path of a project patch that changes some of its sections. |
 | `trust` | `{}` | Which packages may run executable units. See [06-trust.md](06-trust.md). |
 
 The project's own `harness/`, if it has one, is always part of the project layer, so contributors see what users see.

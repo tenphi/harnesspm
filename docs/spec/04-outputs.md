@@ -25,6 +25,8 @@ Package managers place packages at paths that differ between machines. Tack crea
 node_modules/.tack/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
+A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/tack fetch --frozen`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
+
 ## 4.3 Project outputs
 
 These hold the dependency and project layers, plus personal units with scope "this project".
@@ -36,7 +38,7 @@ These hold the dependency and project layers, plus personal units with scope "th
 | File-scoped rules | Link in `.claude/rules/` with `paths`, plus a pointer line in the block | Pointer line in the block |
 | On-demand rules | Pointer line with its description | Pointer line with its description |
 | Skills | Link in `.claude/skills/<name>` | Link in `.agents/skills/<name>` |
-| Sub-agents | Link in `.claude/agents/<name>.md` | — |
+| Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
 | Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/tack.rules` |
 | MCP servers | Local scope: `claude mcp add-json <name> '<json>' --scope local` | `[mcp_servers.<id>]` in `.codex/config.toml` |
 
@@ -44,7 +46,7 @@ Notes:
 
 1. `CLAUDE.local.md` counts as a `CLAUDE.md` for Claude Code. In a repository with only `AGENTS.md`, Tack MUST start `CLAUDE.local.md` with `@AGENTS.md`, or Claude would stop reading `AGENTS.md`.
 2. Tack owns `.codex/` and writes it on each machine. If a team already commits `.codex/config.toml`, Tack does not touch it and `tack status` lists the units Codex is missing. The team moves those settings into `harness/`, which feeds both agents.
-3. A personal `exclude` of a team always-on rule cannot remove committed text. Tack adds an instruction to ignore that rule in the personal block, which both agents read after the team block.
+3. A personal `exclude` or `patch` of a team always-on rule cannot change committed text. Tack writes the change into the personal block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 
 ## 4.4 Personal outputs, scope "everywhere"
 
@@ -54,7 +56,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 | --- | --- | --- |
 | Rules | Managed block in `~/.claude/CLAUDE.md` | Managed block in `~/.codex/AGENTS.md` |
 | Skills | Link in `~/.claude/skills/` | Link in `~/.agents/skills/` |
-| Sub-agents | Link in `~/.claude/agents/` | — |
+| Sub-agents | Generated in `~/.claude/agents/` | Generated in `~/.codex/agents/` |
 | Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/tack.rules` |
 | MCP servers | User scope (`--scope user`) | `[mcp_servers.<id>]` in `~/.codex/config.toml` |
 | Write access to the personal working copy | `permissions.additionalDirectories` | `sandbox_workspace_write.writable_roots` |

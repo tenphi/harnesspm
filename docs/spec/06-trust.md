@@ -43,9 +43,10 @@ Rules:
 
 `tack.lock.json` is committed. It covers the dependency and project layers and records:
 
-- every harness package: name, version, plugin name, integrity of its `harness/` folder;
+- every harness package: name, version, plugin name, tarball URL and integrity, so `tack fetch --frozen` can download it without an install;
 - every unit: ID, kind, content hash;
-- every executable unit: whether it is active, pending or pinned.
+- every executable unit: whether it is active, pending or pinned;
+- every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported.
 
 People do not edit it. Personal sources are not locked. They follow their branch or version range, and `tack personal update` refreshes them.
 

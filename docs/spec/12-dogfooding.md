@@ -29,7 +29,7 @@ Until the CLI exists, these files are drafts that show the format. The first imp
 | `tack:scripts/check` | Script, `allow: true` | Validate harness changes without a prompt: `npx tack run tack:check`. |
 | Docs index | Docs | This specification, at the installed version. |
 
-It is also the reference example for package authors: each unit kind once, at the smallest useful size.
+It is also a small reference example for package authors.
 
 ## 12.3 Publishing
 

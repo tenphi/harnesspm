@@ -3,7 +3,7 @@
 **In short**
 
 - A library ships a `harness/` folder in its npm package. A project installs Tack. After every install, Claude Code and Codex see the harness of the versions that are installed.
-- There are three layers: **dependencies**, **project** and **personal**. Each layer can add units, and replace or drop units of the layers below.
+- There are three layers: **dependencies**, **project** and **personal**. Each layer can add units, and replace, patch or drop units of the layers below.
 - An agent can improve any harness: a dependency's (upstream), the project's (in the repository), or a person's (in that person's own repository). The owner's own rules decide how a change is saved.
 
 ## 1.1 Problem
@@ -85,6 +85,7 @@ npx tack why tasty:rules/state-maps
 | **Harness** | Everything an agent needs for a codebase: rules, docs, skills, sub-agents, scripts, hooks, MCP servers, permissions. |
 | **Harness package** | An npm package, git repository or folder that has a `harness/` folder. |
 | **Unit** | One item in a harness, such as one rule or one script. Each unit has an ID. |
+| **Patch** | A Markdown file that replaces, adds or removes sections of a rule and keeps the rest. |
 | **Layer** | Where units come from: dependencies, project or personal. A higher layer wins. |
 | **Scope** | Where a personal unit applies: everywhere, or one project. |
 | **Owner** | The harness a unit comes from: a dependency, the project, or a personal harness. The owner's rules decide how its units change. |
@@ -101,7 +102,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S1 | A library shares its harness | Adds `harness/` and lists it in `files`. |
 | S2 | A library builds on upstream harness | Lists the upstream packages in `extends`, adds its own units. |
 | S3 | A project uses the harness of its dependencies | `npm i -D @tenphi/tack` and `npx tack init`, once. |
-| S4 | A project changes one upstream rule | One `replace` or `exclude` entry. |
+| S4 | A project changes one upstream rule | One `patch` for a few sections, or one `replace` or `exclude` entry. |
 | S5 | A project upgrades a dependency | Nothing. The pull request shows what changed. |
 | S6 | Several repositories share a policy | A harness-only package, added as a dev dependency. |
 | S7 | A monorepo | Nothing. Each workspace gets the harness of its own dependencies. |

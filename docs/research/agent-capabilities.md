@@ -33,6 +33,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Fact | | Source |
 | --- | --- | --- |
 | Skills load from `.claude/skills/` and `~/.claude/skills/`. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
+| Sub-agents are Markdown files in `.claude/agents/` and `~/.claude/agents/`. Frontmatter needs `name` and `description`; `tools`, `model` and others are optional. The body is the prompt. Unknown fields are ignored. | ✅ | [sub-agents](https://code.claude.com/docs/en/sub-agents) |
 | Project MCP servers live in `.mcp.json` and need approval in interactive sessions. Local-scope servers live in `~/.claude.json` per project (`claude mcp add-json <name> '<json>' --scope local`). For one name, local beats project beats user. | ✅ | [MCP](https://code.claude.com/docs/en/mcp) |
 | Auto memory lives in `~/.claude/projects/<project>/memory/`. `autoMemoryDirectory` moves it and can be set in any settings scope. The first 200 lines or 25 KB of `MEMORY.md` load each session. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 
@@ -85,7 +86,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Skills load from `.agents/skills` in the current folder and each parent up to the repository root, and from `~/.agents/skills`. Symlinked skill folders work. `agents/openai.yaml` can set `policy.allow_implicit_invocation: false`. | ✅ | [skills](https://learn.chatgpt.com/docs/build-skills) |
 | Plugins can bundle skills, MCP servers and hooks. Plugin hooks get `PLUGIN_ROOT` and `PLUGIN_DATA`. | ✅ | [hooks](https://learn.chatgpt.com/docs/hooks), [plugins](https://learn.chatgpt.com/docs/plugins) |
 | Memories are behind `features.memories` and stored globally under `$CODEX_HOME/memories/`. No per-project folder setting. | ✅ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
-| A project-level format for custom sub-agents. | ❓ | — |
+| Custom agents are TOML files, one per agent, in `.codex/agents/` (project) and `~/.codex/agents/` (user). Required: `name`, `description`, `developer_instructions`. Optional: `model`, `model_reasoning_effort` and feature switches. `sandbox_mode`, `approval_policy` and `mcp_servers` in an agent file do not override the parent. | ✅ | [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) |
+| Project agents in `.codex/agents/` need a trusted project. | ❓ | — |
 
 ### Cloud
 

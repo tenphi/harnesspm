@@ -27,7 +27,7 @@ editable    yes
 
 | Owner | Where the source is | How the agent changes it |
 | --- | --- | --- |
-| 📦 Dependency | `node_modules`, read-only | Now: a `replace` or `exclude` in the project (for the team) or in the personal harness (for one person). Later: a proposal to the package's `repository`. |
+| 📦 Dependency | `node_modules`, read-only | Now: a `patch` for a small change, or a `replace` or `exclude`, in the project (for the team) or in the personal harness (for one person). Later: a proposal to the package's `repository`. |
 | 🏢 Project | The project repository | Edit the file, like any other change in that repository. |
 | 🙋 Personal | The personal working copy or folder | Edit the file there. |
 

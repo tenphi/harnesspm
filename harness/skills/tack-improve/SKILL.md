@@ -35,4 +35,4 @@ Ask the user when it is not clear. Never put private data from this project into
    4. If a step is not possible, stop and tell the user what is done and what is left. In a cloud session, show the full change.
 3. Never push to the default branch unless the owner's rules allow it.
 
-For a dependency: add a `replace` in `tack.json` (team) or in the personal harness (user) now, and offer to open an issue or pull request at the package's repository.
+For a dependency: change it now with a patch (`npx tack new patch <rule ID>`, add `--personal` for the user only), or a `replace` or `exclude`. Then offer to open an issue or pull request at the package's repository.
