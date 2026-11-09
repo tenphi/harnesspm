@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tack",
+  "description": "How to work with Tack: generated files, configuration, harness authoring and personal harnesses",
+  "homepage": "https://github.com/tenphi/tack",
+  "repository": "https://github.com/tenphi/tack",
+  "keywords": ["tack", "harness", "agents"],
+  "extensions": {
+    "io.github.tenphi.tack": {
+      "docs": { "dir": "../docs/spec" },
+      "scripts": {
+        "check": {
+          "file": "./io.github.tenphi.tack/scripts/check.mjs",
+          "description": "Validate harness changes: runs tack pack-check (when harness/ exists) and tack sync --check --no-local",
+          "allow": true
+        }
+      }
+    }
+  }
+}
