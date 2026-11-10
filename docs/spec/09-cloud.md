@@ -14,7 +14,7 @@ npx -y harnesspm personal add github:andrew/harness
 
 | Way | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
-| **Setup script** of the person's own environment | ✅ Runs after the clone and before Claude Code starts. Cached for about 7 days. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y harnesspm personal update` to the maintenance script for cached resumes. |
+| **Setup script** of the person's own environment | ✅ Runs after the clone and before Claude Code starts, once per cached snapshot (about 7 days). Later sessions start from the snapshot, and the `SessionStart` hook refreshes the outputs in each one. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y harnesspm personal update` to the maintenance script for cached resumes. |
 | **Ask the agent** in a session | ✅ Rules and skills apply at once; Claude Code loads new skills live. Hooks and MCP servers stay pending, because an agent cannot grant itself permissions ([06-trust.md](06-trust.md#62-trusting-a-package)). Allow rules are not needed for built-in tools, which a platform rule approves in cloud sessions. MCP tools still need one. Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs internet access in the agent phase, which is off by default. The same limit on permissions applies. |
 
 A committed repository hook is not the place for personal content, because it belongs to the team.
@@ -65,6 +65,6 @@ The proof of concept MUST test each ❓ before the release. Where an output does
 | `SessionStart` hook output | 🔍 Reaches the agent's context | ❓ |
 | Settings written by a setup script | 🔍 `~/.claude/settings.json` is read: `env` and deny rules apply. Built-in tools are approved by the platform; MCP tools are not | ❓ `~/.codex/` |
 | Hooks | 🔍 Fire from `~/.claude/settings.json`, and from a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook | ❓ `.codex/`: does the cloud treat the project as trusted? |
-| MCP servers | 🔍 A user-scope server added by the setup script loaded in a session started from the cached snapshot, not in the first session of the new environment. Its tool calls ask for approval | ❓ the agent phase has no network by default |
+| MCP servers | 🔍 A user-scope server added by the setup script works in sessions started from the cached snapshot; it did not load in the first session of the new environment. Its tool calls ask for approval | ❓ the agent phase has no network by default |
 | A skill added during a session | 🔍 Loaded within seconds, from `.claude/skills/` and `~/.claude/skills/` | ❓ |
 | A git-excluded skill in the clone | 🔍 Listed and picked like a committed one | ❓ |

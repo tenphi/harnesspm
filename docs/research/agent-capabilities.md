@@ -67,7 +67,10 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | A `~/.claude/settings.json` written by a setup script is read: its `env` values reach commands, and its deny rules block tools. | 🔍 | Cloud-session test, Nov 2026 |
 | Hooks in that `~/.claude/settings.json` fire (`SessionStart`, `UserPromptSubmit`, `PostToolUse`). A `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. | 🔍 | Cloud probe, Nov 2026 |
 | A `CLAUDE.local.md` written by the setup script or by a `SessionStart` hook is loaded, and `SessionStart` hook output reaches the context. | 🔍 | Cloud probe, Nov 2026 |
-| A user-scope MCP server added with `claude mcp add-json --scope user` in the setup script did not load in the first session of a new environment, and loaded in a later session started from the cached snapshot. | 🔍 | Cloud probe, Nov 2026 |
+| A user-scope MCP server added with `claude mcp add-json --scope user` in the setup script did not load in the first session of a new environment. In a later session started from the cached snapshot it started with the session and its tool returned a result. | 🔍 | Cloud probe, Nov 2026 |
+| Claude Code starts MCP servers with `AI_AGENT=…_harness`, like hooks. | 🔍 | Cloud probe, Nov 2026 |
+| The setup script runs once per cached snapshot. A later session starts from the snapshot without running it again, and the snapshot keeps the clone together with its git-excluded files. | 🔍 | Cloud probe, Nov 2026 |
+| When a paused session resumes, `SessionStart` hooks run again with `source: "resume"`. | 🔍 | Cloud probe, Nov 2026 |
 | MCP tool calls are not covered by the cloud platform's auto-approval: the session asked for permission. | 🔍 | Cloud probe, Nov 2026 |
 | A platform rule approves built-in tools in cloud sessions, even in default mode, so allow rules change nothing for them. MCP tools still ask. Deny rules from settings still apply and win. | 🔍 | Cloud-session test, Nov 2026 |
 | A private repository that a setup script needs must be added under the environment's repositories. A token in a variable does not work. | ✅ | In-product documentation for cloud environments |
