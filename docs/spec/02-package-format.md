@@ -119,7 +119,7 @@ Unknown fields inside the extension MUST make `harnesspm check` fail, so typos d
 
 `<ns>` is the extension folder, `dev.harnesspm`.
 
-An agent picks a skill by its `description`. Say what the skill does, then, after "Use when", the situations and the words people use when they need it.
+An agent picks a skill by its `description`. Say what the skill does, then, after "Use when", the situations and the words people use when they need it. Being picked is likely, not certain. When a skill must run in a situation, also add an always-on rule that names it: "To trace UI text, use the `uikit-text-origin` skill."
 
 ## 2.5 Rules
 

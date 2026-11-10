@@ -37,8 +37,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Skills load from `.claude/skills/` and `~/.claude/skills/`. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 | Claude Code watches both skill folders: a skill added during a session is available within seconds, without a restart. | ✅ 🔍 | [skills](https://code.claude.com/docs/en/skills); observed in a cloud-session test, Nov 2026 |
 | A skill hidden from git through `.git/info/exclude` is listed at startup and picked like a committed one. | 🔍 | Cloud-session test, Nov 2026 |
-| Claude Code asks before invoking a skill. A session nobody watches (headless `claude -p`, a scheduled task) denies the call unless `Skill(<name>)` is in `permissions.allow`. Auto mode approved it by itself. `allowed-tools` in a `SKILL.md` only pre-approves tools while the skill runs. | ✅ 🔍 | [skills](https://code.claude.com/docs/en/skills); cloud-session test, Nov 2026 |
-| A skill is picked by its description. Descriptions that list the situations and words people use ("Use when …") were picked for every fitting prompt and for no unrelated one. | 🔍 | Cloud-session test, Nov 2026 |
+| Outside cloud sessions, Claude Code asks before invoking a skill. A headless `claude -p` run denies the call unless `Skill(<name>)` is in `permissions.allow`. Auto mode approved it by itself. `allowed-tools` in a `SKILL.md` only pre-approves tools while the skill runs. | ✅ 🔍 | [skills](https://code.claude.com/docs/en/skills); cloud-session test, Nov 2026 |
+| A skill is picked by its description. A description that lists the situations and words people use ("Use when …") was picked for all 14 fitting headless prompts and for none of 3 unrelated ones. In one real cloud session a fitting question was answered by plain search instead, so being picked is likely, not certain. | 🔍 | Cloud-session test, Nov 2026 |
 | Sub-agents are Markdown files in `.claude/agents/` and `~/.claude/agents/`. Frontmatter needs `name` and `description`; `tools`, `model` and others are optional. The body is the prompt. Unknown fields are ignored. | ✅ | [sub-agents](https://code.claude.com/docs/en/sub-agents) |
 | Project MCP servers live in `.mcp.json` and need approval in interactive sessions. Local-scope servers live in `~/.claude.json` per project (`claude mcp add-json <name> '<json>' --scope local`). For one name, local beats project beats user. | ✅ | [MCP](https://code.claude.com/docs/en/mcp) |
 | Auto memory lives in `~/.claude/projects/<project>/memory/`. `autoMemoryDirectory` moves it and can be set in any settings scope. The first 200 lines or 25 KB of `MEMORY.md` load each session. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
@@ -62,7 +62,9 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Skills from the person's claude.ai account are synced into `~/.claude/skills/synced/`. | 🔍 | Observed in a cloud session |
 | Whether the setup script runs before or after the first clone of the repository. | ❓ | — |
 | Every new session pays for the always-on instructions. In a large monorepo they were tens of thousands of tokens per cold session. | 🔍 | Cloud-session test, Nov 2026 |
-| A `~/.claude/settings.json` or `.claude/settings.local.json` written inside the container is read. | ❓ | — |
+| A `~/.claude/settings.json` written by a setup script is read: its `env` values reach commands, and its deny rules block tools. | 🔍 | Cloud-session test, Nov 2026 |
+| Hooks in that `~/.claude/settings.json`, and a `.claude/settings.local.json` written in the clone, take effect. | ❓ | — |
+| A platform rule approves every tool in cloud sessions, even in default mode, so allow rules change nothing there. Deny rules from settings still apply and win. | 🔍 | Cloud-session test, Nov 2026 |
 | A private repository that a setup script needs must be added under the environment's repositories. A token in a variable does not work. | ✅ | In-product documentation for cloud environments |
 | Skills enabled on claude.ai load in every cloud session. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 
