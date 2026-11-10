@@ -17,6 +17,7 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). |
 | `harnesspm sync --check` | Writes nothing. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --no-local` | Ignores the personal layer. Implied when `CI=true`. |
+| `harnesspm sync --personal` | Writes only the personal layer for the current repository, also where the repository does not use harnesspm. The user-level `SessionStart` hook runs it. |
 | `harnesspm status` | Layers, packages, versions, pending trust, personal changes to team units, always-on size per agent. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
 | `harnesspm approve [<package>]` | Approves pending or changed executable units and updates the lock. A person runs it, not an agent. |
@@ -46,7 +47,7 @@ $ npx harnesspm status
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm personal add <source> [--project]` | Adds a personal harness, for everywhere or for this project. |
+| `harnesspm personal add <source> [--project] [--no-hook]` | Adds a personal harness, for everywhere or for this project, and installs the `SessionStart` hook ([07-personal.md](07-personal.md#75-applying-in-every-repository)). |
 | `harnesspm personal remove <source> [--project]` | Removes it and its outputs. |
 | `harnesspm personal update` | Fetches new versions of personal sources. Skips working copies with uncommitted changes or unpushed commits and lists them. |
 

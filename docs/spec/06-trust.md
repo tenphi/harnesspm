@@ -39,7 +39,7 @@ Rules:
 1. Trust MUST NOT pass through `extends`. Trusting UI Kit does not trust Tasty.
 2. `harnesspm personal add` is the person's trust decision for that source. Personal sources need no `trust` entry.
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
-4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when an agent runs it, for example through an install the agent starts. Claude Code blocks itself from granting its own permissions, and harnesspm must not be a way around that. An agent run is recognized by the variables agents set in the commands they run, such as `CLAUDECODE=1` or `AI_AGENT`. Those entries stay **pending** until a person runs `harnesspm sync` or `harnesspm approve` outside the agent, or a cloud setup script does, which runs before the agent starts. Text units, skill links and removals are written as usual.
+4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Claude Code blocks the model from granting its own permissions, and harnesspm must not be a way around that. Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks, and setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run. A hook run comes from settings a person wrote, so it may add entries. Pending entries wait until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and removals are written as usual.
 
 ## 6.3 The lock
 

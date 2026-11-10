@@ -3,7 +3,7 @@
 **In short**
 
 - A personal harness is an ordinary harness that belongs to one person: their workflow rules, context notes, skills, scripts, and entries for specific projects.
-- It applies **everywhere** on the machine, and its project entries apply to the matching projects.
+- It applies **everywhere** on the machine. A user-level `SessionStart` hook also applies its project entries in each matching repository.
 - It never changes the project's repository.
 - Agents can improve it, as described in [08-improving.md](08-improving.md).
 
@@ -82,7 +82,16 @@ Both files have one field:
 
 Units with scope "this project" come after units with scope "everywhere", so they win.
 
-## 7.5 Keeping the project clean
+## 7.5 Applying in every repository
+
+`harnesspm personal add` also installs one user-level `SessionStart` hook for each agent. The hook runs `npx -y harnesspm sync --personal`, which writes the personal outputs for the current repository, including its project entry, at the start of every session. It works in repositories that do not use harnesspm, and it changes only git-excluded files.
+
+- Claude Code runs the hook with `AI_AGENT=…_harness`, so this sync may write hooks and permissions ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4).
+- Claude Code uses what the hook writes in the same session: a `CLAUDE.local.md` and a `.claude/settings.local.json` written by a `SessionStart` hook were both read in cloud sessions.
+- Codex asks the person to review a new hook once, in `/hooks`.
+- `--no-hook` skips the hook. Project entries then apply only where `harnesspm sync` runs.
+
+## 7.6 Keeping the project clean
 
 1. Personal outputs are never written into tracked files. Per-machine files are excluded through `.git/info/exclude`.
 2. CI ignores the personal layer.

@@ -60,6 +60,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 | Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/harnesspm.rules` |
 | MCP servers | User scope (`--scope user`) | `[mcp_servers.<id>]` in `~/.codex/config.toml` |
 | Write access to the personal working copy | `permissions.additionalDirectories` | `sandbox_workspace_write.writable_roots` |
+| The hook that applies the personal layer in each repository ([07-personal.md](07-personal.md#75-applying-in-every-repository)) | `SessionStart` entry in `~/.claude/settings.json` | `SessionStart` entry in `~/.codex/hooks.json` |
 
 ## 4.5 Monorepos
 

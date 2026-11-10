@@ -116,7 +116,7 @@ MCP servers use the Agent Plugins `mcp.json` format.
 }
 ```
 
-harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`.
+harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, a personal harness or a trusted package, it also writes an allow rule for its tools (`mcp__uikit-docs` in Claude Code), because MCP tool calls ask for approval even in Claude Code cloud sessions.
 
 - **stdio servers** are written as `npx harnesspm mcp uikit:docs`. The runner expands `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`, sets the environment from [5.1](#51-scripts) and starts the server. Both agents get the same command.
 - **Remote servers** are written as they are. Secrets never go into `mcp.json`. Authentication stays with the agent.
@@ -125,7 +125,7 @@ harnesspm writes each server under the name `<plugin name>-<server>`, such as `u
 
 A dependency MUST NOT be able to grant itself broad rights. harnesspm therefore allows only two kinds of permission units.
 
-**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In Claude Code cloud sessions a platform rule approves every tool, so the rule changes nothing there.
+**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In Claude Code cloud sessions a platform rule approves built-in tools, including skills, so the rule changes nothing there.
 
 **Other allow rules come only from a package's own scripts.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
 
@@ -155,5 +155,5 @@ harnesspm adds a gate. It does not remove the agents' own gates:
 | Agent | Own gate |
 | --- | --- |
 | Claude Code | Allow rules in the untracked `.claude/settings.local.json` apply without the workspace trust step, because the file belongs to the person. harnesspm's trust is the main gate here. |
-| Claude Code cloud sessions | A platform rule approves every tool, even in default mode. Deny rules from settings still apply and win. The gates are harnesspm's trust, which decides which hooks, MCP servers and scripts exist, the lock check in `harnesspm run`, and deny rules. |
+| Claude Code cloud sessions | A platform rule approves built-in tools, even in default mode, but not MCP tools. Deny rules from settings still apply and win. The gates are harnesspm's trust, which decides which hooks, MCP servers and scripts exist, the lock check in `harnesspm run`, and deny rules. |
 | Codex | Project `.codex/` files load only when the project is trusted. Each hook is reviewed by its hash in `/hooks`. |

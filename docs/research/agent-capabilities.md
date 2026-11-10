@@ -4,6 +4,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 
 ✅ documented by the vendor · 🔍 observed in a real session · ❓ not confirmed
 
+"Cloud probe" facts come from [probes/claude-cloud-probe.sh](probes/claude-cloud-probe.sh), a setup script for a personal Claude Code cloud environment, run with the prompt in [probes/claude-cloud-probe-prompt.md](probes/claude-cloud-probe-prompt.md). Re-run it when Claude Code changes.
+
 ## Claude Code
 
 ### Instructions
@@ -25,7 +27,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Allow rules in committed `.claude/settings.json` apply after the workspace trust dialog. Allow rules in an untracked `.claude/settings.local.json` apply without it. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | Claude Code reloads settings files when they change, including `permissions` and `hooks`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | In auto mode, Claude Code blocks itself from writing an allow rule into `.claude/settings.local.json`, as self-modification. | 🔍 | Cloud-session test, Nov 2026 |
-| Commands that Claude Code runs get `CLAUDECODE=1` and `AI_AGENT=claude-code_<version>_agent` in their environment. | 🔍 | Observed in a cloud session, Nov 2026 |
+| Claude Code marks who runs a command: `AI_AGENT=claude-code_<version>_agent` for commands the model runs and `…_harness` for hooks, with `CLAUDECODE=1` in both. A cloud setup script gets neither. | 🔍 | Cloud probe, Nov 2026 |
 | Hooks: event → matcher group → handlers. Entries merge across settings files and identical handlers run once. Exit `0` continues, exit `2` blocks with stderr as the reason. `${CLAUDE_PROJECT_DIR}` is available. | ✅ | [hooks](https://code.claude.com/docs/en/hooks) |
 | Permission rules look like `Bash(npm run test *)`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | `permissions.additionalDirectories` gives access to folders outside the project. From a committed file it applies after workspace trust. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
@@ -60,11 +62,14 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | A `~/.claude/CLAUDE.md` written by a setup script is loaded. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 | `~/.claude/skills/` in the container is read. | 🔍 | Observed in a cloud session |
 | Skills from the person's claude.ai account are synced into `~/.claude/skills/synced/`. | 🔍 | Observed in a cloud session |
-| Whether the setup script runs before or after the first clone of the repository. | ❓ | — |
+| The setup script runs after the clone. The repository is in `/home/user/<repo>`. | 🔍 | Cloud probe, Nov 2026 |
 | Every new session pays for the always-on instructions. In a large monorepo they were tens of thousands of tokens per cold session. | 🔍 | Cloud-session test, Nov 2026 |
 | A `~/.claude/settings.json` written by a setup script is read: its `env` values reach commands, and its deny rules block tools. | 🔍 | Cloud-session test, Nov 2026 |
-| Hooks in that `~/.claude/settings.json`, and a `.claude/settings.local.json` written in the clone, take effect. | ❓ | — |
-| A platform rule approves every tool in cloud sessions, even in default mode, so allow rules change nothing there. Deny rules from settings still apply and win. | 🔍 | Cloud-session test, Nov 2026 |
+| Hooks in that `~/.claude/settings.json` fire (`SessionStart`, `UserPromptSubmit`, `PostToolUse`). A `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. | 🔍 | Cloud probe, Nov 2026 |
+| A `CLAUDE.local.md` written by the setup script or by a `SessionStart` hook is loaded, and `SessionStart` hook output reaches the context. | 🔍 | Cloud probe, Nov 2026 |
+| A user-scope MCP server added with `claude mcp add-json --scope user` in the setup script did not load in the first session of a new environment, and loaded in a later session started from the cached snapshot. | 🔍 | Cloud probe, Nov 2026 |
+| MCP tool calls are not covered by the cloud platform's auto-approval: the session asked for permission. | 🔍 | Cloud probe, Nov 2026 |
+| A platform rule approves built-in tools in cloud sessions, even in default mode, so allow rules change nothing for them. MCP tools still ask. Deny rules from settings still apply and win. | 🔍 | Cloud-session test, Nov 2026 |
 | A private repository that a setup script needs must be added under the environment's repositories. A token in a variable does not work. | ✅ | In-product documentation for cloud environments |
 | Skills enabled on claude.ai load in every cloud session. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 

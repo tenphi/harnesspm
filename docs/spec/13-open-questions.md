@@ -3,7 +3,7 @@
 **In short**
 
 - 13.1 to 13.7 are **decided**. They stay here as a record of why.
-- 13.8 to 13.11 wait for the **proof of concept**. Each names the test or signal that settles it.
+- 13.9 to 13.11 wait for the **proof of concept**. Each names the test or signal that settles it. 13.8 was settled by a cloud probe.
 - 13.12 lists options that were removed and may come back.
 
 ## Decided
@@ -44,9 +44,9 @@ A team cannot mark a rule as one a person cannot exclude. Nothing could enforce 
 
 ## Waiting for the proof of concept
 
-### 13.8 Committed Claude Code settings
+### 13.8 Committed Claude Code settings (settled)
 
-v1 writes Claude Code hooks and permissions into the untracked `.claude/settings.local.json`. A cloud-session test showed that the agent cannot write that file itself, and that a `~/.claude/settings.json` written by a setup script is read (its `env` and deny rules apply). Allow rules do not matter in cloud sessions, because a platform rule approves every tool. **Test:** do hooks take effect from `~/.claude/settings.json`, and from a `.claude/settings.local.json` that `harnesspm sync` writes in the clone? **If the clone file is not read:** team hooks go into the committed `.claude/settings.json` instead.
+Not needed. A cloud probe in November 2026 showed that a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. Team hooks and permissions stay in that per-machine file.
 
 ### 13.9 Upgrade report
 
