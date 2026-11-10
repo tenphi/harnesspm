@@ -125,7 +125,9 @@ harnesspm writes each server under the name `<plugin name>-<server>`, such as `u
 
 A dependency MUST NOT be able to grant itself broad rights. harnesspm therefore allows only two kinds of permission units.
 
-**Allow rules come only from a package's own scripts.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
+**Skills get an allow rule to run unattended.** Claude Code asks before it invokes a skill, and a session nobody watches denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs.
+
+**Other allow rules come only from a package's own scripts.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
 
 | Agent | Rule |
 | --- | --- |

@@ -2,9 +2,9 @@
 
 **In short**
 
-- Text units (rules, docs, skills, sub-agents) need no trust. Executable units do.
-- A project trusts a package in `harnesspm.json`. Trust never passes through `extends`.
-- Adding a personal source is the person trusting it.
+- Text units (rules, docs, skills, sub-agents) need no trust. Executable units and allow rules do.
+- A project trusts a package in `harnesspm.json`. Adding a personal source is the person trusting it. Trust never passes through `extends`.
+- An agent never grants permissions through harnesspm: new allow rules, hooks and MCP servers wait for a person.
 - `harnesspm.lock.json` records every unit's hash, so pull requests show what changed.
 
 ## 6.1 What needs trust
@@ -12,6 +12,7 @@
 | Unit | Needs trust? | Why |
 | --- | --- | --- |
 | Rules, docs, sub-agent definitions, skills | No | Text. The agent still asks before running commands, unless a permission allows them. |
+| The `Skill(<name>)` allow rule that lets an unattended session run a skill | **Yes** | It removes a prompt. Written only for skills from the project, a personal harness or a trusted package. |
 | Scripts, hooks, MCP servers | **Yes** | They run code, some of them automatically. |
 | Allow permissions | **Yes** | They remove a prompt. |
 | Deny and ask permissions | No | They only restrict. |
@@ -38,6 +39,7 @@ Rules:
 1. Trust MUST NOT pass through `extends`. Trusting UI Kit does not trust Tasty.
 2. `harnesspm personal add` is the person's trust decision for that source. Personal sources need no `trust` entry.
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
+4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when an agent runs it, for example through an install the agent starts. Claude Code blocks itself from granting its own permissions, and harnesspm must not be a way around that. An agent run is recognized by the variables agents set in the commands they run, such as `CLAUDECODE=1` or `AI_AGENT`. Those entries stay **pending** until a person runs `harnesspm sync` or `harnesspm approve` outside the agent, or a cloud setup script does, which runs before the agent starts. Text units, skill links and removals are written as usual.
 
 ## 6.3 The lock
 

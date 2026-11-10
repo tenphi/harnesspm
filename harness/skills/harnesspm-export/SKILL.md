@@ -23,6 +23,8 @@ Share what the package's **users** need. Keep contributor-only instructions (rel
 | A tool to run | Script | `npx harnesspm new script <name>` |
 | Something that runs on an agent event | Hook that runs a script | `npx harnesspm new hook <name>` |
 
+Write each skill's `description` as what it does, then "Use when …" with the situations and words people use. Agents pick skills by that text.
+
 Keep always-on rules short. One topic per file, split into small `##` sections, so users can patch one section, replace one file or drop it.
 
 ## 3. Pass on upstream harness

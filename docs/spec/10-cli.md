@@ -14,12 +14,12 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | Command | What it does |
 | --- | --- |
 | `harnesspm init` | Creates `harnesspm.json`, adds `"prepare": "harnesspm sync"` to `package.json`, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. |
-| `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. |
+| `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). |
 | `harnesspm sync --check` | Writes nothing. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --no-local` | Ignores the personal layer. Implied when `CI=true`. |
 | `harnesspm status` | Layers, packages, versions, pending trust, personal changes to team units, always-on size per agent. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
-| `harnesspm approve [<package>]` | Approves pending or changed executable units and updates the lock. |
+| `harnesspm approve [<package>]` | Approves pending or changed executable units and updates the lock. A person runs it, not an agent. |
 | `harnesspm run <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). |
 | `harnesspm fetch --frozen` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
 

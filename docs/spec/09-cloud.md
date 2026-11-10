@@ -15,11 +15,15 @@ npx -y harnesspm personal add github:andrew/harness
 | Way | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
 | **Setup script** of the person's own environment | ✅ Runs before Claude Code starts. Cached for about 7 days. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y harnesspm personal update` to the maintenance script for cached resumes. |
-| **Ask the agent** in a session | ✅ Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs internet access in the agent phase, which is off by default. |
+| **Ask the agent** in a session | ✅ Rules and skills apply at once; Claude Code loads new skills live. Allow rules, hooks and MCP servers stay pending, because an agent cannot grant itself permissions ([06-trust.md](06-trust.md#62-trusting-a-package)). Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs internet access in the agent phase, which is off by default. The same limit on permissions applies. |
 
 A committed repository hook is not the place for personal content, because it belongs to the team.
 
 When the command runs inside a session, it prints the personal always-on rules so the agent follows them at once. New sessions read them from the files.
+
+A setup script SHOULD install only the scope "everywhere", which goes to user-level folders. It is not confirmed whether Claude Code runs the setup script before or after the first clone, so it must not depend on the repository. Project entries apply when `harnesspm sync` runs in the project.
+
+Use the setup script when you need permissions in unattended sessions, such as scheduled tasks or headless runs. They deny any skill or tool call that has no allow rule.
 
 ## 9.2 Private sources
 
@@ -58,6 +62,7 @@ The proof of concept MUST test each ❓ before the release. Where an output does
 | Personal rules, scope everywhere | ✅ `~/.claude/CLAUDE.md` written by a setup script is loaded | ❓ `~/.codex/AGENTS.md` |
 | Personal skills, scope everywhere | 🔍 `~/.claude/skills/` is read | ❓ `~/.agents/skills/` |
 | Personal rules, scope this project | ❓ `CLAUDE.local.md` | ❓ `developer_instructions` in `.codex/config.toml` |
-| Hooks and permissions | ❓ `.claude/settings.local.json` written in the container | ❓ `.codex/`: does the cloud treat the project as trusted? |
+| Hooks and permissions | ❓ `~/.claude/settings.json` and `.claude/settings.local.json` written by a setup script | ❓ `.codex/`: does the cloud treat the project as trusted? |
 | MCP servers | ❓ local and user scope | ❓ the agent phase has no network by default |
-| A skill added during a session | ❓ | ❓ |
+| A skill added during a session | 🔍 Loaded within seconds, from `.claude/skills/` and `~/.claude/skills/` | ❓ |
+| A git-excluded skill in the clone | 🔍 Listed and picked like a committed one | ❓ |

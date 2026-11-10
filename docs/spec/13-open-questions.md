@@ -46,7 +46,7 @@ A team cannot mark a rule as one a person cannot exclude. Nothing could enforce 
 
 ### 13.8 Committed Claude Code settings
 
-v1 writes Claude Code hooks and permissions into the untracked `.claude/settings.local.json`. **Test:** does a cloud session read that file when it is generated in the container? **If not:** team hooks and permissions go into the committed `.claude/settings.json` instead.
+v1 writes Claude Code hooks and permissions into the untracked `.claude/settings.local.json`. A cloud-session test showed that the agent cannot write that file itself, so in the cloud a setup script has to. **Test:** does a cloud session read `~/.claude/settings.json` and `.claude/settings.local.json` when a setup script writes them? **If not:** team hooks and permissions go into the committed `.claude/settings.json` instead.
 
 ### 13.9 Upgrade report
 

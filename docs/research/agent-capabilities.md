@@ -24,6 +24,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Scopes: managed, `--settings`, `.claude/settings.local.json`, `.claude/settings.json`, `~/.claude/settings.json`. Lists such as `permissions.allow` merge across scopes. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | Allow rules in committed `.claude/settings.json` apply after the workspace trust dialog. Allow rules in an untracked `.claude/settings.local.json` apply without it. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | Claude Code reloads settings files when they change, including `permissions` and `hooks`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
+| In auto mode, Claude Code blocks itself from writing an allow rule into `.claude/settings.local.json`, as self-modification. | 🔍 | Cloud-session test, Nov 2026 |
+| Commands that Claude Code runs get `CLAUDECODE=1` and `AI_AGENT=claude-code_<version>_agent` in their environment. | 🔍 | Observed in a cloud session, Nov 2026 |
 | Hooks: event → matcher group → handlers. Entries merge across settings files and identical handlers run once. Exit `0` continues, exit `2` blocks with stderr as the reason. `${CLAUDE_PROJECT_DIR}` is available. | ✅ | [hooks](https://code.claude.com/docs/en/hooks) |
 | Permission rules look like `Bash(npm run test *)`. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
 | `permissions.additionalDirectories` gives access to folders outside the project. From a committed file it applies after workspace trust. | ✅ | [settings](https://code.claude.com/docs/en/settings) |
@@ -33,6 +35,10 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Fact | | Source |
 | --- | --- | --- |
 | Skills load from `.claude/skills/` and `~/.claude/skills/`. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
+| Claude Code watches both skill folders: a skill added during a session is available within seconds, without a restart. | ✅ 🔍 | [skills](https://code.claude.com/docs/en/skills); observed in a cloud-session test, Nov 2026 |
+| A skill hidden from git through `.git/info/exclude` is listed at startup and picked like a committed one. | 🔍 | Cloud-session test, Nov 2026 |
+| Claude Code asks before invoking a skill. A session nobody watches (headless `claude -p`, a scheduled task) denies the call unless `Skill(<name>)` is in `permissions.allow`. Auto mode approved it by itself. `allowed-tools` in a `SKILL.md` only pre-approves tools while the skill runs. | ✅ 🔍 | [skills](https://code.claude.com/docs/en/skills); cloud-session test, Nov 2026 |
+| A skill is picked by its description. Descriptions that list the situations and words people use ("Use when …") were picked for every fitting prompt and for no unrelated one. | 🔍 | Cloud-session test, Nov 2026 |
 | Sub-agents are Markdown files in `.claude/agents/` and `~/.claude/agents/`. Frontmatter needs `name` and `description`; `tools`, `model` and others are optional. The body is the prompt. Unknown fields are ignored. | ✅ | [sub-agents](https://code.claude.com/docs/en/sub-agents) |
 | Project MCP servers live in `.mcp.json` and need approval in interactive sessions. Local-scope servers live in `~/.claude.json` per project (`claude mcp add-json <name> '<json>' --scope local`). For one name, local beats project beats user. | ✅ | [MCP](https://code.claude.com/docs/en/mcp) |
 | Auto memory lives in `~/.claude/projects/<project>/memory/`. `autoMemoryDirectory` moves it and can be set in any settings scope. The first 200 lines or 25 KB of `MEMORY.md` load each session. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
@@ -53,6 +59,9 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Plugins and marketplaces that a repository declares are not installed. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 | A `~/.claude/CLAUDE.md` written by a setup script is loaded. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
 | `~/.claude/skills/` in the container is read. | 🔍 | Observed in a cloud session |
+| Skills from the person's claude.ai account are synced into `~/.claude/skills/synced/`. | 🔍 | Observed in a cloud session |
+| Whether the setup script runs before or after the first clone of the repository. | ❓ | — |
+| Every new session pays for the always-on instructions. In a large monorepo they were tens of thousands of tokens per cold session. | 🔍 | Cloud-session test, Nov 2026 |
 | A `~/.claude/settings.json` or `.claude/settings.local.json` written inside the container is read. | ❓ | — |
 | A private repository that a setup script needs must be added under the environment's repositories. A token in a variable does not work. | ✅ | In-product documentation for cloud environments |
 | Skills enabled on claude.ai load in every cloud session. | ✅ | [cloud environments](https://code.claude.com/docs/en/cloud-environments) |
@@ -88,6 +97,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Memories are behind `features.memories` and stored globally under `$CODEX_HOME/memories/`. No per-project folder setting. | ✅ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
 | Custom agents are TOML files, one per agent, in `.codex/agents/` (project) and `~/.codex/agents/` (user). Required: `name`, `description`, `developer_instructions`. Optional: `model`, `model_reasoning_effort` and feature switches. `sandbox_mode`, `approval_policy` and `mcp_servers` in an agent file do not override the parent. | ✅ | [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) |
 | Project agents in `.codex/agents/` need a trusted project. | ❓ | — |
+| `approval_policy.granular.skill_approval` exists. Whether Codex asks before using a skill by default. | ✅ ❓ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
+| Which environment variables Codex sets in the commands it runs, so a tool can tell it is running under Codex. | ❓ | — |
 
 ### Cloud
 

@@ -119,6 +119,8 @@ Unknown fields inside the extension MUST make `harnesspm check` fail, so typos d
 
 `<ns>` is the extension folder, `dev.harnesspm`.
 
+An agent picks a skill by its `description`. Say what the skill does, then, after "Use when", the situations and the words people use when they need it.
+
 ## 2.5 Rules
 
 A rule is one Markdown file about one topic. Small files make overrides simple: a consumer replaces or drops a whole file, never a part of one.

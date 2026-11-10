@@ -37,7 +37,7 @@ These hold the dependency and project layers, plus personal units with scope "th
 | Always-on rules (personal) | Managed block in `CLAUDE.local.md` | `developer_instructions` in `.codex/config.toml` |
 | File-scoped rules | Link in `.claude/rules/` with `paths`, plus a pointer line in the block | Pointer line in the block |
 | On-demand rules | Pointer line with its description | Pointer line with its description |
-| Skills | Link in `.claude/skills/<name>` | Link in `.agents/skills/<name>` |
+| Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for trusted sources | Link in `.agents/skills/<name>` |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
 | Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/harnesspm.rules` |
 | MCP servers | Local scope: `claude mcp add-json <name> '<json>' --scope local` | `[mcp_servers.<id>]` in `.codex/config.toml` |
@@ -55,7 +55,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 | Unit | Claude Code | Codex |
 | --- | --- | --- |
 | Rules | Managed block in `~/.claude/CLAUDE.md` | Managed block in `~/.codex/AGENTS.md` |
-| Skills | Link in `~/.claude/skills/` | Link in `~/.agents/skills/` |
+| Skills | Link in `~/.claude/skills/`, plus `Skill(<name>)` in `permissions.allow` of `~/.claude/settings.json` | Link in `~/.agents/skills/` |
 | Sub-agents | Generated in `~/.claude/agents/` | Generated in `~/.codex/agents/` |
 | Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/harnesspm.rules` |
 | MCP servers | User scope (`--scope user`) | `[mcp_servers.<id>]` in `~/.codex/config.toml` |
