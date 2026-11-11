@@ -40,7 +40,7 @@ Start with [docs/spec/README.md](docs/spec/README.md). Every chapter opens with 
 | [6. Trust and lock](docs/spec/06-trust.md) | What may run, and how changes are reviewed |
 | [7. Personal harness](docs/spec/07-personal.md) | A person's workflow, context and tools, outside project repositories |
 | [8. Improving a harness](docs/spec/08-improving.md) | How agents change any harness under its owner's rules |
-| [9. Cloud sessions](docs/spec/09-cloud.md) | Claude Code and Codex cloud environments |
+| [9. Cloud sessions](docs/spec/09-cloud.md) | Claude Code cloud environments (Codex Cloud is not in v1) |
 | [10. CLI](docs/spec/10-cli.md) | Commands |
 | [11. Standards](docs/spec/11-standards.md) | Which open standards harnesspm uses and where it goes beyond them |
 | [12. Dogfooding](docs/spec/12-dogfooding.md) | How this repository uses and publishes its own harness |

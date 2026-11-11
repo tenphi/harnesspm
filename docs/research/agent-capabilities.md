@@ -112,6 +112,8 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 
 ### Cloud
 
+Codex Cloud is not supported in v1 ([spec 13.12](../spec/13-open-questions.md#1312-removed-in-review)). These facts stay for when it comes back.
+
 | Fact | | Source |
 | --- | --- | --- |
 | There are two experiences. **Codex Cloud** (web, mobile, desktop: **Work in** > **Cloud**) runs each task in its own VM, started from a **published** environment. **Codex Cloud (Legacy)** remains for Code Review and the Linear and GitHub integrations, and OpenAI plans to deprecate it. | ✅ | [cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environments) |

@@ -66,7 +66,7 @@ npx harnesspm why tasty:rules/state-maps
 3. **Install once, stay current**, at the installed versions.
 4. **One source, every agent.** Native files for Claude Code and Codex first.
 5. **Executables are first-class and safe:** scripts, hooks, MCP servers and permissions behind an explicit trust model.
-6. **A personal layer** that never changes the project's repository and also works in cloud sessions.
+6. **A personal layer** that never changes the project's repository and also works in Claude Code cloud sessions.
 7. **Every harness can be improved by an agent**, under its owner's rules.
 8. **Standards first. harnesspm uses itself.**
 
@@ -77,6 +77,7 @@ npx harnesspm why tasty:rules/state-maps
 - **The agent's own memory.** Notes that Claude Code or Codex save by themselves stay with the agent. A person's workflow and context belong in the personal harness.
 - **Git hosting.** harnesspm does not call GitHub, GitLab or any other host. Agents use their own tools to push and open pull requests.
 - **Sandboxing.** Agents keep their own sandboxes and approval prompts.
+- **Codex Cloud, in v1.** Codex is supported on a person's computer. See [13.12](13-open-questions.md#1312-removed-in-review).
 
 ## 1.5 Terms
 
@@ -110,7 +111,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S9 | A person adds their own harness | `npx harnesspm personal add <source>`, once per machine. |
 | S10 | A person keeps workflow and context outside project repositories | Rules and notes in the personal harness, with per-project entries. |
 | S11 | An agent improves a harness | Edits the source that `harnesspm why` names, then saves under the owner's rules. |
-| S12 | A person works in a cloud session | The same `personal add` in the environment's setup script, or asked of the agent. |
+| S12 | A person works in a Claude Code cloud session | The same `personal add` in the environment's setup script, or asked of the agent. |
 
 ## 1.7 What is committed
 

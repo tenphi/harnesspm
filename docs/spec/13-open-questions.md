@@ -32,9 +32,8 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.5 Plugin output mode
 
-**Decision:** not in v1. Native files work in Claude Code cloud sessions, which do not install repository-declared plugins, and they show up in pull request review. Revisit if cloud sessions start installing such plugins, or as an option for local-only use.
+**Decision:** not in v1. Native files work in Claude Code cloud sessions, which do not install repository-declared plugins, and they show up in pull request review. Revisit if cloud sessions start installing such plugins, or as an option for local-only use. Codex Cloud may need one: see 13.12.
 
-**Signal (Codex Cloud):** a probe found that skills reach the Codex Cloud agent from cloud plugins, and that files written in the task's VM do not load ([research](../research/agent-capabilities.md#cloud)). If the proof of concept confirms that prepared files do not load either, a Codex plugin output becomes the way to bring skills to Codex Cloud.
 
 ### 13.6 CI without an install
 
@@ -60,7 +59,7 @@ A person's notes describe how repositories relate, such as "UI Kit builds on Tas
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) and [09-cloud.md](09-cloud.md#95-not-confirmed-yet) must be tested.
+Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested. The Codex Cloud rows are out of scope (13.12). The 🔍 rows in [9.5](09-cloud.md#95-observed-in-cloud-sessions) are checked again.
 
 ## 13.12 Removed in review
 
@@ -74,3 +73,4 @@ Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md)
 | A folder picked up automatically as a personal harness | One more rule to learn. `personal add --project` does the same. | — |
 | A separate lock for personal sources | Personal sources follow their branch or range. | People need reproducible personal setups. |
 | Variables and slots in rules | Patches by section cover the same cases with one mechanism. | Patches copy most of a rule to change a word. |
+| Codex Cloud support | Its agent runs outside the task's VM. In a probe, no file written in the VM during a task reached it, and skills came only from cloud plugins ([research](../research/agent-capabilities.md#cloud)). A setup step that prepares files never reached a task in five tries. Codex on a person's computer stays supported. | Codex Cloud is shown to load files that the setup prepares, or harnesspm gains a Codex plugin output (13.5). |
