@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json",
+  "$id": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
   "title": "harnesspm.json",
   "description": "Project configuration for harnesspm, the harness package manager. Every field is optional.",
   "type": "object",

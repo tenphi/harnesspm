@@ -29,7 +29,13 @@ Also observed: pnpm's `node_modules/.pnpm` layout needs no special case. Resolvi
 | Command | Time |
 | --- | --- |
 | `node -e 0` | 28 ms |
-| `node node_modules/harnesspm/dist/cli.js run kit:probe` | about 150 ms |
+| `node node_modules/@tenphi/harnesspm/dist/cli.js run kit:probe` | about 150 ms |
 | `npx harnesspm run kit:probe` | about 440 ms |
 
 `npx` adds about 290 ms, which a hook pays on every matching tool call. Two ways to cut it, not taken yet: write hook commands with `node_modules/.bin/harnesspm` instead of `npx harnesspm`, and let `run` read an index that `sync` writes instead of resolving every package.
+
+## Package name
+
+- 🔍 npm refused the first publish of the bare name `harnesspm` with `E403 You do not have permission to publish "harnesspm"`, from an account that was logged in. The registry had no package by that name and none by `harness-pm`, `harness_pm` or `harness.pm` (all 404, Nov 2026), so npm most likely holds the name.
+- The package is `@tenphi/harnesspm`, in its owner's scope, so nobody else can take or block it. The command stays `harnesspm`, so `npx harnesspm …` works wherever it is installed.
+- Commands that may run where it is not installed name the scope: `npx -y @tenphi/harnesspm …`. A bare `npx -y harnesspm` would download whatever package someone else later publishes as `harnesspm`.

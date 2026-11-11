@@ -248,7 +248,7 @@ test('init sets up a project and is safe to run twice', () => {
   assert.equal(first.status, 0, first.stderr);
   const pkg = JSON.parse(read(dir, 'package.json'));
   assert.equal(pkg.scripts.prepare, 'harnesspm sync');
-  assert.equal(JSON.parse(read(dir, 'harnesspm.json')).$schema, 'https://unpkg.com/harnesspm/schema/harnesspm.schema.json');
+  assert.equal(JSON.parse(read(dir, 'harnesspm.json')).$schema, 'https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json');
   assert.match(read(dir, 'AGENTS.md'), /BEGIN:harnesspm/);
   run(dir, 'init');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, 'harnesspm sync');

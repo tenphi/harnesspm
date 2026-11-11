@@ -4,6 +4,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /** An error that the CLI prints without a stack trace. */
+/** The npm package of harnesspm. The command it installs is `harnesspm` (spec 10.1). */
+export const PACKAGE_NAME = '@tenphi/harnesspm';
+/** Runs harnesspm in a project that depends on it: npx finds the installed command. */
+export const NPX_LOCAL = 'npx harnesspm';
+/** Runs harnesspm anywhere: npx downloads the package by its full name when it is not installed. */
+export const NPX_ANY = `npx -y ${PACKAGE_NAME}`;
+
 export class HarnessError extends Error {}
 
 export function exists(p: string): boolean {

@@ -25,7 +25,7 @@ import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, withClaudeImport } from './render.ts';
 import { resolve, resolvePackageDir, type Resolution } from './resolve.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -43,7 +43,7 @@ function printPending(out: Output, report: UserReport): void {
   for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
   if (report.held.length > 0) {
     out.log(`⏳ held back: ${plural(report.held.length, 'entry', 'entries')} that an agent cannot grant (${report.held.slice(0, 3).join('; ')}${report.held.length > 3 ? '; …' : ''}).`);
-    out.log('   Ask the person to run `npx harnesspm sync` or `npx harnesspm approve` in their own terminal.');
+    out.log(`   Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`);
   }
 }
 

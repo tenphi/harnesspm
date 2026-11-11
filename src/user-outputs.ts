@@ -7,9 +7,9 @@ import { agentsHome, claudeHome, claudeJsonFile, codexHome } from './homes.ts';
 import { pathTools } from './outputs.ts';
 import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from './render.ts';
 import { resolve } from './resolve.ts';
-import { ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
+import { NPX_ANY, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
-export const HOOK_COMMAND = 'npx -y harnesspm sync';
+export const HOOK_COMMAND = `${NPX_ANY} sync`;
 
 export { claudeHome, codexHome };
 
@@ -73,7 +73,7 @@ export function writeUserOutputs(added: AddedHarness[], warnings: string[], repo
   const generated = new Map<string, string>();
   const tools = pathTools(res, () => generatedRoot, generated);
   for (const rule of res.rules) if (rule.activation !== 'always' && rule.patches.length > 0) generated.set(tools.generatedRule(rule), rule.text);
-  const content = renderSections(sectionsFor(res, res.packages, tools.paths, () => 'npx -y harnesspm'), tools.paths);
+  const content = renderSections(sectionsFor(res, res.packages, tools.paths, () => NPX_ANY), tools.paths);
 
   const changed: string[] = [];
   fs.rmSync(generatedRoot, { recursive: true, force: true });
@@ -116,7 +116,7 @@ export function writeUserOutputs(added: AddedHarness[], warnings: string[], repo
   const entries = desiredEntries(res, new Set(res.packages), () => ({ trusted: true }), {
     claudeAgents: path.join(claudeHome(), 'agents'),
     codexAgents: path.join(codexHome(), 'agents'),
-    npx: () => 'npx -y harnesspm',
+    npx: () => NPX_ANY,
   });
   warnings.push(...entries.warnings);
   const applied = applyEntries(

@@ -1,3 +1,3 @@
 {
-  "$schema": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json"
+  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json"
 }

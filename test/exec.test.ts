@@ -225,14 +225,15 @@ test('added harnesses: executables at user level, and the runner finds their scr
   assert.equal(added.status, 0, added.stderr);
   const home = homeOf(dir);
   const settings = json(path.join(home, '.claude/settings.json'));
-  assert.equal(settings.hooks.Stop[0].hooks[0].command, 'npx -y harnesspm run --agent claude me:probe');
-  assert.ok(settings.permissions.allow.includes('Bash(npx harnesspm run me:probe *)'));
+  assert.equal(settings.hooks.Stop[0].hooks[0].command, 'npx -y @tenphi/harnesspm run --agent claude me:probe');
+  // The allow rule has the same prefix as the command the block names.
+  assert.ok(settings.permissions.allow.includes('Bash(npx -y @tenphi/harnesspm run me:probe *)'));
   assert.ok(settings.permissions.allow.includes('mcp__me-notes'));
-  assert.deepEqual(json(path.join(home, '.claude.json')).mcpServers['me-notes'], { type: 'stdio', command: 'npx', args: ['-y', 'harnesspm', 'mcp', '--agent', 'claude', 'me:notes'] });
+  assert.deepEqual(json(path.join(home, '.claude.json')).mcpServers['me-notes'], { type: 'stdio', command: 'npx', args: ['-y', '@tenphi/harnesspm', 'mcp', '--agent', 'claude', 'me:notes'] });
   const codexConfig = fs.readFileSync(path.join(home, '.codex/config.toml'), 'utf8');
   assert.ok(codexConfig.startsWith('model = "gpt-5"\n\n# BEGIN harnesspm'));
   tomlOk(path.join(home, '.codex/config.toml'));
-  assert.match(fs.readFileSync(path.join(home, '.claude/CLAUDE.md'), 'utf8'), /- Script: `npx -y harnesspm run me:probe` — Mine \(me:scripts\/probe\)/);
+  assert.match(fs.readFileSync(path.join(home, '.claude/CLAUDE.md'), 'utf8'), /- Script: `npx -y @tenphi\/harnesspm run me:probe` — Mine \(me:scripts\/probe\)/);
 
   const ran = run(dir, 'run', 'me:probe', '--', 'x');
   assert.equal(ran.status, 0, ran.stderr);

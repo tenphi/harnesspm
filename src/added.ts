@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { loadHarnessPackage, NS, parseExtension, type HarnessPackage } from './manifest.ts';
-import { HarnessError, ensureDir, isDir, isFile, isRecord, readJson, readJsonIfExists } from './util.ts';
+import { HarnessError, NPX_ANY, ensureDir, isDir, isFile, isRecord, readJson, readJsonIfExists } from './util.ts';
 
 export type Scope = 'user' | 'local';
 export type SourceKind = 'git' | 'folder' | 'npm';
@@ -181,7 +181,7 @@ export function loadAdded(projectDir: string | undefined, warnings: string[]): A
     for (const spec of readList(configFileFor(scope, projectDir ?? ''))) {
       const source = parseSource(spec);
       if (!isFile(path.join(source.dir, 'harness', 'plugin.json'))) {
-        warnings.push(`${spec} is not on this machine yet. Run \`npx harnesspm update\`.`);
+        warnings.push(`${spec} is not on this machine yet. Run \`${NPX_ANY} update\`.`);
         continue;
       }
       const pkg = loadHarnessPackage(source.dir, 'added')!;

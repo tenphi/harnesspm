@@ -81,7 +81,7 @@ const codexRule = (words: string[], decision: string): string => `prefix_rule(pa
 
 /**
  * The entries that `packages` ask for. `npx` is the command prefix: `npx harnesspm` where the project
- * depends on harnesspm, `npx -y harnesspm` elsewhere.
+ * depends on harnesspm, `npx -y @tenphi/harnesspm` elsewhere. Allow rules use the same prefix as the commands.
  */
 export function desiredEntries(
   res: Resolution,
@@ -105,7 +105,7 @@ export function desiredEntries(
       continue;
     }
     if (!script.allow) continue;
-    const words = ['npx', 'harnesspm', 'run', `${script.pkg.plugin}:${script.name}`];
+    const words = [...where.npx(script.pkg).split(' '), 'run', `${script.pkg.plugin}:${script.name}`];
     // `Bash(<prefix> *)` also matches the command without arguments (observed with Claude Code 2.1.322).
     entries.claude.allow.push(bashRule(words));
     entries.codex.rules.push(codexRule(words, 'allow'));

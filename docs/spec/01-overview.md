@@ -37,7 +37,7 @@ my-lib/
 ### Use (import)
 
 ```bash
-npm i -D harnesspm
+npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
@@ -109,7 +109,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | --- | --- | --- |
 | S1 | A library shares its harness | Adds `harness/` and lists it in `files`. |
 | S2 | A library builds on upstream harness | Lists the upstream packages in `extends`, adds its own units. |
-| S3 | A project uses the harness of its dependencies | `npm i -D harnesspm` and `npx harnesspm init`, once. |
+| S3 | A project uses the harness of its dependencies | `npm i -D @tenphi/harnesspm` and `npx harnesspm init`, once. |
 | S4 | A project changes one upstream rule | One `patch` for a few sections, or one `replace` or `exclude` entry. |
 | S5 | A project upgrades a dependency | Nothing after a full install. After `npm install <pkg>` or `pnpm add`, `npx harnesspm sync`. The pull request shows what changed. |
 | S6 | Several repositories share a policy | A harness-only package, added as a dev dependency. |
@@ -119,7 +119,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S10 | A person keeps workflow and context outside project repositories | Rules and notes in their own added harness, with project entries. |
 | S11 | An agent improves a harness | Edits the source that `harnesspm why` names, then saves under the owner's rules. |
 | S12 | A person works in a Claude Code cloud session | The same `add` in the environment's setup script, or asked of the agent. |
-| S13 | A job reads the harness without an install, such as a review bot | `npx -y harnesspm fetch`. |
+| S13 | A job reads the harness without an install, such as a review bot | `npx -y @tenphi/harnesspm fetch`. |
 
 ## 1.7 What is committed
 

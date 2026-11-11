@@ -88,7 +88,7 @@ Both files have one field:
 
 ## 7.5 Applying in every repository
 
-`harnesspm add` also installs one user-level `SessionStart` hook for each agent. The hook runs `npx -y harnesspm sync` at the start of every session. In a repository that does not use harnesspm, or whose dependencies are not installed yet, `sync` writes only the per-machine outputs of added harnesses, including their project entries, and changes only git-excluded files.
+`harnesspm add` also installs one user-level `SessionStart` hook for each agent. The hook runs `npx -y @tenphi/harnesspm sync` at the start of every session. In a repository that does not use harnesspm, or whose dependencies are not installed yet, `sync` writes only the per-machine outputs of added harnesses, including their project entries, and changes only git-excluded files.
 
 - Claude Code runs the hook with `AI_AGENT=…_harness`, so this sync may write hooks and permissions ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4).
 - Claude Code uses what the hook writes in the same session: a `CLAUDE.local.md` and a `.claude/settings.local.json` written by a `SessionStart` hook were both read in cloud sessions.

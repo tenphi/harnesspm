@@ -1,10 +1,10 @@
 // harnesspm.json (spec 3.7).
 import * as path from 'node:path';
 import { stringList } from './frontmatter.ts';
-import { HarnessError, isRecord, readJsonIfExists } from './util.ts';
+import { HarnessError, PACKAGE_NAME, isRecord, readJsonIfExists } from './util.ts';
 
 export const CONFIG_FILE = 'harnesspm.json';
-export const CONFIG_SCHEMA = 'https://unpkg.com/harnesspm/schema/harnesspm.schema.json';
+export const CONFIG_SCHEMA = `https://unpkg.com/${PACKAGE_NAME}/schema/harnesspm.schema.json`;
 
 export type TrustValue = true | 'pin';
 

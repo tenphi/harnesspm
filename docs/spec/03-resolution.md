@@ -84,7 +84,7 @@ Workspaces come from the `workspaces` field of the root `package.json` or from `
 
 ```json
 {
-  "$schema": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json",
+  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
   "exclude": ["@tenphi/glaze"],
   "patch": { "tasty:rules/lint-comments": "./harnesspm/patches/tasty-lint-comments.patch.md" },
   "trust": { "@cube-dev/ui-kit": true }

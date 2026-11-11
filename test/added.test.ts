@@ -65,9 +65,9 @@ test('S9: add with user scope writes user-level outputs, the hook and write acce
   assert.ok(fs.existsSync(home(dir, '.agents/skills/andrew-release/SKILL.md')));
 
   const settings = JSON.parse(fs.readFileSync(home(dir, '.claude/settings.json'), 'utf8'));
-  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y harnesspm sync');
+  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm sync');
   assert.deepEqual(settings.permissions.additionalDirectories, [mine]);
-  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y harnesspm sync');
+  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm sync');
 
   // Nothing of the added harness enters the repository: its own units are user-level.
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.local.md')));

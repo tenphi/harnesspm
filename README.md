@@ -9,7 +9,7 @@ harnesspm moves an **AI harness** between projects through npm packages. A harne
 | Flow | Who | What they do |
 | --- | --- | --- |
 | 📤 **Share** | A library | Adds a `harness/` folder to its npm package. It can pass on the harness of the libraries it builds on (`extends`). |
-| 📥 **Use** | A project | `npm i -D harnesspm` and `npx harnesspm init`. After every install, Claude Code and Codex see the harness of the installed versions. |
+| 📥 **Use** | A project | `npm i -D @tenphi/harnesspm` and `npx harnesspm init`. After every install, Claude Code and Codex see the harness of the installed versions. |
 | ➕ **Add on top** | A person | `npx harnesspm add github:me/harness`. A team's or their own workflow, context and tools apply on top, without changing the project's repository. |
 | 🛠️ **Improve** | An agent | `npx harnesspm why <unit>` finds the source. The agent edits it and saves the change the way the owner's rules say, by default with a pull request. |
 
@@ -26,7 +26,7 @@ added        (harnesses you add: your team's, your own)       → per-machine fi
 In a project:
 
 ```bash
-npm i -D harnesspm
+npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 

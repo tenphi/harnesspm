@@ -25,7 +25,7 @@ Package managers place packages at paths that differ between machines. harnesspm
 node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
-A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths and the generated files, so pointers in the committed block work there too. It reuses installed copies, never runs package code and writes no agent settings.
+A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths and the generated files, so pointers in the committed block work there too. It reuses installed copies, never runs package code and writes no agent settings.
 
 ## 4.3 Project outputs
 

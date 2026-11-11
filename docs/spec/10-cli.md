@@ -7,7 +7,7 @@
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
 
-The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in a project that depends on it, and `npx -y harnesspm …` anywhere else.
+The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. Use `npx harnesspm …` in a project that depends on it. Use `npx -y @tenphi/harnesspm …` anywhere else, so npx downloads the package by its full name. Outputs follow the same split, and an allow rule always has the prefix of the command it allows.
 
 ## 10.1 Projects
 

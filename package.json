@@ -1,5 +1,5 @@
 {
-  "name": "harnesspm",
+  "name": "@tenphi/harnesspm",
   "version": "0.1.0",
   "description": "The harness package manager: share agent rules, docs, skills and tools through npm packages",
   "license": "MIT",
@@ -14,6 +14,9 @@
     "docs/spec",
     "CHANGELOG.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },

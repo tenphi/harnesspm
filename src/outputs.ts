@@ -25,6 +25,8 @@ import {
 import type { FinalRule, Resolution, ResolvedPackage } from './resolve.ts';
 import { headings } from './sections.ts';
 import {
+  NPX_ANY,
+  NPX_LOCAL,
   ensureDir,
   exists,
   gitExcludeFile,
@@ -227,7 +229,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
     const teamGenerated = new Map<string, string>();
     const teamLock = lock;
     const teamTools = pathTools(team, () => teamGen, teamGenerated);
-    const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? 'npx harnesspm' : undefined);
+    const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? NPX_LOCAL : undefined);
     // The root block holds what the root reaches and what every workspace shares (spec 3.6, 4.5).
     const keys = team.workspaces.map((ws) => ws.key);
     const shared = (pkg: ResolvedPackage): boolean => pkg.members.has('') || (keys.length > 0 && keys.every((k) => pkg.members.has(k)));
@@ -262,7 +264,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
   }
 
   // Added harnesses with local scope, and every harness's entry for this repository (spec 4.3).
-  let content = renderSections(sectionsFor(full, full.packages.filter(isRepoAdded), tools.paths, () => 'npx -y harnesspm'), tools.paths);
+  let content = renderSections(sectionsFor(full, full.packages.filter(isRepoAdded), tools.paths, () => NPX_ANY), tools.paths);
   const changes = team ? changesSection(team, full, (rule) => tools.paths.rule(rule)) : undefined;
   if (changes !== undefined) content = content !== '' ? `${content}\n\n${changes}` : changes;
 
@@ -294,8 +296,8 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
   // Executable units and sub-agents (spec 4.3, chapter 5), with trust (spec 6.2).
   const trust = (pkg: ResolvedPackage) => trustOf(pkg, full, lock);
   const agentDirs = { claudeAgents: path.join(projectDir, '.claude', 'agents'), codexAgents: path.join(projectDir, '.codex', 'agents') };
-  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => 'npx harnesspm' }) : undefined;
-  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => 'npx -y harnesspm' });
+  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => NPX_LOCAL }) : undefined;
+  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => NPX_ANY });
   warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
   return {

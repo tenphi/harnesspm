@@ -8,7 +8,7 @@ description: Set up harnesspm in a project, take agent harness from its dependen
 ## 1. Set up the project (once)
 
 ```bash
-npm i -D harnesspm
+npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
@@ -21,13 +21,13 @@ Run `npx harnesspm status`. It lists the packages, pending tools and the always-
 - **Pending tools** come from packages the project does not trust yet. Ask the user before adding a package to `trust` in `harnesspm.json`.
 - **You cannot grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the user to run `npx harnesspm approve` in their own terminal. Do not edit agent settings files to work around it.
 - **One upstream rule does not fit** the project: run `npx harnesspm new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `harnesspm.json` to change or drop a whole unit.
-- **A job that does not install dependencies**, such as a review bot, runs `npx -y harnesspm fetch` first.
+- **A job that does not install dependencies**, such as a review bot, runs `npx -y @tenphi/harnesspm fetch` first.
 
 ## 3. Add a harness on top
 
 ```bash
-npx -y harnesspm add <source>          # every repository on this machine
-npx -y harnesspm add <source> --local  # this repository only
+npx -y @tenphi/harnesspm add <source>          # every repository on this machine
+npx -y @tenphi/harnesspm add <source> --local  # this repository only
 ```
 
 The source is `github:<owner>/<repo>`, `git:<url>`, `npm:<package>` or a folder path. Add a team's harness before the user's own, so the user's wins. The command prints the added rules. Follow them from now on in this session.
