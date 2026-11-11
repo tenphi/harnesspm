@@ -14,6 +14,7 @@ import {
 } from './manifest.ts';
 import { discoverExecUnits, type AgentUnit, type HookUnit, type McpUnit, type PermissionsUnit, type ScriptUnit } from './exec-units.ts';
 import { applyPatch, type TouchedSection } from './sections.ts';
+import { findWorkspaces } from './workspaces.ts';
 import { HarnessError, compareVersions, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
 
 export interface ResolvedPackage extends HarnessPackage {
@@ -27,6 +28,8 @@ export interface ResolvedPackage extends HarnessPackage {
   added?: AddedHarness;
   /** True for an added harness's entry for this repository. */
   entry?: boolean;
+  /** Workspaces whose dependencies reach this package: "" for the repository root, else the workspace's path. */
+  members: Set<string>;
 }
 
 export interface ResolveOptions {
@@ -34,6 +37,14 @@ export interface ResolveOptions {
   added?: AddedHarness[];
   /** Resolve the dependency and project layers. False when they are not installed or not used. */
   team?: boolean;
+  /** Where to find a package that is not installed, such as one `harnesspm fetch` downloaded. */
+  locate?: (name: string) => string | undefined;
+}
+
+export interface Workspace {
+  /** Path from the repository root, with forward slashes. */
+  key: string;
+  dir: string;
 }
 
 export interface Override {
@@ -87,6 +98,8 @@ export type FinalAgent = WithPkg<AgentUnit>;
 export interface Resolution {
   projectDir: string;
   projectName: string;
+  /** The workspaces of a monorepo, without the root. Empty for a single package. */
+  workspaces: Workspace[];
   config: ProjectConfig;
   /** Dependency layer upstream first, then the project's own harness. */
   packages: ResolvedPackage[];
@@ -151,6 +164,12 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   };
 
   const occurrences = new Map<string, Occurrence[]>();
+  const members = new Map<string, Set<string>>();
+  const addMember = (name: string, key: string): void => {
+    const set = members.get(name) ?? new Set<string>();
+    set.add(key);
+    members.set(name, set);
+  };
   const edges = new Map<string, Set<string>>();
   const excludedPackages: { name: string; by: string }[] = [];
   const addOccurrence = (name: string, occurrence: Occurrence): void => {
@@ -165,7 +184,7 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   };
 
   /** `excluded` maps a package name to whoever excluded it on this path. */
-  const visit = (pkg: HarnessPackage, depth: number, excluded: Map<string, string>, stack: string[]): void => {
+  const visit = (pkg: HarnessPackage, depth: number, excluded: Map<string, string>, stack: string[], root: string): void => {
     const childExcluded = new Map(excluded);
     for (const name of pkg.ext.exclude.filter((e) => !isUnitId(e))) childExcluded.set(name, pkg.name);
     for (const name of pkg.ext.extends) {
@@ -174,7 +193,7 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
         excludedPackages.push({ name, by });
         continue;
       }
-      const dir = resolvePackageDir(name, pkg.dir);
+      const dir = resolvePackageDir(name, pkg.dir) ?? options.locate?.(name);
       if (!dir) {
         warnings.push(`${pkg.name} extends ${name}, which is not installed`);
         continue;
@@ -189,28 +208,46 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       }
       addEdge(pkg.name, name);
       addOccurrence(name, { dir, depth: depth + 1, direct: false, via: pkg.name });
-      visit(child, depth + 1, childExcluded, [...stack, dir]);
+      addMember(name, root);
+      visit(child, depth + 1, childExcluded, [...stack, dir], root);
     }
   };
 
+  // Each workspace is resolved on its own dependencies, from its own folder (spec 3.6).
+  const workspaces: Workspace[] = team ? findWorkspaces(projectDir).map((dir) => ({ key: relPosix(projectDir, dir), dir: realpath(dir) })) : [];
+  const roots = [{ key: '', dir: projectDir, deps: dependencyNames(pkgJson) }, ...workspaces.map((ws) => {
+    const raw = readJsonIfExists(path.join(ws.dir, 'package.json'));
+    return { key: ws.key, dir: ws.dir, deps: dependencyNames(isRecord(raw) ? raw : {}) };
+  })];
   const rootExcluded = new Map(config.exclude.filter((e) => !isUnitId(e)).map((name) => [name, CONFIG_FILE] as const));
-  for (const name of team ? dependencyNames(pkgJson) : []) {
-    if (rootExcluded.has(name)) {
-      excludedPackages.push({ name, by: CONFIG_FILE });
-      continue;
+  for (const root of team ? roots : []) {
+    for (const name of root.deps) {
+      if (rootExcluded.has(name)) {
+        excludedPackages.push({ name, by: CONFIG_FILE });
+        continue;
+      }
+      const dir = resolvePackageDir(name, root.dir) ?? options.locate?.(name);
+      if (!dir) continue;
+      const pkg = load(dir, 'dependencies');
+      if (!pkg) continue;
+      addOccurrence(name, { dir, depth: 0, direct: true });
+      addMember(name, root.key);
+      visit(pkg, 0, rootExcluded, [dir], root.key);
     }
-    const dir = resolvePackageDir(name, projectDir);
-    if (!dir) continue;
-    const pkg = load(dir, 'dependencies');
-    if (!pkg) continue;
-    addOccurrence(name, { dir, depth: 0, direct: true });
-    visit(pkg, 0, rootExcluded, [dir]);
   }
 
   const projectHarness = team ? loadHarnessPackage(projectDir, 'project') : undefined;
   if (projectHarness) {
     projectHarness.name = projectName;
-    visit(projectHarness, 0, rootExcluded, [projectDir]);
+    visit(projectHarness, 0, rootExcluded, [projectDir], '');
+  }
+  // A workspace's own harness belongs to that workspace, unless another workspace already reaches it as a dependency.
+  const workspaceHarnesses: { pkg: HarnessPackage; key: string }[] = [];
+  for (const ws of workspaces) {
+    const harness = loadHarnessPackage(ws.dir, 'project');
+    if (!harness) continue;
+    workspaceHarnesses.push({ pkg: harness, key: ws.key });
+    visit(harness, 0, rootExcluded, [ws.dir], ws.key);
   }
 
   // One version per package in a repository (spec 3.5).
@@ -254,19 +291,31 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   for (const child of [...(edges.get(projectName) ?? [])].sort()) walk(child);
   for (const name of [...chosen.keys()].sort()) walk(name);
 
+  const workspaceDirs = new Map(workspaces.map((ws) => [ws.dir, ws.key]));
   const packages: ResolvedPackage[] = order.map((name) => {
     const { pkg, occurrence } = chosen.get(name)!;
+    const own = workspaceDirs.get(pkg.dir);
+    const set = new Set(members.get(name) ?? []);
+    if (own !== undefined) set.add(own);
     return {
       ...pkg,
+      // A workspace that another workspace depends on is still this repository's own code.
+      ...(own !== undefined ? { layer: 'project' as const } : {}),
       direct: occurrence.direct,
       ...(occurrence.via !== undefined ? { via: occurrence.via } : {}),
       closure: closureOf(name),
+      members: set,
     };
   });
-  if (projectHarness) packages.push({ ...projectHarness, direct: true, closure: closureOf(projectName) });
+  if (projectHarness) packages.push({ ...projectHarness, direct: true, closure: closureOf(projectName), members: new Set(['']) });
+  for (const { pkg, key } of workspaceHarnesses) {
+    if (packages.some((p) => p.dir === pkg.dir)) continue;
+    packages.push({ ...pkg, direct: true, closure: closureOf(pkg.name), members: new Set([key]) });
+  }
+  const everywhere = new Set(['', ...workspaces.map((ws) => ws.key)]);
   for (const added of options.added ?? []) {
-    packages.push({ ...added.pkg, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added });
-    if (added.entry) packages.push({ ...added.entry, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, entry: true });
+    packages.push({ ...added.pkg, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, members: everywhere });
+    if (added.entry) packages.push({ ...added.entry, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, entry: true, members: everywhere });
   }
 
   // Plugin names must be unique (spec 2.9). An entry shares its harness's name.
@@ -420,6 +469,7 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   return {
     projectDir,
     projectName,
+    workspaces,
     config,
     packages,
     rules,

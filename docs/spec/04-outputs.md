@@ -25,7 +25,7 @@ Package managers place packages at paths that differ between machines. harnesspm
 node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
-A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
+A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths and the generated files, so pointers in the committed block work there too. It reuses installed copies, never runs package code and writes no agent settings.
 
 ## 4.3 Project outputs
 
@@ -66,7 +66,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 
 ## 4.5 Monorepos
 
-1. A workspace with its own units gets a managed block in `<workspace>/AGENTS.md`. Codex joins `AGENTS.md` files from the root down to the current folder.
+1. A workspace with its own units gets a managed block in `<workspace>/AGENTS.md`. Codex joins `AGENTS.md` files from the root down to the current folder. Paths in a workspace's block are relative to its folder. A block that becomes empty is removed, and so is a file that held only the block.
 2. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`. harnesspm writes `<workspace>/CLAUDE.md` with `@AGENTS.md` when it is missing. Both files are committed.
 3. Skills and executable units are written at the root.
 

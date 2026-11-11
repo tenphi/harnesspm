@@ -37,7 +37,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.6 CI without an install
 
-**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
+**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this, from `package-lock.json`. Without them, as with pnpm and Yarn lockfiles, `fetch` downloads `<name>@<version>` from the registry and says the download is not checked.
 
 ### 13.7 Team lock on rules (rejected)
 
@@ -64,6 +64,7 @@ Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md)
 - Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
 - Codex marks commands its model runs with `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, so rule 4 in [6.2](06-trust.md#62-trusting-a-package) covers Codex too.
 - Codex reads `developer_instructions` from a trusted project's `.codex/config.toml`.
+- A real agent improves a harness the intended way. A headless Claude Code run, asked to fix a dependency's rule for the team, used the `harnesspm-improve` skill, `why`, `new patch` and `sync`; asked to remember a preference for all projects, it wrote a rule into the person's added harness with `new rule --to` and saved it the way that harness's `AGENTS.md` said: a commit with the required prefix, pushed to `main` ([research](../research/agent-capabilities.md#claude-code)).
 - A headless Claude Code run uses what harnesspm writes: hooks, allow and deny rules, local-scope MCP servers, sub-agents, and skills linked from inside or outside the repository ([research](../research/agent-capabilities.md#claude-code)). Codex outputs are checked only against its source and docs, because no Codex CLI was available.
 
 ## 13.12 Removed in review

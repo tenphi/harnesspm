@@ -19,6 +19,8 @@ import { loadHarnessPackage } from './manifest.ts';
 import { heldEntries } from './exec-outputs.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock } from './lock.ts';
 import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
+import { fetchLocked } from './fetch.ts';
+import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, withClaudeImport } from './render.ts';
 import { resolve, resolvePackageDir, type Resolution } from './resolve.ts';
@@ -370,6 +372,34 @@ export function approve(cwd: string, name: string | undefined, out: Output): num
     if (approved > 0) writeIfChanged(path.join(projectDir, LOCK_FILE), serializeLock(lock));
   }
   return sync(projectDir, out);
+}
+
+export function newUnit(cwd: string, kind: string, name: string, options: { to?: string; entry?: boolean }, out: Output): number {
+  const projectDir = findProjectDir(cwd);
+  const show = (file: string): string => (file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
+  if (kind === 'patch') {
+    const { full } = resolveAll(projectDir, { withAdded: true });
+    const result = createPatch(projectDir, full, name, options);
+    out.log(`Wrote ${show(result.file)}, registered in ${show(result.registeredIn)}.`);
+    out.log('Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.');
+  } else {
+    if (!(KINDS as readonly string[]).includes(kind)) throw new HarnessError(`Unknown kind "${kind}". Use one of: ${KINDS.join(', ')}, patch.`);
+    const target = resolveTarget(projectDir, options);
+    const files = createUnit(target, kind as Kind, name);
+    out.log(`Created in ${target.label}:`);
+    for (const file of files) out.log(`  ${show(file)}`);
+    out.log('Edit it, then save it the way that harness\'s owner wants (`npx harnesspm why <ID>` names the rules).');
+  }
+  sync(projectDir, out, { quiet: true });
+  return 0;
+}
+
+export function fetch(cwd: string, out: Output): number {
+  const projectDir = findProjectDir(cwd);
+  const report = fetchLocked(projectDir);
+  printWarnings(out, report.warnings);
+  out.log(`harnesspm: fetched ${plural(report.fetched.length, 'package')}${report.fetched.length > 0 ? ` (${report.fetched.join(', ')})` : ''}, reused ${report.reused.length}.`);
+  return 0;
 }
 
 export function check(target: string, out: Output): number {

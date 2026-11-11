@@ -20,7 +20,7 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. |
-| `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
+| `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install, and checks their integrity ([04-outputs.md](04-outputs.md#42-stable-package-paths)). For review bots and CI jobs that do not install dependencies. |
 
 Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 
@@ -40,8 +40,8 @@ $ npx harnesspm status
 | Command | What it does |
 | --- | --- |
 | `harnesspm check [<folder>]` | Validates a harness ([02-package-format.md](02-package-format.md#210-validation)) and warns about files that look like secrets. Run it at `prepack`. |
-| `harnesspm new <kind> <name>` | `<kind>` is `rule`, `skill`, `agent` (a sub-agent), `script`, `hook` or `mcp`. Writes a valid unit from a template. `--to <plugin>` writes it into an added harness, `--to <plugin> --entry` into its entry for this repository. |
-| `harnesspm new patch <rule ID>` | Writes a patch with a copy of the rule's sections and registers it: in `harness/plugin.json` when the rule reaches the project through its own harness's `extends`, so users get the change too; otherwise in `harnesspm.json`; with `--to <plugin>`, in that added harness. Edit the sections to change and delete the others. |
+| `harnesspm new <kind> <name> [--to <plugin>] [--entry]` | `<kind>` is `rule`, `skill`, `agent` (a sub-agent), `script`, `hook` or `mcp`. Writes a valid unit from a template, and creates `harness/plugin.json` when the project has none. A skill's name gets the plugin name in front. `--to <plugin>` writes it into an added harness, `--to <plugin> --entry` into its entry for this repository, which holds rules, skills, sub-agents and docs. |
+| `harnesspm new patch <rule ID> [--to <plugin>] [--entry]` | Writes a patch with a copy of the rule's sections, or of the whole rule when it has none, and registers it: in `harness/plugin.json` (file in `harness/dev.harnesspm/patches/`) when the rule reaches the project through its own harness's `extends`, so users get the change too; otherwise in `harnesspm.json` (file in `harnesspm/patches/`); with `--to <plugin>`, in that added harness. Edit the sections to change and delete the others. |
 
 ## 10.3 People
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { add, approve, check, init, mcp, remove, run, status, sync, update, why, type Output } from './commands.ts';
+import { add, approve, check, fetch, init, mcp, newUnit, remove, run, status, sync, update, why, type Output } from './commands.ts';
 import { Refused } from './run.ts';
 import { HarnessError, readJson } from './util.ts';
 
@@ -13,6 +13,7 @@ Projects
   harnesspm run <plugin>:<script> [-- args]
                                  run a script of a trusted package
   harnesspm approve [<package>]  approve a "pin" package's new version, and write what an agent could not
+  harnesspm fetch                download the harness packages in the lock, for jobs without an install
 
 Harnesses on top of the repository's (your team's, your own)
   harnesspm add <source> [--local] [--no-hook]
@@ -22,6 +23,10 @@ Harnesses on top of the repository's (your team's, your own)
 
 Authors
   harnesspm check [<folder>]     validate a harness before publishing
+  harnesspm new <kind> <name> [--to <plugin>] [--entry]
+                                 a rule, skill, agent, script, hook or mcp from a template
+  harnesspm new patch <rule ID> [--to <plugin>] [--entry]
+                                 a patch that changes some sections of a rule
 `;
 
 const out: Output = {
@@ -31,6 +36,10 @@ const out: Output = {
 
 function main(argv: string[]): number {
   const [command, ...rest] = argv;
+  if (command !== 'run' && command !== 'mcp' && (rest.includes('--help') || rest.includes('-h'))) {
+    console.log(HELP);
+    return 0;
+  }
   if (command === 'run' || command === 'mcp') {
     // Everything after the script name goes to the script, untouched.
     let agent: string | undefined;
@@ -75,6 +84,18 @@ function main(argv: string[]): number {
     case 'update':
       unknown([]);
       return update(cwd, out);
+    case 'new': {
+      const flagArgs = rest.filter((a, i) => a === '--to' || rest[i - 1] === '--to' || a === '--entry');
+      const positional = rest.filter((a) => !flagArgs.includes(a) && !a.startsWith('--'));
+      const toIndex = rest.indexOf('--to');
+      const to = toIndex >= 0 ? rest[toIndex + 1] : undefined;
+      for (const a of rest) if (a.startsWith('--') && a !== '--to' && a !== '--entry') throw new HarnessError(`Unknown option ${a} for new`);
+      if (positional.length !== 2) throw new HarnessError('Usage: harnesspm new <kind> <name> [--to <plugin>] [--entry], or harnesspm new patch <rule ID>');
+      return newUnit(cwd, positional[0]!, positional[1]!, { ...(to !== undefined ? { to } : {}), entry: rest.includes('--entry') }, out);
+    }
+    case 'fetch':
+      unknown([]);
+      return fetch(cwd, out);
     case 'approve':
       unknown([]);
       return approve(cwd, args[0], out);

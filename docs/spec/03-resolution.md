@@ -70,9 +70,13 @@ harnesspm warns and names the versions.
 
 ## 3.6 Monorepos
 
-1. Each workspace is resolved on its own dependencies. Backend workspaces do not get frontend rules.
-2. Units that every workspace shares are written once, at the root.
-3. Executable units are written at the root, where both agents read them.
+Workspaces come from the `workspaces` field of the root `package.json` or from `pnpm-workspace.yaml`.
+
+1. Each workspace is resolved on its own dependencies, from its own folder. Backend workspaces do not get frontend rules.
+2. Units that the root reaches, or that every workspace shares, are written once, at the root.
+3. A workspace's own `harness/` belongs to that workspace. A workspace that another workspace depends on is still the project's own code, so it is in the project layer and trusted.
+4. Executable units are written at the root, where both agents read them.
+5. One version per package applies to the whole repository ([3.5](#35-one-package-several-versions)).
 
 ## 3.7 Project configuration
 
@@ -82,7 +86,7 @@ harnesspm warns and names the versions.
 {
   "$schema": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json",
   "exclude": ["@tenphi/glaze"],
-  "patch": { "tasty:rules/lint-comments": "./agents/lint-comments.patch.md" },
+  "patch": { "tasty:rules/lint-comments": "./harnesspm/patches/tasty-lint-comments.patch.md" },
   "trust": { "@cube-dev/ui-kit": true }
 }
 ```
