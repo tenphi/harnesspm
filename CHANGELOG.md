@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Docs index:** pages with the `.mdx` extension are indexed too, and a page's frontmatter `title` names it before its first heading. Found by the first pilot, `@tenphi/glaze`.
+
 ## 0.1.0
 
 The first release: a proof of concept that covers every scenario of the [specification](docs/spec/README.md) (version 0.7 draft).

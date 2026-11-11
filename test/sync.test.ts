@@ -21,7 +21,10 @@ function chain(usesHarnesspm = true): string {
       'dev.harnesspm/rules/forms.md': '# Forms\n\nUse Form.useController.\n',
       'skills/uikit-review/SKILL.md': skill('uikit-review'),
     },
-    files: { 'docs/button.md': '---\ndescription: The Button component\n---\n\n# Button\n\nText.\n' },
+    files: {
+      'docs/button.md': '---\ndescription: The Button component\n---\n\n# Button\n\nText.\n',
+      'docs/forms.mdx': '---\ntitle: Forms guide\ndescription: How forms work\n---\n\nText without a heading.\n',
+    },
     repository: 'https://github.com/cube-js/cube-ui-kit',
   });
   installPackage(uikit, '@tenphi/tasty', { plugin: 'tasty', version: '3.17.1', harness: TASTY_RULES, repository: 'https://github.com/tenphi/tasty' });
@@ -39,6 +42,7 @@ test('S3: sync writes the block, links and lock for a dependency chain', () => {
   assert.match(agents, /- Legacy tokens, for old code: read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/legacy\.md \(tasty:rules\/legacy\)/);
   assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/uikit\/llms\.txt \(uikit:docs\)/);
   assert.match(read(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt'), /- \[Button\]\(node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/docs\/button\.md\): The Button component/);
+  assert.match(read(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt'), /- \[Forms guide\]\(node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/docs\/forms\.mdx\): How forms work/, '.mdx pages, titled by their frontmatter');
   assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
 
   assert.ok(isLink(dir, 'node_modules/.harnesspm/pkgs/@tenphi/tasty'));

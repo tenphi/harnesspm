@@ -89,10 +89,10 @@ function docsIndexText(dir: string, display: (file: string) => string): string {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.md')) {
+      else if (/\.mdx?$/.test(entry.name)) {
         const { data, body } = parseFrontmatter(readText(full), full);
         const first = headings(body.split('\n')).find((h) => h.level === 1);
-        const title = first?.text ?? entry.name.slice(0, -3);
+        const title = typeof data['title'] === 'string' ? data['title'] : (first?.text ?? entry.name.replace(/\.mdx?$/, ''));
         const description = typeof data['description'] === 'string' ? `: ${data['description']}` : '';
         lines.push(`- [${title}](${display(full)})${description}`);
       }

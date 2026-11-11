@@ -197,7 +197,7 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 
 1. The path is relative to `harness/`. It MAY point outside `harness/` but MUST stay inside the package.
 2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
-3. Otherwise harnesspm builds the index from each page's first heading and its frontmatter `description`. To leave pages out, write an `llms.txt`.
+3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
 
 ## 2.8 Unit IDs
