@@ -14,8 +14,8 @@ npx -y harnesspm personal add github:andrew/harness
 
 | Way | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
-| **Setup script** of the person's own environment | ✅ Runs after the clone and before Claude Code starts, once per cached snapshot (about 7 days). Later sessions start from the snapshot, and the `SessionStart` hook refreshes the outputs in each one. | ✅ Runs after the clone. Cached for up to 12 hours. Add `npx -y harnesspm personal update` to the maintenance script for cached resumes. |
-| **Ask the agent** in a session | ✅ Rules and skills apply at once; Claude Code loads new skills live. Hooks and MCP servers stay pending, because an agent cannot grant itself permissions ([06-trust.md](06-trust.md#62-trusting-a-package)). Allow rules are not needed for built-in tools, which a platform rule approves in cloud sessions. MCP tools still need one. Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs internet access in the agent phase, which is off by default. The same limit on permissions applies. |
+| **Setup script** of the person's own environment (Codex: **install script**) | ✅ Runs after the clone and before Claude Code starts, once per cached snapshot (about 7 days). Later sessions start from the snapshot, and the `SessionStart` hook refreshes the outputs in each one. | ✅ Runs when Codex prepares the environment. After **Republish**, new tasks start from the prepared files. ❓ Whether the environment's start skill can refresh the outputs in each task. Legacy: the setup script, with `npx -y harnesspm personal update` in the maintenance script. |
+| **Ask the agent** in a session | ✅ Rules and skills apply at once; Claude Code loads new skills live. Hooks and MCP servers stay pending, because an agent cannot grant itself permissions ([06-trust.md](06-trust.md#62-trusting-a-package)). Allow rules are not needed for built-in tools, which a platform rule approves in cloud sessions. MCP tools still need one. Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. | ✅ Needs the environment's network settings to allow npm. The same limit on permissions applies. |
 
 A committed repository hook is not the place for personal content, because it belongs to the team.
 
@@ -29,9 +29,9 @@ A `~/.claude/settings.json` written by the setup script is read in cloud session
 
 | | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
-| Public git repository or npm package | Works | Works during setup |
-| Private git repository | Add it under the environment's repositories, or attach it to the session. Setup scripts cannot read variables or secrets. | A token in the environment's secrets, which exist only during setup |
-| Private npm package | Inside a session only: a network secret for `registry.npmjs.org` | `NPM_TOKEN` in the environment's secrets |
+| Public git repository or npm package | Works | Works when the environment's network settings allow the host |
+| Private git repository | Add it under the environment's repositories, or attach it to the session. Setup scripts cannot read variables or secrets. | Add it to the environment's repositories, or a network secret for the git host. Legacy: a secret, which exists only during setup. |
+| Private npm package | Inside a session only: a network secret for `registry.npmjs.org` | A network secret for `registry.npmjs.org`, during setup and tasks |
 
 Tokens MUST NOT be written into Claude Code setup scripts or environment variables, because anyone who uses the environment can read them.
 
@@ -42,7 +42,7 @@ The flow is the one in [08-improving.md](08-improving.md). Pushing needs access 
 | Agent | Push access |
 | --- | --- |
 | Claude Code | Attach the personal repository to the session with push access. |
-| Codex | Usually none: the agent phase has no secrets and often no network. |
+| Codex | ❓ A network secret for the git host, from the person's Personal vault. Legacy: usually none, because the agent phase has no secrets. |
 
 A cloud container is discarded later. When the agent cannot push, it MUST show the full change in the session, so the person can apply it elsewhere.
 
@@ -51,7 +51,7 @@ A cloud container is discarded later. When the agent cannot push, it MUST show t
 Personal setup MUST go into the person's own environment:
 
 - Claude Code: anyone who uses an environment can read its setup script and variables.
-- Codex: on Business and Enterprise plans, the environment cache is shared by everyone with access.
+- Codex: a shared environment shares its prepared files and environment-owned credentials. Personal values belong in Personal vault, which a shared environment can request from each person. Legacy: the cache is shared by everyone with access.
 
 ## 9.5 Not confirmed yet
 
@@ -64,7 +64,7 @@ The proof of concept MUST test each ❓ before the release. Where an output does
 | Personal rules, scope this project | 🔍 `CLAUDE.local.md`, also when a `SessionStart` hook writes it | ❓ `developer_instructions` in `.codex/config.toml` |
 | `SessionStart` hook output | 🔍 Reaches the agent's context | ❓ |
 | Settings written by a setup script | 🔍 `~/.claude/settings.json` is read: `env` and deny rules apply. Built-in tools are approved by the platform; MCP tools are not | ❓ `~/.codex/` |
-| Hooks | 🔍 Fire from `~/.claude/settings.json`, and from a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook | ❓ `.codex/`: does the cloud treat the project as trusted? |
+| Hooks | 🔍 Fire from `~/.claude/settings.json`, and from a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook | ❓ A hook waits for review in `/hooks`, which nobody can give in a cloud task, so only managed hooks may run. Also: does the cloud treat the project's `.codex/` as trusted? |
 | MCP servers | 🔍 A user-scope server added by the setup script works in sessions started from the cached snapshot; it did not load in the first session of the new environment. Its tool calls ask for approval | ❓ the agent phase has no network by default |
 | A skill added during a session | 🔍 Loaded within seconds, from `.claude/skills/` and `~/.claude/skills/` | ❓ |
 | A git-excluded skill in the clone | 🔍 Listed and picked like a committed one | ❓ |

@@ -1,6 +1,6 @@
 This is a configuration test for the harnesspm specification, set up by the owner of this environment. Do not commit, open a pull request, or edit or create files.
 
-0. Run `id; echo "HOME=$HOME CODEX_HOME=${CODEX_HOME:-unset}"; pwd; ls /workspace; ls -la /opt/harnesspm-probe /tmp/harnesspm-probe 2>&1 | head -20` and paste the output.
+0. Run `id; echo "HOME=$HOME CODEX_HOME=${CODEX_HOME:-unset}"; pwd; ls /workspace; ls -la /opt/harnesspm-probe /tmp/harnesspm-probe 2>&1 | head -20` and paste the output. If neither `/opt/harnesspm-probe` nor `/tmp/harnesspm-probe` exists, this task did not start in the probe environment. Say so, quote the name and description of every skill whose name starts with `cloud-environment`, name the environment you run in if you know it, and then do steps 1 and 2 only.
 1. Before you run any other command, answer from what you already see:
    - every line that starts with "Probe word" in your instructions or context, exactly as written, or "none";
    - the names of all skills you can see, with the folder each comes from when you know it, or "none". Do not search files for them.
