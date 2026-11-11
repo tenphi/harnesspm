@@ -17,7 +17,10 @@
   "engines": {
     "node": ">=20"
   },
-  "repository": "https://github.com/tenphi/tack",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tenphi/tack.git"
+  },
   "homepage": "https://github.com/tenphi/tack#readme",
   "keywords": [
     "agents",
