@@ -1,0 +1,156 @@
+// User-level outputs of added harnesses with user scope (spec 4.4), and the user-level hook.
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { harnesspmHome, type AddedHarness } from './added.ts';
+import { pathTools } from './outputs.ts';
+import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from './render.ts';
+import { resolve } from './resolve.ts';
+import { ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
+
+export const HOOK_COMMAND = 'npx -y harnesspm sync';
+
+export function claudeHome(): string {
+  return process.env['CLAUDE_CONFIG_DIR'] ?? path.join(os.homedir(), '.claude');
+}
+
+export function codexHome(): string {
+  return process.env['CODEX_HOME'] ?? path.join(os.homedir(), '.codex');
+}
+
+function agentsHome(): string {
+  return path.join(os.homedir(), '.agents');
+}
+
+interface State {
+  userLinks: string[];
+  claudeDirs: string[];
+}
+
+const stateFile = (): string => path.join(harnesspmHome(), 'state.json');
+
+function readState(): State {
+  const raw = readJsonIfExists(stateFile());
+  const data = isRecord(raw) ? raw : {};
+  const list = (key: string): string[] => (Array.isArray(data[key]) ? (data[key] as unknown[]).filter((v): v is string => typeof v === 'string') : []);
+  return { userLinks: list('userLinks'), claudeDirs: list('claudeDirs') };
+}
+
+function writeState(state: State): void {
+  writeIfChanged(stateFile(), `${JSON.stringify(state, null, 2)}\n`);
+}
+
+/** Writes rules, docs and skills of user-scope harnesses into the agents' user folders. */
+export function writeUserOutputs(added: AddedHarness[], warnings: string[]): string[] {
+  const user = added.filter((h) => h.scope === 'user').map(({ entry: _entry, ...rest }) => rest);
+  const home = harnesspmHome();
+  ensureDir(home);
+  const res = resolve(home, { team: false, added: user });
+  warnings.push(...res.warnings);
+  const generatedRoot = path.join(home, 'generated', 'user');
+  const generated = new Map<string, string>();
+  const tools = pathTools(res, () => generatedRoot, generated);
+  for (const rule of res.rules) if (rule.activation !== 'always' && rule.patches.length > 0) generated.set(tools.generatedRule(rule), rule.text);
+  const content = renderSections(sectionsFor(res, res.packages, tools.paths), tools.paths);
+
+  const changed: string[] = [];
+  fs.rmSync(generatedRoot, { recursive: true, force: true });
+  for (const [file, text] of generated) writeIfChanged(file, text);
+  for (const file of [path.join(claudeHome(), 'CLAUDE.md'), path.join(codexHome(), 'AGENTS.md')]) {
+    const existing = readTextIfExists(file);
+    const next = content !== '' ? upsertBlock(existing, wrapBlock(content)) : removeBlock(existing);
+    if (next === undefined) {
+      if (existing !== undefined && existing.includes('BEGIN:harnesspm')) {
+        fs.rmSync(file);
+        changed.push(file);
+      }
+    } else if (writeIfChanged(file, next)) changed.push(file);
+  }
+
+  // Skills: ~/.claude/skills and ~/.agents/skills, once when one links to the other.
+  const state = readState();
+  const links = new Map<string, string>();
+  const seen = new Set<string>();
+  for (const root of [path.join(claudeHome(), 'skills'), path.join(agentsHome(), 'skills')]) {
+    const real = isDir(root) ? realpath(root) : root;
+    if (seen.has(real)) continue;
+    seen.add(real);
+    for (const skill of res.skills) {
+      const link = path.join(root, skill.name);
+      if (exists(link) && !isSymlink(link)) warnings.push(`${link} exists and is not a harnesspm link; left as it is`);
+      else links.set(link, skill.dir);
+    }
+  }
+  for (const [link, target] of links) if (linkIfChanged(link, target)) changed.push(link);
+  for (const old of state.userLinks) {
+    if (!links.has(old) && isSymlink(old)) {
+      fs.unlinkSync(old);
+      changed.push(old);
+    }
+  }
+  writeState({ ...state, userLinks: [...links.keys()].sort() });
+  return changed;
+}
+
+function editJson(file: string, edit: (data: Record<string, unknown>) => void): boolean {
+  const raw = readJsonIfExists(file);
+  const data = isRecord(raw) ? raw : {};
+  const before = JSON.stringify(data);
+  edit(data);
+  if (JSON.stringify(data) === before) return false;
+  // A settings file that held only harnesspm's entries goes away with them.
+  if (Object.keys(data).length === 0 || (Object.keys(data).length === 1 && isRecord(data['hooks']) && Object.keys(data['hooks']).length === 0)) {
+    fs.rmSync(file, { force: true });
+    return true;
+  }
+  ensureDir(path.dirname(file));
+  fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
+  return true;
+}
+
+type HookGroup = { matcher?: string; hooks?: { type?: string; command?: string }[] };
+
+function setSessionHook(hooks: Record<string, unknown>, on: boolean): void {
+  const groups = (Array.isArray(hooks['SessionStart']) ? hooks['SessionStart'] : []) as HookGroup[];
+  const ours = (g: HookGroup): boolean => (g.hooks ?? []).some((h) => h.command === HOOK_COMMAND);
+  const rest = groups.filter((g) => !ours(g));
+  const next = on ? [...rest, { hooks: [{ type: 'command', command: HOOK_COMMAND, timeout: 120 }] }] : rest;
+  if (next.length > 0) hooks['SessionStart'] = next;
+  else delete hooks['SessionStart'];
+}
+
+/**
+ * The user-level SessionStart hook and write access to editable working copies (spec 7.5, 8.5).
+ * These widen what agents do, so callers check rule 4 first.
+ */
+export function writeUserSettings(hook: boolean, writableDirs: string[]): string[] {
+  const changed: string[] = [];
+  const state = readState();
+  const claudeSettings = path.join(claudeHome(), 'settings.json');
+  const didClaude = editJson(claudeSettings, (data) => {
+    const hooks = isRecord(data['hooks']) ? data['hooks'] : {};
+    setSessionHook(hooks, hook);
+    if (Object.keys(hooks).length > 0) data['hooks'] = hooks;
+    else delete data['hooks'];
+    const permissions = isRecord(data['permissions']) ? data['permissions'] : {};
+    const current = Array.isArray(permissions['additionalDirectories']) ? (permissions['additionalDirectories'] as unknown[]).filter((d): d is string => typeof d === 'string') : [];
+    const kept = current.filter((d) => !state.claudeDirs.includes(d) || writableDirs.includes(d));
+    const dirs = [...new Set([...kept, ...writableDirs])];
+    if (dirs.length > 0) permissions['additionalDirectories'] = dirs;
+    else delete permissions['additionalDirectories'];
+    if (Object.keys(permissions).length > 0) data['permissions'] = permissions;
+    else delete data['permissions'];
+  });
+  if (didClaude) changed.push(claudeSettings);
+  const codexHooks = path.join(codexHome(), 'hooks.json');
+  if (hook || exists(codexHooks)) {
+    const didCodex = editJson(codexHooks, (data) => {
+      const hooks = isRecord(data['hooks']) ? data['hooks'] : {};
+      setSessionHook(hooks, hook);
+      data['hooks'] = hooks;
+    });
+    if (didCodex) changed.push(codexHooks);
+  }
+  writeState({ ...state, claudeDirs: writableDirs });
+  return changed;
+}

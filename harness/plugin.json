@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "harnesspm",
-  "description": "How to work with harnesspm: generated files, configuration, harness authoring and personal harnesses",
+  "description": "How to work with harnesspm: generated files, configuration, harness authoring and added harnesses",
   "homepage": "https://github.com/tenphi/tack",
   "repository": "https://github.com/tenphi/tack",
   "keywords": ["harnesspm", "harness", "agents"],

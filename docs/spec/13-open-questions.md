@@ -10,7 +10,7 @@
 
 ### 13.1 Memory
 
-"Memory" here means everything a person wants agents to know that should live outside a project's repository: how they work, context, how their projects relate. It is the content of the personal harness ([07-personal.md](07-personal.md#71-what-goes-in-it)). Agents keep it current by improving the personal harness ([08-improving.md](08-improving.md)).
+"Memory" here means everything a person wants agents to know that should live outside a project's repository: how they work, context, how their projects relate. It is the content of a person's own added harness ([07-added.md](07-added.md#71-what-goes-in-it)). Agents keep it current by improving that harness ([08-improving.md](08-improving.md)).
 
 Notes that Claude Code or Codex save by themselves (Claude Code auto memory, Codex memories) are part of each agent's own harness. harnesspm does not move or merge them.
 
@@ -41,7 +41,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.7 Team lock on rules (rejected)
 
-A team cannot mark a rule as one a person cannot exclude. Nothing could enforce it on a person's machine, and `harnesspm status` already shows personal changes.
+A team cannot mark a rule as one a person cannot exclude. Nothing could enforce it on a person's machine, and `harnesspm status` already shows the changes that added harnesses make.
 
 ### 13.8 Committed Claude Code settings (settled)
 
@@ -69,14 +69,15 @@ Settled by the proof of concept: Yarn 4 runs `postinstall` but not `prepare`, so
 
 | Removed | Why | Comes back if |
 | --- | --- | --- |
-| Four layers, with a global personal layer below dependencies | Hard to explain. Three layers and two personal scopes say the same thing. | A real case needs personal defaults that team rules override by ID. |
+| Four layers, with a global personal layer below dependencies | Hard to explain. Three layers and two scopes say the same thing. | A real case needs a person's defaults that team rules override by ID. |
 | `include` and `self` in `harnesspm.json` | No scenario needed them. `exclude` covers narrowing. | A project needs an allowlist. |
 | Committed Claude Code settings and `.mcp.json` entries | Two rules for two agents. Now: commit only the block and the lock. | Per-machine settings stop working (13.8). |
-| `AGENTS.override.md` as a copy of `AGENTS.md` for Codex | Copies go stale. `developer_instructions` adds personal rules without a copy. | `developer_instructions` is not read from project config. |
+| `AGENTS.override.md` as a copy of `AGENTS.md` for Codex | Copies go stale. `developer_instructions` adds rules of added harnesses without a copy. | `developer_instructions` is not read from project config. |
 | `harnesspm personal save`, `push`, `pull`, `diff`, `status`, `extend` and a patch outbox | harnesspm does not need to wrap git. The owner's rules decide how changes are saved, and agents have their own git tools. | Agents turn out unable to follow owner rules reliably. |
-| A folder picked up automatically as a personal harness | One more rule to learn. `personal add --project` does the same. | — |
-| A separate lock for personal sources | Personal sources follow their branch or range. | People need reproducible personal setups. |
+| A folder picked up automatically as an added harness | One more rule to learn. `add --local` does the same. | — |
+| A separate lock for added harnesses | Added harnesses follow their branch or range. | People need reproducible setups of added harnesses. |
 | Variables and slots in rules | Patches by section cover the same cases with one mechanism. | Patches copy most of a rule to change a word. |
 | Options without a scenario: `agents` in `harnesspm.json`, `sync --no-local`, the hook field `agents`, `docs` as an object with `exclude`, a package-root `skills/` folder | Each had a simpler equivalent or served no scenario. | A scenario needs one of them. |
+| A "personal layer" with `personal add`, `remove`, `update`, `sync --personal` and `new --personal` | A team's harness on top of a repository works the same way as a person's own. One general mechanism, "added harnesses", covers both, and `sync` itself handles repositories that do not use harnesspm. | — |
 | Approving a `"pin"` package unit by unit, by hash | A script's hash misses the code it imports. Approving a version is simpler and covers it. | A team needs to approve part of a release. |
 | Codex Cloud support | Its agent runs outside the task's VM. In a probe, no file written in the VM during a task reached it, and skills came only from cloud plugins ([research](../research/agent-capabilities.md#cloud)). A setup step that prepares files never reached a task in five tries. Codex on a person's computer stays supported. | Codex Cloud is shown to load files that the setup prepares, or harnesspm gains a Codex plugin output (13.5). |

@@ -24,7 +24,7 @@ The proof of concept runs on these files: `npm run sync` writes the block and `h
 | `harnesspm:rules/generated-files` | Always-on rule | Outputs are generated. To change one, find its source with `harnesspm why`. |
 | `harnesspm:rules/harnesspm-config` | File-scoped rule | How to change `harnesspm.json`, `harnesspm.local.json` and harness files safely. |
 | `harnesspm-export` | Skill | Share a harness from a package: units, IDs, `extends`, checks, publishing. |
-| `harnesspm-import` | Skill | Set up harnesspm in a project, trust packages, add a personal harness. |
+| `harnesspm-import` | Skill | Set up harnesspm in a project, trust packages, add a harness on top. |
 | `harnesspm-improve` | Skill | Change any harness: find the owner, edit the source, save under the owner's rules. |
 | Docs index | Docs | This specification, at the installed version. |
 

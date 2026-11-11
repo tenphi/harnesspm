@@ -1,6 +1,6 @@
 ---
 name: harnesspm-import
-description: Set up harnesspm in a project, take agent harness from its dependencies, trust packages that ship tools, or install the user's personal harness. Use when the user asks to use a package's agent rules or tools, to set up harnesspm, or to install their own harness in this project or session.
+description: Set up harnesspm in a project, take agent harness from its dependencies, trust packages that ship tools, or add a harness on top, such as the user's team's or their own. Use when the user asks to use a package's agent rules or tools, to set up harnesspm, or to add a harness in this project or session.
 ---
 
 # Using harness in a project
@@ -23,13 +23,13 @@ Run `npx harnesspm status`. It lists the packages, pending tools and the always-
 - **One upstream rule does not fit** the project: run `npx harnesspm new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `harnesspm.json` to change or drop a whole unit.
 - **A job that does not install dependencies**, such as a review bot, runs `npx -y harnesspm fetch` first.
 
-## 3. Install the user's personal harness
+## 3. Add a harness on top
 
 ```bash
-npx -y harnesspm personal add <source>            # everywhere on this machine
-npx -y harnesspm personal add <source> --project  # this project only
+npx -y harnesspm add <source>          # every repository on this machine
+npx -y harnesspm add <source> --local  # this repository only
 ```
 
-The source is `github:<owner>/<repo>`, `git:<url>`, `npm:<package>` or a folder path. The command prints the personal rules. Follow them from now on in this session.
+The source is `github:<owner>/<repo>`, `git:<url>`, `npm:<package>` or a folder path. Add a team's harness before the user's own, so the user's wins. The command prints the added rules. Follow them from now on in this session.
 
-Personal files never go into the project's repository. Do not commit them.
+Outputs of added harnesses never go into the project's repository. Do not commit them.

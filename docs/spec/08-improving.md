@@ -2,7 +2,7 @@
 
 **In short**
 
-- Every unit has an **owner**: a dependency, the project, or a personal harness.
+- Every unit has an **owner**: a dependency, the project, or an added harness.
 - `harnesspm why <ID>` tells the agent where the source is and whether it can edit it.
 - The owner's own `AGENTS.md` and `CONTRIBUTING.md` decide how a change is saved. Without them, the default is a branch and a pull request.
 - harnesspm finds sources and grants write access. It does not push or talk to git hosts. The agent does that with its own tools.
@@ -17,9 +17,9 @@ repository  https://github.com/tenphi/tasty
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 
 $ npx harnesspm why andrew:rules/workflow
-owner       personal github:andrew/harness (scope: everywhere)
-source      ~/.harnesspm/personal/andrew/harness/dev.harnesspm/rules/workflow.md
-rules       ~/.harnesspm/personal/andrew/AGENTS.md
+owner       added github:andrew/harness (user scope)
+source      ~/.harnesspm/harnesses/andrew/harness/dev.harnesspm/rules/workflow.md
+rules       ~/.harnesspm/harnesses/andrew/AGENTS.md
 editable    yes
 ```
 
@@ -27,11 +27,11 @@ editable    yes
 
 | Owner | Where the source is | How the agent changes it |
 | --- | --- | --- |
-| 📦 Dependency | `node_modules`, read-only | Now: a `patch` for a small change, or a `replace` or `exclude`, in the project (for the team) or in the personal harness (for one person). Later: a proposal to the package's `repository`. |
+| 📦 Dependency | `node_modules`, read-only | Now: a `patch` for a small change, or a `replace` or `exclude`, in the project (for the team) or in an added harness (for its owner). Later: a proposal to the package's `repository`. |
 | 🏢 Project | The project repository | Edit the file, like any other change in that repository. |
-| 🙋 Personal | The personal working copy or folder | Edit the file there. |
+| ➕ Added harness | Its working copy or folder | Edit the file there. |
 
-To create a new unit instead of changing one, use `npx harnesspm new <kind> <name>` with `--personal`, `--personal --project`, or no flag for the project harness.
+To create a new unit instead of changing one, use `npx harnesspm new <kind> <name>`: without a flag for the project harness, `--to <plugin>` for an added harness, and `--to <plugin> --entry` for its entry for this repository.
 
 ## 8.3 The owner decides how to save
 
@@ -61,16 +61,16 @@ For a dependency, the proposal goes to the package's `repository`, following tha
 | --- | --- |
 | Dependency | Never. `node_modules` is not a source. |
 | Project | As for any file in the project. |
-| Personal | harnesspm adds the working copy to the agent's writable folders: `permissions.additionalDirectories` for Claude Code, `sandbox_workspace_write.writable_roots` for Codex. |
+| Added harness | harnesspm adds the working copy to the agent's writable folders: `permissions.additionalDirectories` for Claude Code, `sandbox_workspace_write.writable_roots` for Codex. |
 
 ## 8.6 Checks before saving
 
 1. Run `npx harnesspm check <harness folder>`. It validates the harness and warns about files that look like secrets.
-2. Never copy private data from the current project into a personal harness without the person's agreement.
+2. Never copy private data from the current project into an added harness without the person's agreement.
 
 ## 8.7 Shared working copies
 
-Several projects and sessions on one machine use the same personal working copy. `harnesspm personal update` never changes a working copy that has uncommitted changes or unpushed commits. It reports them instead.
+Several projects and sessions on one machine use the same working copy of an added harness. `harnesspm update` never changes a working copy that has uncommitted changes or unpushed commits. It reports them instead.
 
 ## 8.8 What harnesspm ships for this
 

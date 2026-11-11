@@ -1,6 +1,7 @@
 // Resolution of the dependency and project layers (spec chapter 3).
 import * as path from 'node:path';
-import { CONFIG_FILE, readConfig, type ProjectConfig } from './config.ts';
+import type { AddedHarness, Scope } from './added.ts';
+import { CONFIG_FILE, emptyConfig, readConfig, type ProjectConfig } from './config.ts';
 import {
   discoverUnits,
   loadHarnessPackage,
@@ -20,6 +21,18 @@ export interface ResolvedPackage extends HarnessPackage {
   direct: boolean;
   /** Names of the packages this one passes on through `extends`, transitively. */
   closure: Set<string>;
+  /** For an added harness: its scope and source. */
+  scope?: Scope;
+  added?: AddedHarness;
+  /** True for an added harness's entry for this repository. */
+  entry?: boolean;
+}
+
+export interface ResolveOptions {
+  /** Added harnesses to put on top, in order. */
+  added?: AddedHarness[];
+  /** Resolve the dependency and project layers. False when they are not installed or not used. */
+  team?: boolean;
 }
 
 export interface Override {
@@ -108,10 +121,11 @@ interface Occurrence {
   via?: string;
 }
 
-export function resolve(projectDirInput: string): Resolution {
+export function resolve(projectDirInput: string, options: ResolveOptions = {}): Resolution {
   const projectDir = realpath(projectDirInput);
+  const team = options.team ?? true;
   const warnings: string[] = [];
-  const config = readConfig(projectDir);
+  const config = team ? readConfig(projectDir) : emptyConfig();
   warnings.push(...config.warnings);
   const pkgJsonRaw = readJsonIfExists(path.join(projectDir, 'package.json'));
   const pkgJson = isRecord(pkgJsonRaw) ? pkgJsonRaw : {};
@@ -167,7 +181,7 @@ export function resolve(projectDirInput: string): Resolution {
   };
 
   const rootExcluded = new Map(config.exclude.filter((e) => !isUnitId(e)).map((name) => [name, CONFIG_FILE] as const));
-  for (const name of dependencyNames(pkgJson)) {
+  for (const name of team ? dependencyNames(pkgJson) : []) {
     if (rootExcluded.has(name)) {
       excludedPackages.push({ name, by: CONFIG_FILE });
       continue;
@@ -180,7 +194,7 @@ export function resolve(projectDirInput: string): Resolution {
     visit(pkg, 0, rootExcluded, [dir]);
   }
 
-  const projectHarness = loadHarnessPackage(projectDir, 'project');
+  const projectHarness = team ? loadHarnessPackage(projectDir, 'project') : undefined;
   if (projectHarness) {
     projectHarness.name = projectName;
     visit(projectHarness, 0, rootExcluded, [projectDir]);
@@ -237,10 +251,15 @@ export function resolve(projectDirInput: string): Resolution {
     };
   });
   if (projectHarness) packages.push({ ...projectHarness, direct: true, closure: closureOf(projectName) });
+  for (const added of options.added ?? []) {
+    packages.push({ ...added.pkg, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added });
+    if (added.entry) packages.push({ ...added.entry, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, entry: true });
+  }
 
-  // Plugin names must be unique (spec 2.9).
+  // Plugin names must be unique (spec 2.9). An entry shares its harness's name.
   const byPlugin = new Map<string, string>();
   for (const pkg of packages) {
+    if (pkg.entry) continue;
     const other = byPlugin.get(pkg.plugin);
     if (other !== undefined) {
       throw new HarnessError(`${other} and ${pkg.name} both use the plugin name "${pkg.plugin}". Exclude one of them in ${CONFIG_FILE}.`);
@@ -256,8 +275,10 @@ export function resolve(projectDirInput: string): Resolution {
     for (const [target, file] of Object.entries(replace)) overrides.push({ kind: 'replace', target, file: path.resolve(baseDir, file), by, order: overrides.length, scope });
     for (const [target, file] of Object.entries(patch)) overrides.push({ kind: 'patch', target, file: path.resolve(baseDir, file), by, order: overrides.length, scope });
   };
-  for (const pkg of packages) add(pkg.name, pkg.closure, pkg.ext.exclude, pkg.ext.replace, pkg.ext.patch, pkg.harnessDir);
+  for (const pkg of packages.filter((p) => p.layer !== 'added')) add(pkg.name, pkg.closure, pkg.ext.exclude, pkg.ext.replace, pkg.ext.patch, pkg.harnessDir);
   add(CONFIG_FILE, 'all', config.exclude, config.replace, config.patch, projectDir);
+  // Added harnesses sit above everything, so their changes reach every unit below them.
+  for (const pkg of packages.filter((p) => p.layer === 'added')) add(pkg.name, 'all', pkg.ext.exclude, pkg.ext.replace, pkg.ext.patch, pkg.harnessDir);
 
   const overrideFiles = new Set(overrides.flatMap((o) => (o.file !== undefined ? [o.file] : [])));
   const inScope = (o: Override, pkgName: string): boolean => o.scope === 'all' || o.scope.has(pkgName);
@@ -276,8 +297,11 @@ export function resolve(projectDirInput: string): Resolution {
   for (const { source, pkg } of allRules) knownIds.set(source.id, pkg.name);
   for (const skill of allSkills) knownIds.set(skill.id, skill.pkg.name);
   for (const docs of allDocs) knownIds.set(docs.id, docs.pkg.name);
+  const addedNames = new Set(packages.filter((p) => p.layer === 'added').map((p) => p.name));
   for (const o of overrides) {
     const owner = knownIds.get(o.target);
+    // Without the team layers, an added harness's change to a team unit has nothing to point at yet.
+    if (owner === undefined && !team && addedNames.has(o.by)) continue;
     if (owner === undefined) warnings.push(`${o.by}: ${o.kind} names ${o.target}, which does not exist. It may have been renamed upstream.`);
     else if (!inScope(o, owner)) warnings.push(`${o.by}: ${o.kind} names ${o.target}, which ${o.by} does not pass on`);
     else if (o.kind !== 'exclude' && !o.target.includes(':rules/')) warnings.push(`${o.by}: ${o.kind} works on rules only: ${o.target}`);
@@ -288,8 +312,11 @@ export function resolve(projectDirInput: string): Resolution {
   const excludedBy = (id: string, pkgName: string): Override | undefined =>
     overrides.find((o) => o.kind === 'exclude' && o.target === id && inScope(o, pkgName));
 
+  // An entry's unit wins over a unit with the same ID in its own harness (spec 7.2).
+  const entryIds = new Set(allRules.filter((r) => r.pkg.entry).map((r) => r.source.id));
   const rules: FinalRule[] = [];
   for (const { source, pkg } of allRules) {
+    if (!pkg.entry && pkg.layer === 'added' && entryIds.has(source.id)) continue;
     const exclusion = excludedBy(source.id, pkg.name);
     if (exclusion) {
       excludedUnits.push({ id: source.id, by: exclusion.by });
@@ -333,7 +360,7 @@ export function resolve(projectDirInput: string): Resolution {
       continue;
     }
     const previous = skillsByName.get(skill.name);
-    if (previous) warnings.push(`skill "${skill.name}" comes from ${previous.pkg.name} and ${skill.pkg.name}; using ${skill.pkg.name}`);
+    if (previous && !(skill.pkg.entry && previous.pkg.plugin === skill.pkg.plugin)) warnings.push(`skill "${skill.name}" comes from ${previous.pkg.name} and ${skill.pkg.name}; using ${skill.pkg.name}`);
     skillsByName.set(skill.name, skill);
   }
 

@@ -6,7 +6,7 @@ import { HarnessError, isDir, isFile, isRecord, listDir, readJson, readJsonIfExi
 export const NS = 'dev.harnesspm';
 export const PLUGIN_SCHEMA = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
 
-export type Layer = 'dependencies' | 'project' | 'personal';
+export type Layer = 'dependencies' | 'project' | 'added';
 
 export interface ScriptDef {
   file: string;
@@ -75,6 +75,26 @@ export function loadHarnessPackage(dir: string, layer: Layer): HarnessPackage | 
     throw new HarnessError(`${manifestFile}: "name" must be lowercase letters, digits, "-" and "."`);
   }
 
+  const ext = parseExtension(manifest, problems);
+  const version = typeof manifest['version'] === 'string' ? manifest['version'] : typeof pkg['version'] === 'string' ? pkg['version'] : '0.0.0';
+  const description = typeof manifest['description'] === 'string' ? manifest['description'] : undefined;
+  const repository = repositoryUrl(manifest['repository']) ?? repositoryUrl(pkg['repository']);
+  return {
+    name: typeof pkg['name'] === 'string' ? pkg['name'] : path.basename(dir),
+    version,
+    plugin,
+    ...(description !== undefined ? { description } : {}),
+    ...(repository !== undefined ? { repository } : {}),
+    dir,
+    harnessDir,
+    ext,
+    layer,
+    problems,
+  };
+}
+
+/** Reads `extensions["dev.harnesspm"]` of a manifest. Problems go into `problems`. */
+export function parseExtension(manifest: Record<string, unknown>, problems: string[]): Extension {
   const extensions = manifest['extensions'];
   const rawExt = isRecord(extensions) && isRecord(extensions[NS]) ? extensions[NS] : {};
   for (const key of Object.keys(rawExt)) if (!EXT_FIELDS.has(key)) problems.push(`unknown field "${key}" in extensions["${NS}"]`);
@@ -114,7 +134,7 @@ export function loadHarnessPackage(dir: string, layer: Layer): HarnessPackage | 
     else problems.push('"docs" must be a path');
   }
 
-  const ext: Extension = {
+  return {
     extends: list('extends'),
     exclude: list('exclude'),
     replace: stringMap(rawExt['replace'], 'replace', problems),
@@ -122,22 +142,6 @@ export function loadHarnessPackage(dir: string, layer: Layer): HarnessPackage | 
     ...(docs !== undefined ? { docs } : {}),
     scripts,
     projects: stringMap(rawExt['projects'], 'projects', problems),
-  };
-
-  const version = typeof manifest['version'] === 'string' ? manifest['version'] : typeof pkg['version'] === 'string' ? pkg['version'] : '0.0.0';
-  const description = typeof manifest['description'] === 'string' ? manifest['description'] : undefined;
-  const repository = repositoryUrl(manifest['repository']) ?? repositoryUrl(pkg['repository']);
-  return {
-    name: typeof pkg['name'] === 'string' ? pkg['name'] : path.basename(dir),
-    version,
-    plugin,
-    ...(description !== undefined ? { description } : {}),
-    ...(repository !== undefined ? { repository } : {}),
-    dir,
-    harnessDir,
-    ext,
-    layer,
-    problems,
   };
 }
 

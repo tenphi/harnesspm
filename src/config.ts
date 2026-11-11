@@ -18,6 +18,10 @@ export interface ProjectConfig {
 
 const FIELDS = new Set(['$schema', 'exclude', 'replace', 'patch', 'trust']);
 
+export function emptyConfig(): ProjectConfig {
+  return { exclude: [], replace: {}, patch: {}, trust: {}, warnings: [] };
+}
+
 export function readConfig(projectDir: string): ProjectConfig {
   const file = path.join(projectDir, CONFIG_FILE);
   const raw = readJsonIfExists(file) ?? {};

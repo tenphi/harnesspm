@@ -19,10 +19,22 @@ export function read(root: string, rel: string): string {
   return fs.readFileSync(path.join(root, rel), 'utf8');
 }
 
-/** A project folder with a git repository and a package.json. */
-export function project(deps: Record<string, string> = {}, extra: Record<string, unknown> = {}): string {
+const homes = new Map<string, string>();
+
+/** The home folder that the CLI sees for a project, so tests never touch the real one. */
+export function homeOf(dir: string): string {
+  for (const [project, home] of homes) if (dir === project || dir.startsWith(project + path.sep)) return home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-home-'));
+  homes.set(dir, home);
+  return home;
+}
+
+/** A project folder with a git repository, a package.json and, unless `usesHarnesspm` is false, a harnesspm.json. */
+export function project(deps: Record<string, string> = {}, extra: Record<string, unknown> = {}, usesHarnesspm = true): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-test-'));
+  homeOf(dir);
   writeFiles(dir, { 'package.json': `${JSON.stringify({ name: 'app', version: '1.0.0', devDependencies: deps, ...extra }, null, 2)}\n` });
+  if (usesHarnesspm) writeFiles(dir, { 'harnesspm.json': '{}\n' });
   spawnSync('git', ['init', '-q'], { cwd: dir });
   return dir;
 }
@@ -58,8 +70,16 @@ export interface RunResult {
   stderr: string;
 }
 
+/** Runs the CLI as a person, with its own home folder. */
 export function run(cwd: string, ...args: string[]): RunResult {
-  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, CI: '' } });
+  return runWith(cwd, {}, ...args);
+}
+
+export function runWith(cwd: string, env: Record<string, string>, ...args: string[]): RunResult {
+  const home = homeOf(cwd);
+  const clean: Record<string, string | undefined> = { ...process.env, CI: '', AI_AGENT: '', CLAUDECODE: '', HOME: home };
+  for (const key of ['HARNESSPM_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME']) delete clean[key];
+  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...clean, ...env } });
   return { status: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
 }
 

@@ -11,8 +11,8 @@ const TASTY_RULES = {
 };
 
 /** app → @cube-dev/ui-kit → @tenphi/tasty, with tasty nested inside ui-kit. */
-function chain(): string {
-  const dir = project({ '@cube-dev/ui-kit': '^1.0.0' });
+function chain(usesHarnesspm = true): string {
+  const dir = project({ '@cube-dev/ui-kit': '^1.0.0' }, {}, usesHarnesspm);
   const uikit = installPackage(dir, '@cube-dev/ui-kit', {
     plugin: 'uikit',
     version: '0.206.1',
@@ -239,7 +239,7 @@ test('an override of a unit that does not exist is a warning', () => {
 });
 
 test('init sets up a project and is safe to run twice', () => {
-  const dir = chain();
+  const dir = chain(false);
   const first = run(dir, 'init');
   assert.equal(first.status, 0, first.stderr);
   const pkg = JSON.parse(read(dir, 'package.json'));
@@ -251,7 +251,7 @@ test('init sets up a project and is safe to run twice', () => {
 });
 
 test('init uses postinstall in a private package, and keeps an existing script', () => {
-  const dir = project({}, { private: true, scripts: { postinstall: 'patch-package' } });
+  const dir = project({}, { private: true, scripts: { postinstall: 'patch-package' } }, false);
   run(dir, 'init');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, 'patch-package && harnesspm sync');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, undefined);

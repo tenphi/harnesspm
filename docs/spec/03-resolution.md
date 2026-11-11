@@ -2,7 +2,7 @@
 
 **In short**
 
-- Three layers, lowest to highest: **dependencies**, **project**, **personal**.
+- Three layers, lowest to highest: **dependencies**, **project**, **added** harnesses.
 - A dependency passes on the harness of other packages only through `extends`.
 - A higher layer changes units below it only through `exclude`, `replace` and `patch`. Unit IDs never clash between packages, because plugin names are unique.
 
@@ -12,9 +12,9 @@
 | --- | --- | --- |
 | 📦 **Dependencies** | Harness packages in the project's dependencies, and what they `extends` | yes |
 | 🏢 **Project** | `harnesspm.json` and the project's own `harness/` | yes |
-| 🙋 **Personal** | The person's harnesses (see [07-personal.md](07-personal.md)). Scope "everywhere" first, then scope "this project" | no |
+| ➕ **Added** | Harnesses a person adds on top (see [07-added.md](07-added.md)). User scope first, then local scope, each in the order added | no |
 
-Committed outputs MUST be computed from the dependency and project layers only. Two teammates with different personal harnesses produce identical committed files.
+Committed outputs MUST be computed from the dependency and project layers only. Two teammates with different added harnesses produce identical committed files.
 
 ## 3.2 Discovery
 
@@ -47,7 +47,7 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 
 | Situation | Result |
 | --- | --- |
-| A personal project entry repeats a unit ID of its own harness | The entry's unit wins. |
+| A project entry repeats a unit ID of its own harness | The entry's unit wins. |
 | `exclude` names a unit or a package | It is dropped, with everything only it extends. |
 | `replace` names a unit | The new file takes the unit's ID and place. |
 | `patch` names a rule | Its sections change as defined in [02-package-format.md](02-package-format.md#25-rules). |

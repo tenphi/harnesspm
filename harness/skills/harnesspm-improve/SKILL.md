@@ -1,6 +1,6 @@
 ---
 name: harnesspm-improve
-description: Change or add a rule, note, skill, script or other unit in any harnesspm harness (a dependency's, the project's, or the user's personal one) and save the change the way its owner wants. Use when a rule is wrong or missing, when the user says "remember this", or asks to improve their harness.
+description: Change or add a rule, note, skill, script or other unit in any harnesspm harness (a dependency's, the project's, or one the user added, such as their team's or their own) and save the change the way its owner wants. Use when a rule is wrong or missing, when the user says "remember this", or asks to improve their harness.
 ---
 
 # Improving a harness
@@ -15,10 +15,10 @@ For something new, choose the owner:
 | --- | --- | --- |
 | How a package should be used, for all its users | The package (dependency) | — propose upstream, see 3 |
 | This project, for the whole team | The project | `npx harnesspm new <kind> <name>` |
-| How the user works, everywhere | The personal harness | `npx harnesspm new <kind> <name> --personal` |
-| This project, only for the user | The personal harness, project entry | `npx harnesspm new <kind> <name> --personal --project` |
+| How the user or their team works, everywhere | The added harness (see `npx harnesspm status`) | `npx harnesspm new <kind> <name> --to <plugin>` |
+| This project, only for the user or their team | The added harness, project entry | `npx harnesspm new <kind> <name> --to <plugin> --entry` |
 
-Ask the user when it is not clear. Never put private data from this project into a personal harness without the user's agreement.
+Ask the user when it is not clear. Never put private data from this project into an added harness without the user's agreement.
 
 ## 2. Edit the source
 
@@ -35,4 +35,4 @@ Ask the user when it is not clear. Never put private data from this project into
    4. If a step is not possible, stop and tell the user what is done and what is left. In a cloud session, show the full change.
 3. Never push to the default branch unless the owner's rules allow it.
 
-For a dependency: change it now with a patch (`npx harnesspm new patch <rule ID>`, add `--personal` for the user only), or a `replace` or `exclude`. Then offer to open an issue or pull request at the package's repository.
+For a dependency: change it now with a patch (`npx harnesspm new patch <rule ID>`, add `--to <plugin>` to keep it in an added harness), or a `replace` or `exclude`. Then offer to open an issue or pull request at the package's repository.

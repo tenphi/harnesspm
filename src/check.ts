@@ -38,7 +38,7 @@ function walkFiles(dir: string): string[] {
   return files.sort();
 }
 
-/** `target` is a package root, or a harness/ folder, or a personal harness folder. */
+/** `target` is a package root, or a harness/ folder, or an added harness folder. */
 export function checkHarness(target: string): CheckResult {
   let root = path.resolve(target);
   if (path.basename(root) === 'harness' && isFile(path.join(root, 'plugin.json'))) root = path.dirname(root);

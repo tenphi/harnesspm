@@ -3,7 +3,7 @@
 **In short**
 
 - Text units (rules, docs, skills, sub-agents) need no trust. Executable units and allow rules do.
-- A project trusts a package in `harnesspm.json`. Adding a personal source is the person trusting it. Trust never passes through `extends`.
+- A project trusts a package in `harnesspm.json`. Adding a harness on top is the person trusting it. Trust never passes through `extends`.
 - An agent never grants permissions through harnesspm: new allow rules, hooks and MCP servers wait for a person.
 - `harnesspm.lock.json` records every unit's hash, so pull requests show what changed.
 
@@ -12,7 +12,7 @@
 | Unit | Needs trust? | Why |
 | --- | --- | --- |
 | Rules, docs, sub-agent definitions, skills | No | Text. The agent still asks before running commands, unless a permission allows them. |
-| The `Skill(<name>)` allow rule that lets an unattended session run a skill | **Yes** | It removes a prompt. Written only for skills from the project, a personal harness or a trusted package. |
+| The `Skill(<name>)` allow rule that lets an unattended session run a skill | **Yes** | It removes a prompt. Written only for skills from the project, an added harness or a trusted package. |
 | Scripts, hooks, MCP servers | **Yes** | They run code, some of them automatically. |
 | Allow permissions | **Yes** | They remove a prompt. |
 | Deny and ask permissions | No | They only restrict. |
@@ -37,7 +37,7 @@
 Rules:
 
 1. Trust MUST NOT pass through `extends`. Trusting UI Kit does not trust Tasty.
-2. `harnesspm personal add` is the person's trust decision for that source. Personal sources need no `trust` entry.
+2. `harnesspm add` is the person's trust decision for that harness. Added harnesses need no `trust` entry.
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
 4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Agents keep the model from granting itself permissions, and harnesspm must not be a way around that.
    - Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks and MCP servers. Setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run.
@@ -55,11 +55,11 @@ Rules:
 
 The lock holds no per-machine state, so every machine writes the same lock. `harnesspm status` shows which executable units are pending on this machine, and why.
 
-People do not edit it. Personal sources are not locked. They follow their branch or version range, and `harnesspm personal update` refreshes them.
+People do not edit it. Added harnesses are not locked. They follow their branch or version range, and `harnesspm update` refreshes them.
 
 ## 6.4 CI
 
-`harnesspm sync --check` and every run with `CI=true` ignore the personal layer. `--check` writes nothing and fails when:
+`harnesspm sync --check` and every run with `CI=true` ignore added harnesses. `--check` writes nothing and fails when:
 
 - a committed output or the lock is out of date;
 - a `"pin"` package has a version that nobody approved.

@@ -98,7 +98,7 @@ The extension folder name is the harnesspm namespace, `dev.harnesspm`, based on 
 | `patch` | object | Rule ID → path of a patch that changes some of its sections. See [2.5](#25-rules). |
 | `docs` | string | The folder with the package's docs. See [2.7](#27-docs). |
 | `scripts` | object | Script name → script definition. See [05-executables.md](05-executables.md#51-scripts). |
-| `projects` | object | Git remote → folder with units for that project. Read only in personal harnesses. See [07-personal.md](07-personal.md#72-example). |
+| `projects` | object | Git remote → folder with units for that repository. Read only in added harnesses. See [07-added.md](07-added.md#72-example). |
 
 Unknown fields inside the extension MUST make `harnesspm check` fail, so typos do not ship.
 

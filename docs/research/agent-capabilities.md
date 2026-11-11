@@ -16,6 +16,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | `@path` imports resolve relative to the importing file, up to four hops. Imports outside the working folder need a one-time approval. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 | `CLAUDE.local.md` loads right after `CLAUDE.md` in the same folder. It counts as a `CLAUDE.md` for the `AGENTS.md` check. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 | `CLAUDE.md` files above the working folder load at start. Files in subfolders load when Claude works on a file there. A nested `AGENTS.md` loads only when that folder has no `CLAUDE.md` files and none exist above. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
+| Skills that `harnesspm sync` linked into `.claude/skills/` as symlinks, to a folder inside the repository, appeared in a running session at once. | 🔍 | Proof of concept, Nov 2026 |
 | `.claude/rules/*.md` load every session, or only for matching files when they have `paths` frontmatter. Files in subfolders are found too. Symlinks work; one whose target is outside the working folder is treated like an external import and needs approval. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 | Advice: keep each `CLAUDE.md` under about 200 lines. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 

@@ -3,7 +3,7 @@
 **In short**
 
 - The package format is **Agent Plugins 1.0**. Skills are **Agent Skills**. The main output is **AGENTS.md**. MCP servers use the Agent Plugins `mcp.json`.
-- harnesspm adds only what no standard covers yet: `extends`, trust, rules, hooks, scripts, overrides and the personal layer.
+- harnesspm adds only what no standard covers yet: `extends`, trust, rules, hooks, scripts, overrides and added harnesses.
 - harnesspm should propose its additions upstream once they are proven.
 
 ## 11.1 Standards harnesspm uses
@@ -29,7 +29,7 @@
 | Sub-agents | None. Claude Code uses Markdown files, Codex uses TOML files | One Markdown file with portable `name`, `description` and body, plus per-agent keys, converted for each agent |
 | Scripts for agents | Agent Skills allows `scripts/` inside a skill, with no runner or permission model | Named scripts, one runner, generated permissions |
 | Overrides across packages | None | `exclude` and `replace` by unit ID, and `patch` by Markdown section |
-| A personal layer | None | Personal harnesses with two scopes, improved under their owner's rules |
+| Harnesses added on top of a repository | None | Added harnesses with two scopes, improved under their owner's rules |
 
 ## 11.3 Proposing upstream
 

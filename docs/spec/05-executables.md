@@ -115,16 +115,16 @@ MCP servers use the Agent Plugins `mcp.json` format.
 }
 ```
 
-harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, a personal harness or a trusted package, it also writes an allow rule for its tools in Claude Code (`mcp__uikit-docs`), because MCP tool calls ask for approval even in cloud sessions. A trusted server already runs the package's code, so its tools need no opt-in of their own. Codex gets no rule.
+harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, an added harness or a trusted package, it also writes an allow rule for its tools in Claude Code (`mcp__uikit-docs`), because MCP tool calls ask for approval even in cloud sessions. A trusted server already runs the package's code, so its tools need no opt-in of their own. Codex gets no rule.
 
 - **stdio servers** are written as `npx harnesspm mcp uikit:docs`. The runner expands `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`, sets the environment from [5.1](#51-scripts) and starts the server. Both agents get the same command.
 - **Remote servers** are written as they are. Secrets never go into `mcp.json`. Authentication stays with the agent.
 
 ## 5.4 Permissions
 
-A dependency MUST NOT be able to grant itself broad rights. harnesspm writes allow rules only for units from the project, a personal harness or a trusted package, and only for three things: skills, scripts with `"allow": true`, and MCP servers ([5.3](#53-mcp-servers)). Deny and ask rules pass through freely.
+A dependency MUST NOT be able to grant itself broad rights. harnesspm writes allow rules only for units from the project, an added harness or a trusted package, and only for three things: skills, scripts with `"allow": true`, and MCP servers ([5.3](#53-mcp-servers)). Deny and ask rules pass through freely.
 
-**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In cloud sessions the rule changes nothing ([5.5](#55-what-the-agents-still-decide)).
+**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, an added harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In cloud sessions the rule changes nothing ([5.5](#55-what-the-agents-still-decide)).
 
 **Scripts get an allow rule when they ask for one.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
 
