@@ -34,6 +34,8 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 **Decision:** not in v1. Native files work in Claude Code cloud sessions, which do not install repository-declared plugins, and they show up in pull request review. Revisit if cloud sessions start installing such plugins, or as an option for local-only use.
 
+**Signal (Codex Cloud):** a probe found that skills reach the Codex Cloud agent from cloud plugins, and that files written in the task's VM do not load ([research](../research/agent-capabilities.md#cloud)). If the proof of concept confirms that prepared files do not load either, a Codex plugin output becomes the way to bring skills to Codex Cloud.
+
 ### 13.6 CI without an install
 
 **Decision:** `harnesspm fetch --frozen` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
