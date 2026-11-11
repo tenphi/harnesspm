@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json",
+  "title": "harnesspm.json",
+  "description": "Project configuration for harnesspm, the harness package manager. Every field is optional.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "exclude": {
+      "description": "Packages or unit IDs to drop, such as \"@tenphi/glaze\" or \"tasty:rules/legacy\".",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "replace": {
+      "description": "Unit ID → path of a project file that takes its place.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "patch": {
+      "description": "Rule ID → path of a patch that changes some of its sections.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "trust": {
+      "description": "Packages whose executable units may run: true follows upgrades, \"pin\" needs an approval for each new version.",
+      "type": "object",
+      "additionalProperties": { "enum": [true, "pin"] }
+    }
+  }
+}

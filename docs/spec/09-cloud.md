@@ -10,7 +10,7 @@
 ## 9.1 Adding harnesses
 
 ```bash
-npx -y harnesspm add github:andrew/harness
+npx -y harnesspm add github:alex/harness
 ```
 
 | Way | How it works |

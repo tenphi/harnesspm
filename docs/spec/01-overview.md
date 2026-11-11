@@ -46,7 +46,7 @@ Every full install, such as `npm install` or `pnpm install`, then runs `harnessp
 ### Add on top
 
 ```bash
-npx harnesspm add github:andrew/harness
+npx harnesspm add github:alex/harness
 ```
 
 The person's workflow rules, context notes and skills now apply to every project on this machine, and project-specific entries to their projects. The project repository does not change.

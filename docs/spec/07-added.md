@@ -26,7 +26,7 @@ A person's own added harness is the "memory" they keep across projects and machi
 ## 7.2 Example
 
 ```text
-andrew-harness/                    a git repository, on any host
+alex-harness/                    a git repository, on any host
 ├── AGENTS.md                      how to change this repository, including how to save changes
 └── harness/
     ├── plugin.json
@@ -36,7 +36,7 @@ andrew-harness/                    a git repository, on any host
     │   ├── llms.txt               index of the notes
     │   └── projects.md            repositories and how they relate
     ├── skills/
-    │   └── andrew-release/SKILL.md
+    │   └── alex-release/SKILL.md
     └── projects/
         └── cube-ui-kit/           same layout as harness/; plugin.json is optional
             └── dev.harnesspm/rules/local-setup.md
@@ -45,7 +45,7 @@ andrew-harness/                    a git repository, on any host
 ```json
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "andrew",
+  "name": "alex",
   "extensions": {
     "dev.harnesspm": {
       "docs": "./notes",
@@ -65,9 +65,9 @@ Units in an entry belong to the added harness, so their IDs start with its plugi
 
 | Source | Example | Editable | Where it lives |
 | --- | --- | --- | --- |
-| Git repository | `github:andrew/harness`, `git:https://git.example.com/team/harness.git` | yes | A working copy in `~/.harnesspm/harnesses/<name>/` |
-| Folder | `~/dev/andrew-harness` | yes | In place |
-| npm package | `npm:@andrew/harness` | no | A cache in `~/.harnesspm/cache/` |
+| Git repository | `github:alex/harness`, `git:https://git.example.com/team/harness.git` | yes | A working copy in `~/.harnesspm/harnesses/<name>/` |
+| Folder | `~/dev/alex-harness` | yes | In place |
+| npm package | `npm:@alex/harness` | no | A cache in `~/.harnesspm/cache/` |
 
 Git sources work with any host. npm and git sources never touch the project's `package.json` or lockfile.
 
@@ -81,7 +81,7 @@ Git sources work with any host. npm and git sources never touch the project's `p
 Both files have one field:
 
 ```json
-{ "harnesses": ["github:cube-js/frontend-harness", "github:andrew/harness"] }
+{ "harnesses": ["github:cube-js/frontend-harness", "github:alex/harness"] }
 ```
 
 `add` appends, so harnesses apply in the order they were added: user scope first, then local scope. A project entry comes right after its harness. `harnesspm new --to <plugin>` names the harness to write into.

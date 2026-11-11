@@ -35,7 +35,7 @@ It is also a small reference example for package authors.
 ```json
 {
   "name": "harnesspm",
-  "files": ["dist", "schema", "harness", "docs/spec"],
+  "files": ["dist", "schema", "harness", "docs/spec", "CHANGELOG.md"],
   "scripts": { "prepack": "harnesspm check" }
 }
 ```

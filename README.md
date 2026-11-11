@@ -1,6 +1,6 @@
 # harnesspm — the harness package manager
 
-> **Status: specification draft, with a working proof of concept.** The code in `src/` implements every scenario (milestones 1 to 4 below). It is not published yet.
+> **Status: 0.1.0, a working proof of concept of the [specification](docs/spec/README.md) (0.7 draft).** It covers every scenario. Expect changes before 1.0.
 
 harnesspm moves an **AI harness** between projects through npm packages. A harness is everything an AI coding agent needs to work well with a codebase: rules, docs, skills, sub-agents, scripts, hooks, MCP servers and permissions.
 
@@ -20,6 +20,32 @@ project      (harnesspm.json, the project's own harness/)          → AGENTS.md
       ▼
 added        (harnesses you add: your team's, your own)       → per-machine files, never committed
 ```
+
+## Quick start
+
+In a project:
+
+```bash
+npm i -D harnesspm
+npx harnesspm init
+```
+
+`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`.
+
+In a library, to share its harness:
+
+```bash
+npx harnesspm new rule usage
+npx harnesspm check
+```
+
+Add `"harness"` to the `files` field of `package.json`. To add your own or your team's harness on top of every repository on your machine:
+
+```bash
+npx harnesspm add github:<owner>/<repo>
+```
+
+Node.js 20 or later. `npx harnesspm help` lists every command. [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## First targets
 

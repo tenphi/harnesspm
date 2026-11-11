@@ -30,7 +30,7 @@ Package managers run these scripts on a full install, but not on `npm install <p
 $ npx harnesspm status
 📦 dependencies  @cube-dev/ui-kit 0.206.1 → @tenphi/tasty 3.17.1, @tenphi/glaze 2.0.0
 🏢 project       harnesspm.json: 1 replace · 1 patch
-➕ added         github:cube-js/frontend-harness (user) · github:andrew/harness (user), project entry cube-ui-kit
+➕ added         github:cube-js/frontend-harness (user) · github:alex/harness (user), project entry cube-ui-kit
 ⏳ pending       some-third-party: 1 hook (not trusted)
 📏 always-on     Codex 18.4 KiB of 32 KiB · Claude Code 212 lines
 ```

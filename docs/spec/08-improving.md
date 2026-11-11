@@ -16,10 +16,10 @@ source      node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rul
 repository  https://github.com/tenphi/tasty
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 
-$ npx harnesspm why andrew:rules/workflow
-owner       added github:andrew/harness (user scope)
-source      ~/.harnesspm/harnesses/andrew/harness/dev.harnesspm/rules/workflow.md
-rules       ~/.harnesspm/harnesses/andrew/AGENTS.md
+$ npx harnesspm why alex:rules/workflow
+owner       added github:alex/harness (user scope)
+source      ~/.harnesspm/harnesses/alex/harness/dev.harnesspm/rules/workflow.md
+rules       ~/.harnesspm/harnesses/alex/AGENTS.md
 editable    yes
 ```
 

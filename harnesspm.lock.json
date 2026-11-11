@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "packages": {
     "harnesspm": {
-      "version": "0.0.0",
+      "version": "0.1.0",
       "plugin": "harnesspm",
       "project": true
     }
@@ -10,7 +10,7 @@
   "units": {
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "454290d5b1801571"
+      "hash": "123100d792e56d59"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",

@@ -1,6 +1,6 @@
 {
   "name": "harnesspm",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The harness package manager: share agent rules, docs, skills and tools through npm packages",
   "license": "MIT",
   "type": "module",
@@ -11,12 +11,25 @@
     "dist",
     "schema",
     "harness",
-    "docs/spec"
+    "docs/spec",
+    "CHANGELOG.md"
   ],
   "engines": {
-    "node": ">=22.18"
+    "node": ">=20"
   },
   "repository": "https://github.com/tenphi/tack",
+  "homepage": "https://github.com/tenphi/tack#readme",
+  "keywords": [
+    "agents",
+    "harness",
+    "ai",
+    "claude-code",
+    "codex",
+    "agents-md",
+    "skills",
+    "mcp",
+    "agent-plugins"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
