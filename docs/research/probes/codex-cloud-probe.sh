@@ -1,5 +1,5 @@
 #!/bin/bash
-# harnesspm Codex cloud probe (v3) for a PERSONAL Codex cloud environment.
+# harnesspm Codex cloud probe (v4) for a PERSONAL Codex cloud environment.
 # Use: append it to the environment's setup script, or paste it as the whole setup script.
 # If the setup script uses `set -e`, write this file out and run it with `bash file || true`,
 # so a failed probe step never fails the setup.
@@ -15,6 +15,8 @@
 # v3: setup may run outside any checkout (for example in /workspace), so the project files go into
 #     every git checkout under PROBE_SEARCH_ROOT. Commands use an absolute node path. A symlinked
 #     .agents/skills is excluded by its real path. A managed hook goes into /etc/codex/requirements.toml.
+# v4: a published Codex Cloud environment may keep only /workspace, so the shared folder moved
+#     from /opt to /workspace/.harnesspm-probe. The report shows which other probe files survived.
 # It writes only to the shared folder, probe files in ~/.codex and ~/.agents of each home,
 # git-excluded files in each checkout and, when absent, /etc/codex/requirements.toml.
 # It logs only CODEX* / AI_AGENT values, secrets redacted. Remove it after the test.
@@ -22,7 +24,7 @@
 # Overrides (for a dry run): PROBE_SHARED, PROBE_HOMES, PROBE_REPOS, PROBE_SEARCH_ROOT,
 # PROBE_REQUIREMENTS (path, or 0 to skip the managed hook).
 set -u
-S="${PROBE_SHARED:-/opt/harnesspm-probe}"
+S="${PROBE_SHARED:-${PROBE_SEARCH_ROOT:-/workspace}/.harnesspm-probe}"
 mkdir -p "$S/log" 2>/dev/null || { S=/tmp/harnesspm-probe; mkdir -p "$S/log"; }
 chmod 755 "$S"; chmod 1777 "$S/log"
 NODE="$(command -v node || echo node)"
@@ -99,7 +101,8 @@ while read -r repo; do
   echo "--- \$repo"; ls -A "\$repo/.codex" 2>&1 | tr '\n' ' '; echo; git -C "\$repo" status --short 2>&1 | head -10
 done <"\$S/repos.txt"
 section "this user's codex home: \${CODEX_HOME:-\$HOME/.codex}"; ls -la "\${CODEX_HOME:-\$HOME/.codex}" 2>&1; grep -nE '^\[|harnesspm' "\${CODEX_HOME:-\$HOME/.codex}/config.toml" 2>&1
-section "/etc/codex"; ls -la /etc/codex 2>&1
+section "/etc/codex (C9)"; ls -la /etc/codex 2>&1
+section "user files that setup wrote outside /workspace (did they survive?)"; ls -la ~/.agents/skills 2>&1; grep -c amber-falcon "\${CODEX_HOME:-\$HOME/.codex}/AGENTS.md" 2>&1
 EOF
 chmod 755 "$S"/*.sh "$S/mcp.mjs"
 
@@ -251,5 +254,5 @@ else
   echo "cannot write $REQ; managed hook skipped" >>"$S/log/setup.log"
 fi
 
-echo "harnesspm Codex probe v3 installed; shared folder: $S"
+echo "harnesspm Codex probe v4 installed; shared folder: $S"
 exit 0
