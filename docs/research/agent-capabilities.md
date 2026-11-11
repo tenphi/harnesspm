@@ -4,7 +4,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 
 ✅ documented by the vendor · 🔍 observed in a real session · ❓ not confirmed
 
-"Cloud probe" facts come from [probes/claude-cloud-probe.sh](probes/claude-cloud-probe.sh), a setup script for a personal Claude Code cloud environment, run with the prompt in [probes/claude-cloud-probe-prompt.md](probes/claude-cloud-probe-prompt.md). Re-run it when Claude Code changes. The Codex counterpart is [probes/codex-cloud-probe.sh](probes/codex-cloud-probe.sh), with the prompt in [probes/codex-cloud-probe-prompt.md](probes/codex-cloud-probe-prompt.md).
+"Cloud probe" facts come from [probes/claude-cloud-probe.sh](probes/claude-cloud-probe.sh), a setup script for a personal Claude Code cloud environment, run with the prompt in [probes/claude-cloud-probe-prompt.md](probes/claude-cloud-probe-prompt.md). Re-run it when Claude Code changes. The Codex counterpart is [probes/codex-cloud-probe.sh](probes/codex-cloud-probe.sh), with the prompt in [probes/codex-cloud-probe-prompt.md](probes/codex-cloud-probe-prompt.md). Twice, a probe added to the install script did not reach Codex Cloud tasks. Publishing captures the filesystem that Codex prepared, so the block probably has to run in the setup chat. [probes/codex-live-probe.md](probes/codex-live-probe.md) tests from inside a task instead.
 
 ## Claude Code
 
