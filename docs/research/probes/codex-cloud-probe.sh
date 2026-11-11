@@ -1,5 +1,5 @@
 #!/bin/bash
-# harnesspm Codex cloud probe (v4) for a PERSONAL Codex cloud environment.
+# harnesspm Codex cloud probe (v5) for a PERSONAL Codex cloud environment.
 # Use: append it to the environment's setup script, or paste it as the whole setup script.
 # If the setup script uses `set -e`, write this file out and run it with `bash file || true`,
 # so a failed probe step never fails the setup.
@@ -17,6 +17,8 @@
 #     .agents/skills is excluded by its real path. A managed hook goes into /etc/codex/requirements.toml.
 # v4: a published Codex Cloud environment may keep only /workspace, so the shared folder moved
 #     from /opt to /workspace/.harnesspm-probe. The report shows which other probe files survived.
+# v5: the agent runs outside the VM (`codex exec-server` runs its commands), and the platform creates
+#     .agents and .codex in the /workspace root, so the probe also writes a skill and instructions there.
 # It writes only to the shared folder, probe files in ~/.codex and ~/.agents of each home,
 # git-excluded files in each checkout and, when absent, /etc/codex/requirements.toml.
 # It logs only CODEX* / AI_AGENT values, secrets redacted. Remove it after the test.
@@ -24,7 +26,8 @@
 # Overrides (for a dry run): PROBE_SHARED, PROBE_HOMES, PROBE_REPOS, PROBE_SEARCH_ROOT,
 # PROBE_REQUIREMENTS (path, or 0 to skip the managed hook).
 set -u
-S="${PROBE_SHARED:-${PROBE_SEARCH_ROOT:-/workspace}/.harnesspm-probe}"
+ROOT="${PROBE_SEARCH_ROOT:-/workspace}"
+S="${PROBE_SHARED:-$ROOT/.harnesspm-probe}"
 mkdir -p "$S/log" 2>/dev/null || { S=/tmp/harnesspm-probe; mkdir -p "$S/log"; }
 chmod 755 "$S"; chmod 1777 "$S/log"
 NODE="$(command -v node || echo node)"
@@ -100,6 +103,7 @@ while read -r repo; do
   [ -n "\$repo" ] || continue
   echo "--- \$repo"; ls -A "\$repo/.codex" 2>&1 | tr '\n' ' '; echo; git -C "\$repo" status --short 2>&1 | head -10
 done <"\$S/repos.txt"
+echo "--- workspace root $ROOT"; ls -A "$ROOT/.codex" "$ROOT/.agents/skills" 2>&1
 section "this user's codex home: \${CODEX_HOME:-\$HOME/.codex}"; ls -la "\${CODEX_HOME:-\$HOME/.codex}" 2>&1; grep -nE '^\[|harnesspm' "\${CODEX_HOME:-\$HOME/.codex}/config.toml" 2>&1
 section "/etc/codex (C9)"; ls -la /etc/codex 2>&1
 section "user files that setup wrote outside /workspace (did they survive?)"; ls -la ~/.agents/skills 2>&1; grep -c amber-falcon "\${CODEX_HOME:-\$HOME/.codex}/AGENTS.md" 2>&1
@@ -124,8 +128,8 @@ if [ -n "${PROBE_REPOS:-}" ]; then
 else
   {
     git rev-parse --show-toplevel 2>/dev/null
-    find ${PROBE_SEARCH_ROOT:-/workspace} -maxdepth 2 -name .git -not -path '*/node_modules/*' 2>/dev/null | sed 's#/\.git$##'
-  } | sort -u >"$S/repos.txt"
+    find "$ROOT" -maxdepth 2 -name .git -not -path '*/node_modules/*' 2>/dev/null | sed 's#/\.git$##'
+  } | sort -u | while read -r r; do git -C "$r" rev-parse --git-dir >/dev/null 2>&1 && echo "$r"; done >"$S/repos.txt"
 fi
 {
   echo "setup ran at $(date -u +%FT%T.%3NZ) shared=$S pwd=$PWD node=$NODE"
@@ -139,7 +143,7 @@ fi
 install_home() { # $1 = home dir, $2 = codex dir
   local h="$1" c="$2" owner repo
   owner="$(stat -c %U "$h" 2>/dev/null || echo root)"
-  mkdir -p "$c/rules" "$h/.agents/skills/probe-user-skill" || return 0
+  mkdir -p "$c/rules" "$h/.agents/skills/probe-user-skill" 2>/dev/null || return 0
   grep -qF amber-falcon "$c/AGENTS.md" 2>/dev/null || printf '\n%s\n' "Probe word (user ~/.codex/AGENTS.md): amber-falcon" >>"$c/AGENTS.md"
   cat >"$h/.agents/skills/probe-user-skill/SKILL.md" <<'EOF'
 ---
@@ -225,6 +229,24 @@ while read -r repo; do
 done <"$S/repos.txt"
 [ -s "$S/repos.txt" ] || echo "no git checkout found" >>"$S/log/setup.log"
 
+# ---------- the search root itself, when it is not a checkout ----------
+if [ -d "$ROOT" ] && ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  if mkdir -p "$ROOT/.agents/skills/probe-root-skill" "$ROOT/.codex" 2>/dev/null; then
+    cat >"$ROOT/.agents/skills/probe-root-skill/SKILL.md" <<'EOF'
+---
+name: probe-root-skill
+description: harnesspm probe skill from the workspace root's .agents/skills. Use only when asked for the root probe skill word.
+---
+
+The root probe skill word is olive-heron.
+EOF
+    [ -e "$ROOT/.codex/config.toml" ] || echo 'developer_instructions = "Probe word (workspace root .codex/config.toml developer_instructions): coral-moth"' >"$ROOT/.codex/config.toml"
+    echo "wrote probe-root-skill and .codex/config.toml in $ROOT" >>"$S/log/setup.log"
+  else
+    echo "cannot write .agents or .codex in $ROOT" >>"$S/log/setup.log"
+  fi
+fi
+
 # ---------- C9: managed hooks (trusted by policy, no /hooks review) ----------
 REQ="${PROBE_REQUIREMENTS:-/etc/codex/requirements.toml}"
 if [ "$REQ" = 0 ]; then
@@ -254,5 +276,5 @@ else
   echo "cannot write $REQ; managed hook skipped" >>"$S/log/setup.log"
 fi
 
-echo "harnesspm Codex probe v4 installed; shared folder: $S"
+echo "harnesspm Codex probe v5 installed; shared folder: $S"
 exit 0

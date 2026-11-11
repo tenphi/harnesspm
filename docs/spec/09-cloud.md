@@ -25,6 +25,8 @@ In a setup script, `harnesspm personal add` installs the scope "everywhere" and 
 
 A `~/.claude/settings.json` written by the setup script is read in cloud sessions: its `env` values and deny rules apply. Deny rules are the way to restrict a cloud session, because its platform rule allows all built-in tools.
 
+In Codex Cloud the agent runs outside the task's VM, and `codex exec-server` runs its commands inside it (🔍). Files that a setup writes into the VM's home, such as `~/.codex` and `~/.agents`, therefore probably never reach the agent. Whether project files written into the clone do is still open ([9.5](#95-not-confirmed-yet)).
+
 ## 9.2 Private sources
 
 | | Claude Code cloud | Codex cloud |
@@ -59,8 +61,8 @@ The proof of concept MUST test each ❓ before the release. Where an output does
 
 | Output | Claude Code cloud | Codex cloud |
 | --- | --- | --- |
-| Personal rules, scope everywhere | ✅ `~/.claude/CLAUDE.md` written by a setup script is loaded | ❓ `~/.codex/AGENTS.md` |
-| Personal skills, scope everywhere | 🔍 `~/.claude/skills/` is read | ❓ `~/.agents/skills/` |
+| Personal rules, scope everywhere | ✅ `~/.claude/CLAUDE.md` written by a setup script is loaded | ❓ `~/.codex/AGENTS.md`: probably not read, because the agent runs outside the VM |
+| Personal skills, scope everywhere | 🔍 `~/.claude/skills/` is read | ❓ `~/.agents/skills/`: probably not read, for the same reason |
 | Personal rules, scope this project | 🔍 `CLAUDE.local.md`, also when a `SessionStart` hook writes it | ❓ `developer_instructions` in `.codex/config.toml` |
 | `SessionStart` hook output | 🔍 Reaches the agent's context | ❓ |
 | Settings written by a setup script | 🔍 `~/.claude/settings.json` is read: `env` and deny rules apply. Built-in tools are approved by the platform; MCP tools are not | ❓ `~/.codex/` |
