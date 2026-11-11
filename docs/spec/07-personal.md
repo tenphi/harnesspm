@@ -46,7 +46,7 @@ andrew-harness/                    a git repository, on any host
   "name": "andrew",
   "extensions": {
     "dev.harnesspm": {
-      "docs": { "dir": "./notes" },
+      "docs": "./notes",
       "projects": {
         "github.com/cube-js/cube-ui-kit": "./projects/cube-ui-kit"
       }
@@ -55,7 +55,9 @@ andrew-harness/                    a git repository, on any host
 }
 ```
 
-A project entry is matched by the project's git remote, so it also works in a fresh clone in a cloud session. It can hold its own units and its own `replace` and `exclude` for team units.
+A project entry is matched by the project's `origin` remote, written as `<host>/<path>` without `.git`, for SSH and HTTPS URLs alike. So it also works in a fresh clone in a cloud session.
+
+Units in an entry belong to the personal harness, so their IDs start with its plugin name. An entry's unit wins over one with the same ID in the rest of the harness. The entry's optional `plugin.json` uses the same name and may hold `exclude`, `replace` and `patch` for team units.
 
 ## 7.3 Sources
 
@@ -80,7 +82,7 @@ Both files have one field:
 { "personal": ["github:andrew/harness", "~/dev/work-notes"] }
 ```
 
-Units with scope "this project" come after units with scope "everywhere", so they win.
+Sources apply in the order listed, and units with scope "this project" come after units with scope "everywhere". A later source wins on a skill name. `harnesspm new --personal` writes into the first editable source.
 
 ## 7.5 Applying in every repository
 

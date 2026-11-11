@@ -2,7 +2,7 @@
 
 **In short**
 
-- A package declares **scripts**. Agents, hooks and MCP servers run them through one command: `npx harnesspm run <plugin>:<script>`.
+- A package declares **scripts**. Agents and hooks run them through one command: `npx harnesspm run <plugin>:<script>`. MCP servers start through `npx harnesspm mcp <plugin>:<server>`.
 - Hooks and MCP servers are written once and translated for each agent.
 - A package can allow only its own scripts. It can always restrict (deny, ask).
 - Nothing executable runs unless the project trusts the package ([06-trust.md](06-trust.md)).
@@ -38,7 +38,7 @@ npx harnesspm run uikit:probe -- --story Button
 The runner:
 
 1. finds the package through the stable path in `node_modules/.harnesspm/pkgs/`, so the installed version always runs;
-2. checks the script's hash against the lock and refuses a script that is not trusted;
+2. refuses the script when its package is not trusted, when the installed version differs from the lock (run `harnesspm sync`), or when a `"pin"` package has a version nobody approved;
 3. picks the interpreter from the file: `node` for `.js`, `.mjs` and `.cjs`, `sh` for `.sh`, otherwise the file itself;
 4. sets these environment variables:
 
@@ -47,7 +47,7 @@ The runner:
 | `PLUGIN_ROOT` | The package's `harness/` folder (same meaning as in Agent Plugins) |
 | `PLUGIN_DATA` | `~/.harnesspm/data/<plugin name>/`, kept across updates (same meaning as in Agent Plugins) |
 | `HARNESSPM_PROJECT_DIR` | The project root |
-| `HARNESSPM_AGENT` | `claude`, `codex`, or empty when a person runs it |
+| `HARNESSPM_AGENT` | `claude`, `codex`, or empty when a person runs it. harnesspm puts it into the hook and MCP commands it writes, and reads the agent's marker for a script an agent runs ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). |
 
 The runner must start fast, because hooks call it on every matching tool call.
 
@@ -80,15 +80,14 @@ Claude Code and Codex use nearly the same hook model: event → matcher → comm
 | --- | --- | --- |
 | `id` | yes | Unit name. The ID becomes `<plugin>:hooks/<id>`. |
 | `run` | yes | A script name from `scripts`. harnesspm writes the full command for each agent. |
-| `matcher` | no | A string for both agents, or an object with `claude` and `codex` keys. Tool names differ between agents (for example, file edits), so an object is common. Without it, the hook matches every tool. |
+| `matcher` | no | A string for both agents, or an object with a `claude` key, a `codex` key or both. With an object, the hook is written only for the agents it names. Tool names differ between agents (for example, file edits), so an object is common. Without a matcher, the hook matches every tool in both agents. |
 | `timeout` | no | Seconds. |
-| `agents` | no | Limit the hook to some agents, such as `["claude"]`. |
 
 ### Events
 
 Portable events, supported by both agents: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SubagentStart`, `SubagentStop`, `Stop`.
 
-An event that only one agent supports MUST set `agents`. `harnesspm check` fails otherwise.
+harnesspm writes a hook only for the agents that support its event.
 
 ### Contract for hook scripts
 
@@ -116,25 +115,25 @@ MCP servers use the Agent Plugins `mcp.json` format.
 }
 ```
 
-harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, a personal harness or a trusted package, it also writes an allow rule for its tools (`mcp__uikit-docs` in Claude Code), because MCP tool calls ask for approval even in Claude Code cloud sessions.
+harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, a personal harness or a trusted package, it also writes an allow rule for its tools in Claude Code (`mcp__uikit-docs`), because MCP tool calls ask for approval even in cloud sessions. A trusted server already runs the package's code, so its tools need no opt-in of their own. Codex gets no rule.
 
 - **stdio servers** are written as `npx harnesspm mcp uikit:docs`. The runner expands `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`, sets the environment from [5.1](#51-scripts) and starts the server. Both agents get the same command.
 - **Remote servers** are written as they are. Secrets never go into `mcp.json`. Authentication stays with the agent.
 
 ## 5.4 Permissions
 
-A dependency MUST NOT be able to grant itself broad rights. harnesspm therefore allows only two kinds of permission units.
+A dependency MUST NOT be able to grant itself broad rights. harnesspm writes allow rules only for units from the project, a personal harness or a trusted package, and only for three things: skills, scripts with `"allow": true`, and MCP servers ([5.3](#53-mcp-servers)). Deny and ask rules pass through freely.
 
-**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In Claude Code cloud sessions a platform rule approves built-in tools, including skills, so the rule changes nothing there.
+**Skills get an allow rule to run unattended.** Outside cloud sessions, Claude Code asks before it invokes a skill, and a headless run denies the call. For each skill from the project's own harness, a personal harness or a trusted package, harnesspm writes `Skill(<name>)` into `permissions.allow`. The `allowed-tools` field inside a `SKILL.md` does not replace this: it only pre-approves tools while the skill runs. In cloud sessions the rule changes nothing ([5.5](#55-what-the-agents-still-decide)).
 
-**Other allow rules come only from a package's own scripts.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
+**Scripts get an allow rule when they ask for one.** When a script has `"allow": true` and the consumer trusts the package, harnesspm writes:
 
 | Agent | Rule |
 | --- | --- |
 | Claude Code | `Bash(npx harnesspm run uikit:probe *)` in `permissions.allow` |
 | Codex | `prefix_rule(pattern=["npx", "harnesspm", "run", "uikit:probe"], decision="allow")` |
 
-**Deny and ask rules pass through freely**, because they only restrict. They are written as command prefixes:
+**Deny and ask rules** only restrict. They are written as command prefixes:
 
 ```json
 {

@@ -3,7 +3,7 @@
 **In short**
 
 - harnesspm writes each agent's **native** files, where the agent already looks.
-- Only the managed block in `AGENTS.md` and `harnesspm.lock.json` are committed. Everything else is written on each machine and kept out of git.
+- Of the outputs, only the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` and `harnesspm.lock.json` are committed. Everything else is written on each machine and kept out of git.
 - People never edit outputs. Every output names its source.
 
 Package authors do not need this chapter. It defines what implementations write.
@@ -25,7 +25,7 @@ Package managers place packages at paths that differ between machines. harnesspm
 node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
-A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch --frozen`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
+A job that does not install dependencies, such as a review bot, runs `npx -y harnesspm fetch`. It downloads only the harness packages in the lock and fills these paths, so pointers in the committed block work there too.
 
 ## 4.3 Project outputs
 
@@ -37,7 +37,7 @@ These hold the dependency and project layers, plus personal units with scope "th
 | Always-on rules (personal) | Managed block in `CLAUDE.local.md` | `developer_instructions` in `.codex/config.toml` |
 | File-scoped rules | Link in `.claude/rules/` with `paths`, plus a pointer line in the block | Pointer line in the block |
 | On-demand rules | Pointer line with its description | Pointer line with its description |
-| Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for trusted sources | Link in `.agents/skills/<name>` |
+| Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for skills from the project, a personal harness or a trusted package | Link in `.agents/skills/<name>` |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
 | Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/harnesspm.rules` |
 | MCP servers | Local scope: `claude mcp add-json <name> '<json>' --scope local` | `[mcp_servers.<id>]` in `.codex/config.toml` |
@@ -46,7 +46,8 @@ Notes:
 
 1. `CLAUDE.local.md` counts as a `CLAUDE.md` for Claude Code. In a repository with only `AGENTS.md`, harnesspm MUST start `CLAUDE.local.md` with `@AGENTS.md`, or Claude would stop reading `AGENTS.md`.
 2. harnesspm owns `.codex/` and writes it on each machine. If a team already commits `.codex/config.toml`, harnesspm does not touch it and `harnesspm status` lists the units Codex is missing. The team moves those settings into `harness/`, which feeds both agents.
-3. A personal `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the personal block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
+3. A file-scoped rule has two outputs for Claude Code on purpose: the link activates it natively on matching files, and the pointer line in the shared block serves Codex.
+4. A personal `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the personal block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 
 ## 4.4 Personal outputs, scope "everywhere"
 

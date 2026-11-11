@@ -14,7 +14,7 @@ $ npx harnesspm why tasty:rules/state-maps
 owner       dependency @tenphi/tasty 3.17.1 (via @cube-dev/ui-kit)
 source      node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md
 repository  https://github.com/tenphi/tasty
-editable    no. Add a `replace` in harnesspm.json, or propose the change upstream.
+editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 
 $ npx harnesspm why andrew:rules/workflow
 owner       personal github:andrew/harness (scope: everywhere)
@@ -37,7 +37,7 @@ To create a new unit instead of changing one, use `npx harnesspm new <kind> <nam
 
 A harness is a repository, or lives in one. That repository's root `AGENTS.md` and `CONTRIBUTING.md` are its rules for changes. These are existing conventions, so harnesspm adds no setting for them.
 
-Before changing a source, the agent MUST read those files in the source repository and follow them. They can say anything that fits the owner, for example:
+Before changing a source, the agent reads those files in the source repository and follows them. They can say anything that fits the owner, for example:
 
 - "Commit and push to `main`."
 - "Open a merge request on our GitLab and assign me."
@@ -51,7 +51,7 @@ Before changing a source, the agent MUST read those files in the source reposito
 4. Push the branch and open a pull request or merge request with the tools the agent has, such as the GitHub CLI or an MCP server for the host.
 5. If a step is not possible, stop there and tell the person what is done and what is left: the branch, the commit, or the diff itself.
 
-The agent MUST NOT push to the default branch unless the owner's rules allow it.
+The agent never pushes to the default branch unless the owner's rules allow it.
 
 For a dependency, the proposal goes to the package's `repository`, following that repository's rules. It is usually an issue or a pull request that the person reviews first.
 

@@ -26,7 +26,6 @@ Until the CLI exists, these files are drafts that show the format. The first imp
 | `harnesspm-export` | Skill | Share a harness from a package: units, IDs, `extends`, checks, publishing. |
 | `harnesspm-import` | Skill | Set up harnesspm in a project, trust packages, add a personal harness. |
 | `harnesspm-improve` | Skill | Change any harness: find the owner, edit the source, save under the owner's rules. |
-| `harnesspm:scripts/check` | Script, `allow: true` | Validate harness changes without a prompt: `npx harnesspm run harnesspm:check`. |
 | Docs index | Docs | This specification, at the installed version. |
 
 It is also a small reference example for package authors.
@@ -48,5 +47,5 @@ It is also a small reference example for package authors.
 | Check | When |
 | --- | --- |
 | `harnesspm check` | Every pull request and `prepack` |
-| `harnesspm sync --check --no-local` | Every pull request |
+| `harnesspm sync --check` | Every pull request |
 | `harnesspm sync` on fixture projects, checked for Claude Code and Codex outputs | Every pull request |

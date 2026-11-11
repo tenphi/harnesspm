@@ -19,11 +19,9 @@ The portable parts (skills and MCP servers) work in any Agent Plugins client, ev
 ## 2.1 Location
 
 1. A package MUST put its harness in a folder named `harness/` at the package root.
-2. A published npm package MUST include `harness` in the `files` field of `package.json`.
+2. If `package.json` has a `files` field, it MUST include `harness`.
 3. harnesspm MUST NOT run any code from a package to discover its harness. Discovery reads files only.
-4. For compatibility, harnesspm also reads a package-root `skills/` folder, the layout pnpm and the `skills` CLI use. Such a package contributes skills only.
-
-> pnpm 12.11 and later link `skills/` folders from direct dependencies by themselves. Because harnesspm reads `harness/skills/`, the two do not link the same skills twice.
+> pnpm 12.11 and later link package-root `skills/` folders from direct dependencies by themselves. harnesspm reads only `harness/skills/`, so the two never link the same skills twice.
 
 ## 2.2 Layout
 
@@ -65,7 +63,7 @@ The extension folder name is the harnesspm namespace, `dev.harnesspm`, based on 
   "extensions": {
     "dev.harnesspm": {
       "extends": ["@tenphi/tasty", "@tenphi/glaze"],
-      "docs": { "dir": "../docs/components" },
+      "docs": "../docs/components",
       "scripts": {
         "probe": {
           "file": "./dev.harnesspm/scripts/probe.mjs",
@@ -98,7 +96,7 @@ The extension folder name is the harnesspm namespace, `dev.harnesspm`, based on 
 | `exclude` | string[] | Units or whole packages to drop from what this harness passes on. |
 | `replace` | object | Unit ID → path of a file that takes that unit's place. |
 | `patch` | object | Rule ID → path of a patch that changes some of its sections. See [2.5](#25-rules). |
-| `docs` | object | Where the docs are and how to index them. See [2.7](#27-docs). |
+| `docs` | string | The folder with the package's docs. See [2.7](#27-docs). |
 | `scripts` | object | Script name → script definition. See [05-executables.md](05-executables.md#51-scripts). |
 | `projects` | object | Git remote → folder with units for that project. Read only in personal harnesses. See [07-personal.md](07-personal.md#72-example). |
 
@@ -117,13 +115,13 @@ Unknown fields inside the extension MUST make `harnesspm check` fail, so typos d
 | MCP server | `mcp.json` | Agent Plugins MCP configuration | The agent starts it. |
 | Permission | `<ns>/permissions.json`, and `allow` on scripts | See [05-executables.md](05-executables.md#54-permissions) | The agent applies it. |
 
-`<ns>` is the extension folder, `dev.harnesspm`.
+`<ns>` is the extension folder, `dev.harnesspm`. A file that `replace` or `patch` names is not a unit of its own, even inside `rules/`.
 
 An agent picks a skill by its `description`. Say what the skill does, then, after "Use when", the situations and the words people use when they need it. Being picked is likely, not certain. When a skill must run in a situation, also add an always-on rule that names it: "To trace UI text, use the `uikit-text-origin` skill."
 
 ## 2.5 Rules
 
-A rule is one Markdown file about one topic. Small files make overrides simple: a consumer replaces or drops a whole file, never a part of one.
+A rule is one Markdown file about one topic. Small files make overrides simple: a consumer replaces or drops a whole file, or patches a few of its sections.
 
 ```markdown
 ---
@@ -194,12 +192,12 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 ## 2.7 Docs
 
 ```json
-"docs": { "dir": "../docs", "exclude": ["internal/**"] }
+"docs": "../docs"
 ```
 
-1. `dir` is relative to `harness/`. It MAY point outside `harness/` but MUST stay inside the package.
+1. The path is relative to `harness/`. It MAY point outside `harness/` but MUST stay inside the package.
 2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
-3. Otherwise harnesspm builds the index from each page's first heading and its frontmatter `description`.
+3. Otherwise harnesspm builds the index from each page's first heading and its frontmatter `description`. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
 
 ## 2.8 Unit IDs
@@ -213,8 +211,13 @@ Every unit has an ID: `<plugin name>:<kind>/<name>`.
 | script `probe` in plugin `uikit` | `uikit:scripts/probe` |
 | server `docs` in `mcp.json` of plugin `uikit` | `uikit:mcp/docs` |
 | hook entry with `"id": "check-styles"` | `uikit:hooks/check-styles` |
+| `harness/dev.harnesspm/agents/uikit-reviewer.md` | `uikit:agents/uikit-reviewer` |
+| the docs of plugin `uikit` | `uikit:docs` |
+| `permissions.json` of plugin `uikit` | `uikit:permissions` |
 
 `exclude` also accepts a package name, such as `@tenphi/glaze`, to drop a whole package.
+
+Commands name scripts and MCP servers in a short form, `<plugin name>:<name>`: `harnesspm run uikit:probe`, `harnesspm mcp uikit:docs`. Agents see an MCP server as `<plugin name>-<server>`, such as `uikit-docs`.
 
 ## 2.9 Naming rules
 
@@ -233,5 +236,3 @@ Every unit has an ID: `<plugin name>:<kind>/<name>`.
 - a harnesspm extension field is unknown or has the wrong type;
 - a path points outside the package, or at a file the npm tarball would not include;
 - a link in a rule, skill or doc points at a file that will not be published.
-
-It also prints the size of the always-on text, so authors see what each install costs.

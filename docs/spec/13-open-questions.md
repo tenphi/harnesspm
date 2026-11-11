@@ -2,8 +2,8 @@
 
 **In short**
 
-- 13.1 to 13.7 are **decided**. They stay here as a record of why.
-- 13.9 to 13.11 wait for the **proof of concept**. Each names the test or signal that settles it. 13.8 was settled by a cloud probe.
+- 13.1 to 13.8 are **decided**. They stay here as a record of why. A cloud probe settled 13.8.
+- 13.9 to 13.11 wait for the **proof of concept**. Each names the test or signal that settles it.
 - 13.12 lists options that were removed and may come back.
 
 ## Decided
@@ -37,17 +37,17 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.6 CI without an install
 
-**Decision:** `harnesspm fetch --frozen` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
+**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this.
 
 ### 13.7 Team lock on rules (rejected)
 
 A team cannot mark a rule as one a person cannot exclude. Nothing could enforce it on a person's machine, and `harnesspm status` already shows personal changes.
 
-## Waiting for the proof of concept
-
 ### 13.8 Committed Claude Code settings (settled)
 
 Not needed. A cloud probe in November 2026 showed that a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. Team hooks and permissions stay in that per-machine file.
+
+## Waiting for the proof of concept
 
 ### 13.9 Upgrade report
 
@@ -59,7 +59,10 @@ A person's notes describe how repositories relate, such as "UI Kit builds on Tas
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested. The Codex Cloud rows are out of scope (13.12). The 🔍 rows in [9.5](09-cloud.md#95-observed-in-cloud-sessions) are checked again.
+Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Two items need a decision when they are tested:
+
+- **Codex marker for model runs.** Rule 4 in [6.2](06-trust.md#62-trusting-a-package) needs a way to tell a Codex model run from a person, or Codex's sandbox must keep model runs from writing allow rules and MCP servers.
+- **Yarn 2+ and `prepare`.** Reports disagree on whether Yarn 2+ runs `prepare` on install. If it does not, `init` needs another hook for Yarn, or Yarn leaves the first targets.
 
 ## 13.12 Removed in review
 
@@ -67,10 +70,12 @@ Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md)
 | --- | --- | --- |
 | Four layers, with a global personal layer below dependencies | Hard to explain. Three layers and two personal scopes say the same thing. | A real case needs personal defaults that team rules override by ID. |
 | `include` and `self` in `harnesspm.json` | No scenario needed them. `exclude` covers narrowing. | A project needs an allowlist. |
-| Committed Claude Code settings and `.mcp.json` entries | Two rules for two agents. Now: commit only the block and the lock. | See 13.8. |
+| Committed Claude Code settings and `.mcp.json` entries | Two rules for two agents. Now: commit only the block and the lock. | Per-machine settings stop working (13.8). |
 | `AGENTS.override.md` as a copy of `AGENTS.md` for Codex | Copies go stale. `developer_instructions` adds personal rules without a copy. | `developer_instructions` is not read from project config. |
 | `harnesspm personal save`, `push`, `pull`, `diff`, `status`, `extend` and a patch outbox | harnesspm does not need to wrap git. The owner's rules decide how changes are saved, and agents have their own git tools. | Agents turn out unable to follow owner rules reliably. |
 | A folder picked up automatically as a personal harness | One more rule to learn. `personal add --project` does the same. | — |
 | A separate lock for personal sources | Personal sources follow their branch or range. | People need reproducible personal setups. |
 | Variables and slots in rules | Patches by section cover the same cases with one mechanism. | Patches copy most of a rule to change a word. |
+| Options without a scenario: `agents` in `harnesspm.json`, `sync --no-local`, the hook field `agents`, `docs` as an object with `exclude`, a package-root `skills/` folder | Each had a simpler equivalent or served no scenario. | A scenario needs one of them. |
+| Approving a `"pin"` package unit by unit, by hash | A script's hash misses the code it imports. Approving a version is simpler and covers it. | A team needs to approve part of a release. |
 | Codex Cloud support | Its agent runs outside the task's VM. In a probe, no file written in the VM during a task reached it, and skills came only from cloud plugins ([research](../research/agent-capabilities.md#cloud)). A setup step that prepares files never reached a task in five tries. Codex on a person's computer stays supported. | Codex Cloud is shown to load files that the setup prepares, or harnesspm gains a Codex plugin output (13.5). |

@@ -15,14 +15,13 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | --- | --- |
 | `harnesspm init` | Creates `harnesspm.json`, adds `"prepare": "harnesspm sync"` to `package.json`, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. |
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). |
-| `harnesspm sync --check` | Writes nothing. Fails when a committed output or the lock is out of date. For CI. |
-| `harnesspm sync --no-local` | Ignores the personal layer. Implied when `CI=true`. |
+| `harnesspm sync --check` | Writes nothing and ignores the personal layer, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --personal` | Writes only the personal layer for the current repository, also where the repository does not use harnesspm. The user-level `SessionStart` hook runs it. |
 | `harnesspm status` | Layers, packages, versions, pending trust, personal changes to team units, always-on size per agent. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
-| `harnesspm approve [<package>]` | Approves pending or changed executable units and updates the lock. A person runs it, not an agent. |
+| `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
 | `harnesspm run <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). |
-| `harnesspm fetch --frozen` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
+| `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
 
 `harnesspm mcp <plugin>:<server>` also exists. Agents call it to start MCP servers. People do not need it.
 
@@ -40,8 +39,8 @@ $ npx harnesspm status
 | Command | What it does |
 | --- | --- |
 | `harnesspm check [<folder>]` | Validates a harness ([02-package-format.md](02-package-format.md#210-validation)) and warns about files that look like secrets. Run it at `prepack`. |
-| `harnesspm new <kind> <name>` | Writes a valid rule, skill, sub-agent, script, hook or MCP server from a template. `--personal` writes it into the personal harness, `--personal --project` into its entry for this project. |
-| `harnesspm new patch <rule ID>` | Writes a patch with a copy of the rule's sections and registers it in `harnesspm.json` (or the personal harness with `--personal`). Edit the sections to change and delete the others. |
+| `harnesspm new <kind> <name>` | `<kind>` is `rule`, `skill`, `agent` (a sub-agent), `script`, `hook` or `mcp`. Writes a valid unit from a template. `--personal` writes it into the personal harness, `--personal --project` into its entry for this project. |
+| `harnesspm new patch <rule ID>` | Writes a patch with a copy of the rule's sections and registers it: in `harness/plugin.json` when the rule reaches the project through its own harness's `extends`, so users get the change too; otherwise in `harnesspm.json`; with `--personal`, in the personal harness. Edit the sections to change and delete the others. |
 
 ## 10.3 People
 
@@ -57,4 +56,4 @@ $ npx harnesspm status
 | --- | --- |
 | `0` | Success. Pending trust is not an error. |
 | `1` | Error: invalid harness, failed check. |
-| `2` | `harnesspm run` refused an untrusted or changed script. |
+| `2` | `harnesspm run` refused a script ([05-executables.md](05-executables.md#51-scripts)). When a hook calls it, `2` also blocks the event: harnesspm fails closed. |

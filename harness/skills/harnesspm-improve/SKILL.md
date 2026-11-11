@@ -23,7 +23,7 @@ Ask the user when it is not clear. Never put private data from this project into
 ## 2. Edit the source
 
 - Edit the source file that `why` names, never an output (the `AGENTS.md` block, `CLAUDE.local.md`, `.codex/`).
-- Run `npx harnesspm sync`, then `npx harnesspm run harnesspm:check`.
+- Run `npx harnesspm sync`, then `npx harnesspm check <folder>` for the harness folder you changed.
 
 ## 3. Save the change the owner's way
 

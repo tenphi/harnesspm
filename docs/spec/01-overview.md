@@ -61,7 +61,7 @@ npx harnesspm why tasty:rules/state-maps
 
 ## 1.3 Goals
 
-1. **One folder to share.** Standard formats. No new dependency for the library.
+1. **One folder to share.** Standard formats. No new runtime dependency for the library.
 2. **Harness passes through dependency chains**, and each package can change what it passes on.
 3. **Install once, stay current**, at the installed versions.
 4. **One source, every agent.** Native files for Claude Code and Codex first.
@@ -85,14 +85,20 @@ npx harnesspm why tasty:rules/state-maps
 | --- | --- |
 | **Harness** | Everything an agent needs for a codebase: rules, docs, skills, sub-agents, scripts, hooks, MCP servers, permissions. |
 | **Harness package** | An npm package, git repository or folder that has a `harness/` folder. |
-| **Unit** | One item in a harness, such as one rule or one script. Each unit has an ID. |
+| **Plugin name** | The `name` in a harness's `plugin.json`. It starts every unit ID of that harness. |
+| **Unit** | One item in a harness, such as one rule or one script. Each unit has an ID, such as `uikit:rules/forms`. |
 | **Patch** | A Markdown file that replaces, adds or removes sections of a rule and keeps the rest. |
-| **Layer** | Where units come from: dependencies, project or personal. A higher layer wins. |
+| **Layer** | Where units come from: dependencies, project or personal. A higher layer can drop, replace or patch units of the layers below. |
 | **Scope** | Where a personal unit applies: everywhere, or one project. |
 | **Owner** | The harness a unit comes from: a dependency, the project, or a personal harness. The owner's rules decide how its units change. |
-| **Source** | The file a unit is read from. Outputs are generated from sources. |
+| **Source** | Where something is read from: the file of a unit, or the git repository, folder or npm package of a personal harness. Outputs are generated from sources. |
+| **Project entry** | A folder in a personal harness with units for one project, matched by the project's git remote. |
 | **Output** | A file or block harnesspm writes for an agent. Never edited by hand. |
+| **Managed block** | The part of a Markdown file that harnesspm writes, between `BEGIN:harnesspm` and `END:harnesspm` markers. |
+| **Lock** | `harnesspm.lock.json`: the committed record of harness packages and unit hashes. |
 | **Executable unit** | A script, hook, MCP server or allow permission. Needs trust. |
+| **Trust** | A project's consent, in `harnesspm.json`, for a package's executable units to run. |
+| **Pending** | An executable unit that harnesspm does not write yet: its package is not trusted, a `"pin"` package has a new version, or the agent's model started the run. |
 
 ## 1.6 Base scenarios
 
@@ -112,11 +118,12 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S10 | A person keeps workflow and context outside project repositories | Rules and notes in the personal harness, with per-project entries. |
 | S11 | An agent improves a harness | Edits the source that `harnesspm why` names, then saves under the owner's rules. |
 | S12 | A person works in a Claude Code cloud session | The same `personal add` in the environment's setup script, or asked of the agent. |
+| S13 | A job reads the harness without an install, such as a review bot | `npx -y harnesspm fetch`. |
 
 ## 1.7 What is committed
 
 | Committed | Per machine (excluded through `.git/info/exclude`) |
 | --- | --- |
-| `harnesspm.json`, `harnesspm.lock.json`, the managed block in `AGENTS.md`, the `@AGENTS.md` line in `CLAUDE.md` | Everything else: links, agent settings, `.codex/`, personal outputs |
+| `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` | Everything else: links, agent settings, `.codex/`, personal outputs |
 
 Committed files depend only on the dependency and project layers, so every teammate and CI produce the same result. harnesspm never edits `.gitignore`.

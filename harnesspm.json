@@ -1,4 +1,3 @@
 {
-  "$schema": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json",
-  "agents": ["claude", "codex"]
+  "$schema": "https://unpkg.com/harnesspm/schema/harnesspm.schema.json"
 }

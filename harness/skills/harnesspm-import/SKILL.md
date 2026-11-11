@@ -19,9 +19,9 @@ npx harnesspm init
 Run `npx harnesspm status`. It lists the packages, pending tools and the always-on size.
 
 - **Pending tools** come from packages the project does not trust yet. Ask the user before adding a package to `trust` in `harnesspm.json`.
-- **You cannot grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the user to run `npx harnesspm approve` or `npx harnesspm sync` in their own terminal. Do not edit agent settings files to work around it.
+- **You cannot grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the user to run `npx harnesspm approve` in their own terminal. Do not edit agent settings files to work around it.
 - **One upstream rule does not fit** the project: run `npx harnesspm new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `harnesspm.json` to change or drop a whole unit.
-- **A job that does not install dependencies**, such as a review bot, runs `npx -y harnesspm fetch --frozen` first.
+- **A job that does not install dependencies**, such as a review bot, runs `npx -y harnesspm fetch` first.
 
 ## 3. Install the user's personal harness
 

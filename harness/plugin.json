@@ -7,14 +7,7 @@
   "keywords": ["harnesspm", "harness", "agents"],
   "extensions": {
     "dev.harnesspm": {
-      "docs": { "dir": "../docs/spec" },
-      "scripts": {
-        "check": {
-          "file": "./dev.harnesspm/scripts/check.mjs",
-          "description": "Validate harness changes: runs harnesspm check (when harness/ exists) and harnesspm sync --check --no-local",
-          "allow": true
-        }
-      }
+      "docs": "../docs/spec"
     }
   }
 }

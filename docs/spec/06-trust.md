@@ -31,7 +31,7 @@
 | Value | Meaning |
 | --- | --- |
 | `true` | Executable units are active, also after upgrades. The lock diff shows changes. For the team's own packages. |
-| `"pin"` | Active only with the hashes in the lock. A changed unit stays off until `harnesspm approve`. For packages the team does not control. |
+| `"pin"` | Active only in the version approved in the lock. A new version stays off until `harnesspm approve`. For packages the team does not control. |
 | missing | Executable units stay off. `harnesspm sync` lists them as **pending** and does not fail. |
 
 Rules:
@@ -39,25 +39,30 @@ Rules:
 1. Trust MUST NOT pass through `extends`. Trusting UI Kit does not trust Tasty.
 2. `harnesspm personal add` is the person's trust decision for that source. Personal sources need no `trust` entry.
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
-4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Claude Code blocks the model from granting its own permissions, and harnesspm must not be a way around that. Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks, and setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run. A hook run comes from settings a person wrote, so it may add entries. Pending entries wait until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and removals are written as usual.
+4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Agents keep the model from granting itself permissions, and harnesspm must not be a way around that.
+   - Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks and MCP servers. Setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run.
+   - Codex: no marker is confirmed yet. The proof of concept must find one, or confirm that Codex's sandbox keeps model runs from writing these entries ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
+   - A hook runs from settings a person wrote, so a hook run may add entries.
+   - Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and removals are written as usual.
 
 ## 6.3 The lock
 
 `harnesspm.lock.json` is committed. It covers the dependency and project layers and records:
 
-- every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch --frozen` can download it without an install;
+- every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version;
 - every unit: ID, kind, content hash;
-- every executable unit: whether it is active, pending or pinned;
 - every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported.
+
+The lock holds no per-machine state, so every machine writes the same lock. `harnesspm status` shows which executable units are pending on this machine, and why.
 
 People do not edit it. Personal sources are not locked. They follow their branch or version range, and `harnesspm personal update` refreshes them.
 
 ## 6.4 CI
 
-`harnesspm sync --check` runs with the personal layer off. It fails when:
+`harnesspm sync --check` and every run with `CI=true` ignore the personal layer. `--check` writes nothing and fails when:
 
 - a committed output or the lock is out of date;
-- a `"pin"` package has a changed executable unit that nobody approved.
+- a `"pin"` package has a version that nobody approved.
 
 ## 6.5 Not covered
 
