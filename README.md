@@ -1,6 +1,6 @@
 # harnesspm — the harness package manager
 
-> **Status: specification draft.** There is no code yet. This repository holds the design that the first implementation will follow.
+> **Status: specification draft, with a proof of concept in progress.** The code in `src/` implements the team harness (milestone 1 below). It is not published yet.
 
 harnesspm moves an **AI harness** between projects through npm packages. A harness is everything an AI coding agent needs to work well with a codebase: rules, docs, skills, sub-agents, scripts, hooks, MCP servers and permissions.
 
@@ -24,7 +24,16 @@ personal     (your harness: everywhere, or for this project)  → per-machine fi
 ## First targets
 
 - **Agents:** Claude Code and Codex. Other agents that read `AGENTS.md` and `.agents/skills` get the portable parts.
-- **Package managers:** npm, pnpm and Yarn (node-modules linker).
+- **Package managers:** npm, pnpm, Yarn 1 and Yarn 4 (node-modules linker).
+
+## Proof of concept
+
+| Milestone | Scenarios | Status |
+| --- | --- | --- |
+| 1. Team harness: `init`, `sync`, `sync --check`, `status`, `why`, `check` | S1–S6 | ✅ |
+| 2. Personal layer: `personal add`, `remove`, `update`, project entries, the `SessionStart` hook | S9, S10, S12 | — |
+| 3. Executables and trust: `run`, hooks, MCP servers, permissions, `approve` | S8 | — |
+| 4. Agents and the rest: Claude Code reading the outputs, monorepos, `fetch`, `new` | S7, S11, S13 | — |
 
 ## Read the specification
 

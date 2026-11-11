@@ -10,12 +10,12 @@
 
 | File | Role |
 | --- | --- |
-| [`AGENTS.md`](../../AGENTS.md) | How to work on this repository, including how to save changes. A harnesspm block is added once the CLI exists. |
+| [`AGENTS.md`](../../AGENTS.md) | How to work on this repository, including how to save changes. Ends with the harnesspm block that `npm run sync` writes. |
 | [`CLAUDE.md`](../../CLAUDE.md) | Imports `AGENTS.md` for Claude Code. |
 | [`harnesspm.json`](../../harnesspm.json) | This repository's project configuration. |
 | [`harness/`](../../harness/) | The harness that ships to everyone who installs `harnesspm`. Part of the project layer here, the dependency layer for users. |
 
-Until the CLI exists, these files are drafts that show the format. The first implementation MUST make them work as written, or change them and this chapter together.
+The proof of concept runs on these files: `npm run sync` writes the block and `harnesspm.lock.json`, and `npm run check` validates them. A change to the format MUST keep them working, or change them and this chapter together.
 
 ## 12.2 What harnesspm's harness gives its users
 

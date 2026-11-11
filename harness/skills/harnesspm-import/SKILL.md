@@ -12,7 +12,7 @@ npm i -D harnesspm
 npx harnesspm init
 ```
 
-`init` adds `harnesspm sync` to the `prepare` script, so every install updates the agent files. Commit `harnesspm.json`, `harnesspm.lock.json` and the `AGENTS.md` block.
+`init` adds `harnesspm sync` to the `postinstall` script of a private package, or to `prepare` otherwise, so every full install updates the agent files. After `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync` yourself. Commit `harnesspm.json`, `harnesspm.lock.json` and the `AGENTS.md` block.
 
 ## 2. Check what arrived
 

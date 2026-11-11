@@ -1,0 +1,36 @@
+{
+  "name": "harnesspm",
+  "version": "0.0.0",
+  "description": "The harness package manager: share agent rules, docs, skills and tools through npm packages",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "harnesspm": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "harness",
+    "docs/spec"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": "https://github.com/tenphi/tack",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "sync": "node src/cli.ts sync",
+    "check": "node src/cli.ts check && node src/cli.ts sync --check",
+    "harnesspm": "node src/cli.ts",
+    "prepack": "npm run build && node dist/cli.js check"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}

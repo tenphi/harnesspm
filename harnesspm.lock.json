@@ -1,0 +1,37 @@
+{
+  "lockfileVersion": 1,
+  "packages": {
+    "harnesspm": {
+      "version": "0.0.0",
+      "plugin": "harnesspm",
+      "project": true
+    }
+  },
+  "units": {
+    "harnesspm:docs": {
+      "kind": "docs",
+      "hash": "f4bb149ff2bb3c19"
+    },
+    "harnesspm:rules/generated-files": {
+      "kind": "rules",
+      "hash": "91b0cd8b178bda8f"
+    },
+    "harnesspm:rules/harnesspm-config": {
+      "kind": "rules",
+      "hash": "d2cbd5d624aa9d16"
+    },
+    "harnesspm:skills/harnesspm-export": {
+      "kind": "skills",
+      "hash": "59bda1aa8cf56ff0"
+    },
+    "harnesspm:skills/harnesspm-import": {
+      "kind": "skills",
+      "hash": "409da833bb08ef44"
+    },
+    "harnesspm:skills/harnesspm-improve": {
+      "kind": "skills",
+      "hash": "038559b779905ff7"
+    }
+  },
+  "patches": {}
+}

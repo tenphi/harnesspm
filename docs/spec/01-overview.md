@@ -41,7 +41,7 @@ npm i -D harnesspm
 npx harnesspm init
 ```
 
-Every install then runs `harnesspm sync`. It finds the harness of each dependency, follows `extends` chains, applies the project's changes, and writes each agent's native files. The project commits the generated block in `AGENTS.md` and `harnesspm.lock.json`, so upgrades show up in pull requests.
+Every full install, such as `npm install` or `pnpm install`, then runs `harnesspm sync`. It finds the harness of each dependency, follows `extends` chains, applies the project's changes, and writes each agent's native files. The project commits the generated block in `AGENTS.md` and `harnesspm.lock.json`, so upgrades show up in pull requests.
 
 ### Add your own (personal)
 
@@ -110,7 +110,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S2 | A library builds on upstream harness | Lists the upstream packages in `extends`, adds its own units. |
 | S3 | A project uses the harness of its dependencies | `npm i -D harnesspm` and `npx harnesspm init`, once. |
 | S4 | A project changes one upstream rule | One `patch` for a few sections, or one `replace` or `exclude` entry. |
-| S5 | A project upgrades a dependency | Nothing. The pull request shows what changed. |
+| S5 | A project upgrades a dependency | Nothing after a full install. After `npm install <pkg>` or `pnpm add`, `npx harnesspm sync`. The pull request shows what changed. |
 | S6 | Several repositories share a policy | A harness-only package, added as a dev dependency. |
 | S7 | A monorepo | Nothing. Each workspace gets the harness of its own dependencies. |
 | S8 | A library ships a tool for agents | A script in the harness. Projects that trust the package can run it. |

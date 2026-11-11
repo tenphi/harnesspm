@@ -13,7 +13,7 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds `"prepare": "harnesspm sync"` to `package.json`, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. |
+| `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. |
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). |
 | `harnesspm sync --check` | Writes nothing and ignores the personal layer, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --personal` | Writes only the personal layer for the current repository, also where the repository does not use harnesspm. The user-level `SessionStart` hook runs it. |
@@ -22,6 +22,8 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
 | `harnesspm run <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). |
 | `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
+
+Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 
 `harnesspm mcp <plugin>:<server>` also exists. Agents call it to start MCP servers. People do not need it.
 

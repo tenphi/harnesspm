@@ -35,7 +35,7 @@ These hold the dependency and project layers, plus personal units with scope "th
 | --- | --- | --- |
 | Always-on rules, docs index, script list (team) | Managed block in `AGENTS.md` (committed), reached through `@AGENTS.md` in `CLAUDE.md` | Managed block in `AGENTS.md` (committed) |
 | Always-on rules (personal) | Managed block in `CLAUDE.local.md` | `developer_instructions` in `.codex/config.toml` |
-| File-scoped rules | Link in `.claude/rules/` with `paths`, plus a pointer line in the block | Pointer line in the block |
+| File-scoped rules | Link in `.claude/rules/harnesspm/<plugin>/` with `paths`, plus a pointer line in the block | Pointer line in the block |
 | On-demand rules | Pointer line with its description | Pointer line with its description |
 | Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for skills from the project, a personal harness or a trusted package | Link in `.agents/skills/<name>` |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
