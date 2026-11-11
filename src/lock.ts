@@ -2,7 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Resolution } from './resolve.ts';
-import { hash, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
+import { hash, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
 
 export const LOCK_FILE = 'harnesspm.lock.json';
 
@@ -65,6 +65,11 @@ export function buildLock(res: Resolution, previous: Lock | undefined): Lock {
   for (const rule of res.rules) units[rule.id] = { kind: 'rules', hash: hash(rule.text) };
   for (const skill of res.skills) units[skill.id] = { kind: 'skills', hash: hashDir(skill.dir) };
   for (const docs of res.docs) units[docs.id] = { kind: 'docs', hash: hashDir(docs.dir) };
+  for (const script of res.scripts) units[script.id] = { kind: 'scripts', hash: isFile(script.file) ? hash(readText(script.file)) : 'missing' };
+  for (const hook of res.hooks) units[hook.id] = { kind: 'hooks', hash: hash(JSON.stringify([hook.event, hook.matchers, hook.run, hook.timeout ?? null])) };
+  for (const server of res.mcp) units[server.id] = { kind: 'mcp', hash: hash(JSON.stringify(server.config)) };
+  for (const perms of res.permissions) units[perms.id] = { kind: 'permissions', hash: hash(JSON.stringify([perms.deny, perms.ask])) };
+  for (const agent of res.agents) units[agent.id] = { kind: 'agents', hash: hash(readText(agent.file)) };
   const patches: Lock['patches'] = {};
   for (const rule of res.rules) {
     for (const applied of rule.patches) {

@@ -18,6 +18,8 @@ export interface Section {
   docsIndex?: { path: string; id: string };
   /** Lines before the rules, such as a note on what the section changes. */
   intro?: string[];
+  /** Script lines: scripts the agent may run, with their command. */
+  scripts?: string[];
 }
 
 function withoutTitle(body: string): string {
@@ -58,19 +60,27 @@ export function renderSections(sections: Section[], paths: PathFor): string {
     for (const rule of section.rules.filter((r) => r.activation === 'always')) parts.push(alwaysOnText(rule));
     const pointers = section.rules.filter((r) => r.activation !== 'always').map((r) => pointerLine(r, paths.rule(r)));
     if (section.docsIndex) pointers.push(`- Docs: ${section.docsIndex.path} (${section.docsIndex.id})`);
+    pointers.push(...(section.scripts ?? []));
     if (pointers.length > 0) parts.push(pointers.join('\n'));
     if (parts.length > 1) out.push(parts.join('\n\n'));
   }
   return out.join('\n\n');
 }
 
-export function sectionsFor(res: Resolution, packages: ResolvedPackage[], paths: PathFor): Section[] {
+/** `runPrefix` returns the command prefix for a trusted package's scripts, or undefined to list none. */
+export function sectionsFor(res: Resolution, packages: ResolvedPackage[], paths: PathFor, runPrefix: (pkg: ResolvedPackage) => string | undefined = () => undefined): Section[] {
   return packages.map((pkg) => {
     const index = paths.docsIndex(pkg);
+    const prefix = runPrefix(pkg);
+    const scripts =
+      prefix === undefined
+        ? []
+        : res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined).map((s) => `- Script: \`${prefix} run ${pkg.plugin}:${s.name}\` — ${s.description} (${s.id})`);
     return {
       heading: packageHeading(pkg),
       rules: res.rules.filter((r) => r.pkg === pkg),
       ...(index !== undefined ? { docsIndex: { path: index, id: `${pkg.plugin}:docs` } } : {}),
+      ...(scripts.length > 0 ? { scripts } : {}),
     };
   });
 }
@@ -80,8 +90,8 @@ export function wrapBlock(content: string): string {
 }
 
 /** The committed block: the dependency and project layers. */
-export function renderBlock(res: Resolution, paths: PathFor): string {
-  const content = renderSections(sectionsFor(res, res.packages, paths), paths);
+export function renderBlock(res: Resolution, paths: PathFor, runPrefix?: (pkg: ResolvedPackage) => string | undefined): string {
+  const content = renderSections(sectionsFor(res, res.packages, paths, runPrefix), paths);
   return wrapBlock(content !== '' ? content : 'No harness units yet.');
 }
 

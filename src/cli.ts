@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { add, check, init, remove, status, sync, update, why, type Output } from './commands.ts';
+import { add, approve, check, init, mcp, remove, run, status, sync, update, why, type Output } from './commands.ts';
+import { Refused } from './run.ts';
 import { HarnessError, readJson } from './util.ts';
 
 const HELP = `harnesspm — the harness package manager
@@ -9,6 +10,9 @@ Projects
   harnesspm sync [--check]       write the agent files (--check: compare only, for CI)
   harnesspm status               layers, packages and always-on size
   harnesspm why <ID>             where a unit comes from and how to change it
+  harnesspm run <plugin>:<script> [-- args]
+                                 run a script of a trusted package
+  harnesspm approve [<package>]  approve a "pin" package's new version, and write what an agent could not
 
 Harnesses on top of the repository's (your team's, your own)
   harnesspm add <source> [--local] [--no-hook]
@@ -27,6 +31,20 @@ const out: Output = {
 
 function main(argv: string[]): number {
   const [command, ...rest] = argv;
+  if (command === 'run' || command === 'mcp') {
+    // Everything after the script name goes to the script, untouched.
+    let agent: string | undefined;
+    let i = 0;
+    if (rest[0] === '--agent') {
+      agent = rest[1];
+      i = 2;
+    }
+    const ref = rest[i];
+    if (ref === undefined) throw new HarnessError(`Usage: harnesspm ${command} [--agent <claude|codex>] <plugin>:<name>${command === 'run' ? ' [-- args]' : ''}`);
+    const args = rest.slice(i + 1);
+    if (args[0] === '--') args.shift();
+    return command === 'run' ? run(process.cwd(), ref, args, agent) : mcp(process.cwd(), ref, agent);
+  }
   const flags = new Set(rest.filter((a) => a.startsWith('--')));
   const args = rest.filter((a) => !a.startsWith('--'));
   const cwd = process.cwd();
@@ -57,6 +75,9 @@ function main(argv: string[]): number {
     case 'update':
       unknown([]);
       return update(cwd, out);
+    case 'approve':
+      unknown([]);
+      return approve(cwd, args[0], out);
     case 'check':
       unknown([]);
       return check(args[0] ?? cwd, out);
@@ -82,7 +103,7 @@ try {
 } catch (error) {
   if (error instanceof HarnessError) {
     console.error(`harnesspm: ${error.message}`);
-    process.exitCode = 1;
+    process.exitCode = error instanceof Refused ? 2 : 1;
   } else {
     throw error;
   }

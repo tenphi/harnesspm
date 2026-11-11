@@ -19,12 +19,12 @@ The npm package and the command are both `harnesspm`. Use `npx harnesspm …` in
 | `harnesspm status` | Layers, packages, versions, pending trust, changes that added harnesses make to the repository's units, always-on size per agent. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
-| `harnesspm run <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). |
+| `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. |
 | `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install. For review bots and CI jobs that do not install dependencies. |
 
 Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 
-`harnesspm mcp <plugin>:<server>` also exists. Agents call it to start MCP servers. People do not need it.
+`harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. People do not need it.
 
 ```text
 $ npx harnesspm status

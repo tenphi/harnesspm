@@ -59,11 +59,12 @@ A person's notes describe how repositories relate, such as "UI Kit builds on Tas
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). One item needs a decision when it is tested:
+Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled by the proof of concept:
 
-- **Codex marker for model runs.** Rule 4 in [6.2](06-trust.md#62-trusting-a-package) needs a way to tell a Codex model run from a person, or Codex's sandbox must keep model runs from writing allow rules and MCP servers.
-
-Settled by the proof of concept: Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
+- Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
+- Codex marks commands its model runs with `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, so rule 4 in [6.2](06-trust.md#62-trusting-a-package) covers Codex too.
+- Codex reads `developer_instructions` from a trusted project's `.codex/config.toml`.
+- A headless Claude Code run uses what harnesspm writes: hooks, allow and deny rules, local-scope MCP servers, sub-agents, and skills linked from inside or outside the repository ([research](../research/agent-capabilities.md#claude-code)). Codex outputs are checked only against its source and docs, because no Codex CLI was available.
 
 ## 13.12 Removed in review
 

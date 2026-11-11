@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { harnesspmHome } from './added.ts';
+import { caller, harnesspmHome } from './added.ts';
+import { applyEntries, desiredEntries, tomlTables, trustOf, type ExecEntries, type Targets } from './exec-outputs.ts';
+import { claudeJsonFile } from './homes.ts';
 import { parseFrontmatter } from './frontmatter.ts';
-import { buildLock, LOCK_FILE, patchDrift, readLock, serializeLock } from './lock.ts';
+import { buildLock, LOCK_FILE, patchDrift, readLock, serializeLock, type Lock } from './lock.ts';
 import {
   alwaysOnText,
   extractBlock,
@@ -56,8 +58,14 @@ export interface Plan {
   addedExcludes: string[];
   /** New CLAUDE.local.md, or undefined to remove harnesspm's block from it. */
   localMd: string | undefined;
-  /** New .codex/config.toml, undefined to remove the one harnesspm wrote, or null to leave it alone. */
-  codexConfig: string | undefined | null;
+  /** Text for Codex's developer_instructions. Empty when there is none. */
+  codexInstructions: string;
+  /** False when .codex/ belongs to the repository. */
+  codexOurs: boolean;
+  /** False when the repository tracks .claude/settings.local.json. */
+  claudeOurs: boolean;
+  /** Executable entries per group. The team group is missing when the team layers were not resolved. */
+  exec: { team?: ExecEntries; added: ExecEntries };
   warnings: string[];
 }
 
@@ -205,13 +213,15 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
   }
 
   let committed: Plan['committed'];
+  let lock: Lock | undefined = readLock(projectDir);
   if (team) {
-    const teamGenerated = new Map<string, string>();
-    const block = renderBlock(team, pathTools(team, () => teamGen, teamGenerated).paths);
-    for (const [file, content] of teamGenerated) if (!generated.has(file)) generated.set(file, content);
-    const previous = readLock(projectDir);
-    const lock = buildLock(team, previous);
+    const previous = lock;
+    lock = buildLock(team, previous);
     warnings.push(...patchDrift(previous, lock));
+    const teamGenerated = new Map<string, string>();
+    const teamLock = lock;
+    const block = renderBlock(team, pathTools(team, () => teamGen, teamGenerated).paths, (pkg) => (trustOf(pkg, team, teamLock).trusted ? 'npx harnesspm' : undefined));
+    for (const [file, content] of teamGenerated) if (!generated.has(file)) generated.set(file, content);
     committed = {
       agentsMd: upsertBlock(readTextIfExists(path.join(projectDir, 'AGENTS.md')), block),
       claudeMd: withClaudeImport(readTextIfExists(path.join(projectDir, 'CLAUDE.md'))),
@@ -220,7 +230,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
   }
 
   // Added harnesses with local scope, and every harness's entry for this repository (spec 4.3).
-  let content = renderSections(sectionsFor(full, full.packages.filter(isRepoAdded), tools.paths), tools.paths);
+  let content = renderSections(sectionsFor(full, full.packages.filter(isRepoAdded), tools.paths, () => 'npx -y harnesspm'), tools.paths);
   const changes = team ? changesSection(team, full, (rule) => tools.paths.rule(rule)) : undefined;
   if (changes !== undefined) content = content !== '' ? `${content}\n\n${changes}` : changes;
 
@@ -241,17 +251,20 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
     localMd = extractBlock(existing) === undefined ? existing : removeBlock(existing, /^\s*(@AGENTS\.md)?\s*$/);
   }
 
+  // Codex files are per machine unless the repository commits its own .codex/ (spec 4.3, note 2).
   const codexFile = path.join(projectDir, '.codex', 'config.toml');
-  const codexOurs = (readTextIfExists(codexFile) ?? CODEX_MARKER).startsWith(CODEX_MARKER);
-  let codexConfig: string | undefined | null = null;
-  if (isTracked(projectDir, '.codex/config.toml') || !codexOurs) {
-    if (content !== '') warnings.push('.codex/config.toml belongs to the repository, so Codex does not get the added harnesses here');
-  } else if (content !== '') {
-    codexConfig = `${CODEX_MARKER}\ndeveloper_instructions = ${tomlString(content)}\n`;
-    addedExcludes.add('/.codex/config.toml');
-  } else {
-    codexConfig = undefined;
-  }
+  const codexTracked = ['.codex/config.toml', '.codex/hooks.json', '.codex/rules'].some((rel) => isTracked(projectDir, rel));
+  const codexOurs = !codexTracked && (readTextIfExists(codexFile) ?? CODEX_MARKER).startsWith(CODEX_MARKER);
+  if (!codexOurs) warnings.push('.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units. See `harnesspm status`.');
+  const claudeOurs = !isTracked(projectDir, '.claude/settings.local.json');
+  if (!claudeOurs) warnings.push('.claude/settings.local.json is tracked by git, so harnesspm writes no hooks or permissions there');
+
+  // Executable units and sub-agents (spec 4.3, chapter 5), with trust (spec 6.2).
+  const trust = (pkg: ResolvedPackage) => trustOf(pkg, full, lock);
+  const agentDirs = { claudeAgents: path.join(projectDir, '.claude', 'agents'), codexAgents: path.join(projectDir, '.codex', 'agents') };
+  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => 'npx harnesspm' }) : undefined;
+  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => 'npx -y harnesspm' });
+  warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
   return {
     ...(committed ? { committed } : {}),
@@ -261,7 +274,10 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
     ...(team ? { teamExcludes: [...teamExcludes].sort() } : {}),
     addedExcludes: [...addedExcludes].sort(),
     localMd,
-    codexConfig,
+    codexInstructions: content,
+    codexOurs,
+    claudeOurs,
+    exec: { ...(teamExec ? { team: teamExec } : {}), added: addedExec },
     warnings,
   };
 }
@@ -304,9 +320,35 @@ function unlinkAndPrune(target: string, stopAt: string): void {
   }
 }
 
-/** Writes the plan. Returns the project-relative paths that changed. */
-export function applyPlan(projectDir: string, plan: Plan): string[] {
+export function repoStateFile(projectDir: string): string {
+  const result = spawnSync('git', ['rev-parse', '--git-path', 'harnesspm/state.json'], { cwd: projectDir, encoding: 'utf8' });
+  const p = result.status === 0 ? result.stdout.trim() : path.join('.git', 'harnesspm', 'state.json');
+  return path.isAbsolute(p) ? p : path.join(projectDir, p);
+}
+
+export function repoTargets(projectDir: string, plan: Pick<Plan, 'claudeOurs' | 'codexOurs'>): Targets {
+  return {
+    claudeSettings: path.join(projectDir, '.claude', 'settings.local.json'),
+    claudeJson: claudeJsonFile(),
+    claudeProject: projectDir,
+    codexHooks: path.join(projectDir, '.codex', 'hooks.json'),
+    codexRules: path.join(projectDir, '.codex', 'rules', 'harnesspm.rules'),
+    stateFile: repoStateFile(projectDir),
+    writeClaude: plan.claudeOurs,
+    writeCodex: plan.codexOurs,
+  };
+}
+
+export interface ApplyResult {
+  changed: string[];
+  /** Entries a model run could not add (spec 6.2, rule 4). */
+  held: string[];
+}
+
+/** Writes the plan. Returns the project-relative paths that changed and the entries held back. */
+export function applyPlan(projectDir: string, plan: Plan): ApplyResult {
   const changed: string[] = [];
+  const held: string[] = [];
   const note = (file: string, did: boolean): void => {
     if (did) changed.push(relPosix(projectDir, file));
   };
@@ -315,12 +357,50 @@ export function applyPlan(projectDir: string, plan: Plan): string[] {
   for (const [file, content] of plan.generated) writeIfChanged(file, content);
   for (const [linkPath, target] of plan.links) note(linkPath, linkIfChanged(linkPath, target));
 
+  // Executable entries in shared files, before the excludes so that every written file is listed.
+  const widen = caller() !== 'model';
+  const targets = repoTargets(projectDir, plan);
+  const teamExcludes = plan.teamExcludes ? [...plan.teamExcludes] : undefined;
+  const addedExcludes = [...plan.addedExcludes];
+  let codexMcp: Record<string, Record<string, unknown>> = {};
+  for (const [group, entries, into] of [['team', plan.exec.team, teamExcludes], ['added', plan.exec.added, addedExcludes]] as const) {
+    if (!entries) continue;
+    const applied = applyEntries(group, entries, targets, widen);
+    for (const file of applied.changed) changed.push(file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
+    held.push(...applied.held);
+    codexMcp = applied.codexMcp;
+    for (const file of applied.files) if (file.startsWith(projectDir + path.sep)) into?.push(`/${relPosix(projectDir, file)}`);
+  }
+
+  // .codex/config.toml: developer_instructions and MCP servers.
+  const codexFile = path.join(projectDir, '.codex', 'config.toml');
+  if (plan.codexOurs) {
+    const parts = [
+      ...(plan.codexInstructions !== '' ? [`developer_instructions = ${tomlString(plan.codexInstructions)}`] : []),
+      ...(Object.keys(codexMcp).length > 0 ? [tomlTables('mcp_servers', codexMcp)] : []),
+    ];
+    if (parts.length > 0) {
+      note(codexFile, writeIfChanged(codexFile, `${CODEX_MARKER}\n${parts.join('\n\n')}\n`));
+      addedExcludes.push('/.codex/config.toml');
+    } else if (isFile(codexFile)) {
+      fs.rmSync(codexFile);
+      changed.push('.codex/config.toml');
+    }
+  }
+  for (const dir of [path.join(projectDir, '.codex', 'rules'), path.join(projectDir, '.codex', 'agents'), path.join(projectDir, '.codex'), path.join(projectDir, '.claude', 'agents')]) {
+    try {
+      fs.rmdirSync(dir);
+    } catch {
+      // Not empty, or not there.
+    }
+  }
+
   const excludeFile = gitExcludeFile(projectDir);
   if (excludeFile) {
     const before = readTextIfExists(excludeFile);
     const prevTeam = readSection(before, TEAM_SECTION);
     const prevAdded = readSection(before, ADDED_SECTION);
-    const keep = new Set([...(plan.teamExcludes ?? prevTeam), ...plan.addedExcludes]);
+    const keep = new Set([...(teamExcludes ?? prevTeam), ...addedExcludes]);
     // Remove links from the last sync that this sync no longer writes.
     for (const entry of new Set([...prevTeam, ...prevAdded])) {
       const target = path.join(projectDir, entry);
@@ -329,8 +409,9 @@ export function applyPlan(projectDir: string, plan: Plan): string[] {
       changed.push(entry.slice(1));
     }
     let text = before;
-    if (plan.teamExcludes) text = writeSection(text, TEAM_SECTION, plan.teamExcludes);
-    text = writeSection(text, ADDED_SECTION, plan.addedExcludes);
+    const sorted = (list: string[]): string[] => [...new Set(list)].sort();
+    if (teamExcludes) text = writeSection(text, TEAM_SECTION, sorted(teamExcludes));
+    text = writeSection(text, ADDED_SECTION, sorted(addedExcludes));
     ensureDir(path.dirname(excludeFile));
     writeIfChanged(excludeFile, text);
   }
@@ -347,18 +428,7 @@ export function applyPlan(projectDir: string, plan: Plan): string[] {
     fs.rmSync(localFile);
     changed.push('CLAUDE.local.md');
   }
-  const codexFile = path.join(projectDir, '.codex', 'config.toml');
-  if (typeof plan.codexConfig === 'string') note(codexFile, writeIfChanged(codexFile, plan.codexConfig));
-  else if (plan.codexConfig === undefined && isFile(codexFile)) {
-    fs.rmSync(codexFile);
-    changed.push('.codex/config.toml');
-    try {
-      fs.rmdirSync(path.dirname(codexFile));
-    } catch {
-      // Other files are in .codex/.
-    }
-  }
-  return changed;
+  return { changed, held };
 }
 
 /** Compares the committed outputs with the plan (spec 6.4). Returns the differences. */

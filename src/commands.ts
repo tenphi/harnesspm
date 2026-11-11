@@ -16,10 +16,13 @@ import {
 import { checkHarness } from './check.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage } from './manifest.ts';
-import { applyPlan, checkPlan, computePlan, STATE_DIR } from './outputs.ts';
+import { heldEntries } from './exec-outputs.ts';
+import { buildLock, LOCK_FILE, readLock, serializeLock } from './lock.ts';
+import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
+import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, withClaudeImport } from './render.ts';
 import { resolve, resolvePackageDir, type Resolution } from './resolve.ts';
-import { writeUserOutputs, writeUserSettings } from './user-outputs.ts';
+import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
 import { HarnessError, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
@@ -32,7 +35,15 @@ const printWarnings = (out: Output, warnings: string[]): void => {
   for (const w of [...new Set(warnings)]) out.warn(`⚠️  ${w}`);
 };
 
-const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
+const plural = (count: number, word: string, many = `${word}s`): string => `${count} ${count === 1 ? word : many}`;
+
+function printPending(out: Output, report: UserReport): void {
+  for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
+  if (report.held.length > 0) {
+    out.log(`⏳ held back: ${plural(report.held.length, 'entry', 'entries')} that an agent cannot grant (${report.held.slice(0, 3).join('; ')}${report.held.length > 3 ? '; …' : ''}).`);
+    out.log('   Ask the person to run `npx harnesspm sync` or `npx harnesspm approve` in their own terminal.');
+  }
+}
 
 /** The repository to work on: the nearest folder with harnesspm.json, else the git root, else `cwd`. */
 export function findProjectDir(cwd: string): string {
@@ -76,7 +87,8 @@ function resolveAll(projectDir: string, options: { withAdded: boolean }): Resolv
   const inRepo = gitExcludeFile(projectDir) !== undefined;
   const added = options.withAdded && process.env['CI'] !== 'true' ? loadAdded(inRepo ? projectDir : undefined, warnings) : [];
   const team = installed ? resolve(projectDir) : undefined;
-  const full = resolve(projectDir, { team: installed, added: inRepo ? added : [] });
+  // Outside a git repository only user-scope harnesses load, and no repository outputs are written.
+  const full = resolve(projectDir, { team: installed, added });
   const mode = installed ? 'full' : inRepo && added.length > 0 ? 'added-only' : 'none';
   return { ...(team ? { team } : {}), full, added, mode, warnings: [...warnings, ...(team?.warnings ?? []), ...full.warnings] };
 }
@@ -100,13 +112,18 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   const { full, mode } = resolved;
   const warnings = [...resolved.warnings];
   const changed: string[] = [];
+  const report: UserReport = { pending: [], held: [] };
   if (mode !== 'none') {
     const plan = computePlan(resolved.team, full);
     warnings.push(...plan.warnings);
-    changed.push(...applyPlan(projectDir, plan));
+    const applied = applyPlan(projectDir, plan);
+    changed.push(...applied.changed);
+    report.held.push(...applied.held);
+    report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
   }
-  if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings));
+  if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   printWarnings(out, warnings);
+  printPending(out, report);
   if (options.quiet) return 0;
   const counts = `${plural(full.rules.length, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
@@ -255,13 +272,19 @@ export function status(cwd: string, out: Output): number {
   out.log(`🏢 project       ${projectParts.join(' · ')}`);
   out.log(`➕ added         ${resolved.added.length > 0 ? resolved.added.map(describeAdded).join(' · ') : 'none'}`);
 
+  const plan: Plan | undefined = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full) : undefined;
+  if (plan) {
+    const pending = [...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending];
+    const stateFile = repoStateFile(projectDir);
+    const held = [...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile)];
+    printPending(out, { pending, held });
+  }
   if (resolved.team) {
     const changes = resolved.team.rules.filter((r) => resolved.full.rules.find((f) => f.id === r.id)?.text !== r.text).map((r) => r.id);
     if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
-    const plan = computePlan(resolved.team, resolved.full);
-    const agents = plan.committed!.agentsMd;
+    const agents = plan!.committed!.agentsMd;
     const bytes = Buffer.byteLength(agents);
-    const claudeLines = agents.split('\n').length + (plan.localMd ?? '').split('\n').length;
+    const claudeLines = agents.split('\n').length + (plan!.localMd ?? '').split('\n').length;
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
     if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
   }
@@ -313,6 +336,40 @@ export function why(cwd: string, id: string, out: Output): number {
     row('editable', pkg.added!.source.editable ? "yes. Edit the source, then save it the way that harness's rules say." : 'no: it comes from npm. Change it in its own repository.');
   } else row('editable', `no. Add a \`patch\`, \`replace\` or \`exclude\` in ${CONFIG_FILE}, or propose the change upstream.`);
   return 0;
+}
+
+export function run(cwd: string, ref: string, args: string[], agent: string | undefined): number {
+  const projectDir = findProjectDir(cwd);
+  return runScript(resolveAll(projectDir, { withAdded: true }).full, ref, args, agent);
+}
+
+export function mcp(cwd: string, ref: string, agent: string | undefined): number {
+  const projectDir = findProjectDir(cwd);
+  return runMcp(resolveAll(projectDir, { withAdded: true }).full, ref, agent);
+}
+
+/** Approves new versions of "pin" packages and writes what a model run left pending (spec 6.2). */
+export function approve(cwd: string, name: string | undefined, out: Output): number {
+  if (caller() === 'model') throw new HarnessError('`harnesspm approve` is for a person. Ask the person to run it in their own terminal.');
+  const projectDir = findProjectDir(cwd);
+  const resolved = resolveAll(projectDir, { withAdded: false });
+  if (resolved.team) {
+    const lock = readLock(projectDir) ?? buildLock(resolved.team, undefined);
+    let approved = 0;
+    for (const pkg of resolved.team.packages) {
+      if (resolved.team.config.trust[pkg.name] !== 'pin' || (name !== undefined && pkg.name !== name)) continue;
+      const entry = lock.packages[pkg.name];
+      if (entry && entry.approved !== pkg.version) {
+        entry.version = pkg.version;
+        entry.approved = pkg.version;
+        approved++;
+        out.log(`✅ approved ${pkg.name} ${pkg.version}`);
+      }
+    }
+    if (name !== undefined && approved === 0 && resolved.team.config.trust[name] !== 'pin') throw new HarnessError(`${name} is not a "pin" package in ${CONFIG_FILE}`);
+    if (approved > 0) writeIfChanged(path.join(projectDir, LOCK_FILE), serializeLock(lock));
+  }
+  return sync(projectDir, out);
 }
 
 export function check(target: string, out: Output): number {

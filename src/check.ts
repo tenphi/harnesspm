@@ -2,6 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parseFrontmatter, stringList } from './frontmatter.ts';
+import { discoverExecUnits } from './exec-units.ts';
 import { discoverUnits, loadHarnessPackage, NS, ruleMeta } from './manifest.ts';
 import { HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
 
@@ -104,14 +105,23 @@ export function checkHarness(target: string): CheckResult {
       errors.push((error as Error).message);
     }
   }
+  let jsonOk = true;
   for (const json of ['mcp.json', path.join(NS, 'hooks.json'), path.join(NS, 'permissions.json')]) {
     const file = path.join(pkg.harnessDir, json);
     if (isFile(file)) {
       try {
         JSON.parse(readText(file));
       } catch (error) {
+        jsonOk = false;
         errors.push(`${show(file)}: ${(error as Error).message}`);
       }
+    }
+  }
+  if (jsonOk) {
+    try {
+      discoverExecUnits(pkg, errors);
+    } catch (error) {
+      errors.push((error as Error).message);
     }
   }
 

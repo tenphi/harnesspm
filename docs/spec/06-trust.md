@@ -31,7 +31,7 @@
 | Value | Meaning |
 | --- | --- |
 | `true` | Executable units are active, also after upgrades. The lock diff shows changes. For the team's own packages. |
-| `"pin"` | Active only in the version approved in the lock. A new version stays off until `harnesspm approve`. For packages the team does not control. |
+| `"pin"` | Active only in the version approved in the lock. Adding the entry approves the installed version. A new version stays off until `harnesspm approve`. For packages the team does not control. |
 | missing | Executable units stay off. `harnesspm sync` lists them as **pending** and does not fail. |
 
 Rules:
@@ -41,9 +41,10 @@ Rules:
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
 4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Agents keep the model from granting itself permissions, and harnesspm must not be a way around that.
    - Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks and MCP servers. Setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run.
-   - Codex: no marker is confirmed yet. The proof of concept must find one, or confirm that Codex's sandbox keeps model runs from writing these entries ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
+   - Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` in commands the model runs, and in neither hooks nor commands a person runs. harnesspm treats either as a model run. Codex's workspace-write sandbox also keeps `.codex/` and `~/.codex` read-only for model runs ([research](../research/agent-capabilities.md#codex)).
+   - These markers are advisory: a model can unset them. They stop accidents, such as an install the model starts, not a model that works around them.
    - A hook runs from settings a person wrote, so a hook run may add entries.
-   - Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and removals are written as usual.
+   - A model run keeps the entries a person granted before, and never removes a deny or ask rule. Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and other removals are written as usual.
 
 ## 6.3 The lock
 

@@ -40,7 +40,7 @@ These hold the dependency and project layers, plus added harnesses with local sc
 | Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for skills from the project, an added harness or a trusted package | Link in `.agents/skills/<name>` |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
 | Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/harnesspm.rules` |
-| MCP servers | Local scope: `claude mcp add-json <name> '<json>' --scope local` | `[mcp_servers.<id>]` in `.codex/config.toml` |
+| MCP servers | Local scope: `projects.<project>.mcpServers` in `~/.claude.json`, where `claude mcp add-json --scope local` writes them | `[mcp_servers.<id>]` in `.codex/config.toml` |
 
 Notes:
 
@@ -60,7 +60,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 | Skills | Link in `~/.claude/skills/`, plus `Skill(<name>)` in `permissions.allow` of `~/.claude/settings.json` | Link in `~/.agents/skills/` |
 | Sub-agents | Generated in `~/.claude/agents/` | Generated in `~/.codex/agents/` |
 | Hooks, permissions | Entries in `~/.claude/settings.json` | `~/.codex/hooks.json`, `~/.codex/rules/harnesspm.rules` |
-| MCP servers | User scope (`--scope user`) | `[mcp_servers.<id>]` in `~/.codex/config.toml` |
+| MCP servers | User scope: `mcpServers` in `~/.claude.json` | `[mcp_servers.<id>]` in a managed block at the end of `~/.codex/config.toml` |
 | Write access to the working copies of added harnesses | `permissions.additionalDirectories` | `sandbox_workspace_write.writable_roots` |
 | The hook that applies added harnesses in each repository ([07-added.md](07-added.md#75-applying-in-every-repository)) | `SessionStart` entry in `~/.claude/settings.json` | `SessionStart` entry in `~/.codex/hooks.json` |
 
@@ -93,7 +93,7 @@ Every line carries its unit ID, so an agent can find the source with `harnesspm 
 
 ## 4.7 Files shared with people
 
-`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file so it can remove them later.
+`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, `harnesspm/state.json` in the clone's git folder or `~/.harnesspm/state.json`, so it can remove them later. A settings file that held only harnesspm's entries is deleted with them.
 
 ## 4.8 Why native files and not plugins
 

@@ -187,7 +187,7 @@ Review the change like an owner. Do not edit files.
 | `claude:` | copied into the frontmatter | ignored |
 | `codex:` | ignored | copied into the TOML file |
 
-Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key.
+Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key. Keys that widen what the agent may do (`permissionMode` for Claude Code, `sandbox_mode` and `approval_policy` for Codex) are written only for the project, added harnesses and trusted packages.
 
 ## 2.7 Docs
 

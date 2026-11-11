@@ -12,6 +12,7 @@ import {
   type RuleSource,
   type SkillSource,
 } from './manifest.ts';
+import { discoverExecUnits, type AgentUnit, type HookUnit, type McpUnit, type PermissionsUnit, type ScriptUnit } from './exec-units.ts';
 import { applyPatch, type TouchedSection } from './sections.ts';
 import { HarnessError, compareVersions, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
 
@@ -76,6 +77,13 @@ export interface FinalDocs extends DocsSource {
   pkg: ResolvedPackage;
 }
 
+type WithPkg<T> = Omit<T, 'pkg'> & { pkg: ResolvedPackage };
+export type FinalScript = WithPkg<ScriptUnit>;
+export type FinalHook = WithPkg<HookUnit>;
+export type FinalMcp = WithPkg<McpUnit>;
+export type FinalPermissions = WithPkg<PermissionsUnit>;
+export type FinalAgent = WithPkg<AgentUnit>;
+
 export interface Resolution {
   projectDir: string;
   projectName: string;
@@ -85,6 +93,11 @@ export interface Resolution {
   rules: FinalRule[];
   skills: FinalSkill[];
   docs: FinalDocs[];
+  scripts: FinalScript[];
+  hooks: FinalHook[];
+  mcp: FinalMcp[];
+  permissions: FinalPermissions[];
+  agents: FinalAgent[];
   overrides: Override[];
   excludedUnits: { id: string; by: string }[];
   excludedPackages: { name: string; by: string }[];
@@ -286,17 +299,31 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   const allRules: { source: RuleSource; pkg: ResolvedPackage }[] = [];
   const allSkills: FinalSkill[] = [];
   const allDocs: FinalDocs[] = [];
+  const allScripts: FinalScript[] = [];
+  const allHooks: FinalHook[] = [];
+  const allMcp: FinalMcp[] = [];
+  const allPermissions: FinalPermissions[] = [];
+  const allAgents: FinalAgent[] = [];
   for (const pkg of packages) {
     const units = discoverUnits(pkg, overrideFiles);
     for (const source of units.rules) allRules.push({ source, pkg });
     for (const skill of units.skills) allSkills.push({ ...skill, pkg });
     if (units.docs) allDocs.push({ ...units.docs, pkg });
+    const problems: string[] = [];
+    const exec = discoverExecUnits(pkg, problems);
+    for (const problem of problems) warnings.push(`${pkg.name}: ${problem}`);
+    allScripts.push(...exec.scripts.map((u) => ({ ...u, pkg })));
+    allHooks.push(...exec.hooks.map((u) => ({ ...u, pkg })));
+    allMcp.push(...exec.mcp.map((u) => ({ ...u, pkg })));
+    if (exec.permissions) allPermissions.push({ ...exec.permissions, pkg });
+    allAgents.push(...exec.agents.map((u) => ({ ...u, pkg })));
   }
 
   const knownIds = new Map<string, string>();
   for (const { source, pkg } of allRules) knownIds.set(source.id, pkg.name);
   for (const skill of allSkills) knownIds.set(skill.id, skill.pkg.name);
   for (const docs of allDocs) knownIds.set(docs.id, docs.pkg.name);
+  for (const unit of [...allScripts, ...allHooks, ...allMcp, ...allPermissions, ...allAgents]) knownIds.set(unit.id, unit.pkg.name);
   const addedNames = new Set(packages.filter((p) => p.layer === 'added').map((p) => p.name));
   for (const o of overrides) {
     const owner = knownIds.get(o.target);
@@ -371,6 +398,25 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
     else docs.push(unit);
   }
 
+  const keep = <T extends { id: string; pkg: ResolvedPackage }>(units: T[]): T[] =>
+    units.filter((unit) => {
+      const exclusion = excludedBy(unit.id, unit.pkg.name);
+      if (exclusion) excludedUnits.push({ id: unit.id, by: exclusion.by });
+      return !exclusion;
+    });
+  const scripts = keep(allScripts);
+  const hooks = keep(allHooks).filter((hook) => {
+    const ok = scripts.some((s) => s.pkg === hook.pkg && s.name === hook.run);
+    if (!ok) warnings.push(`${hook.id} is dropped: its script ${hook.pkg.plugin}:${hook.run} is excluded or missing`);
+    return ok;
+  });
+  const agentsByName = new Map<string, FinalAgent>();
+  for (const agent of keep(allAgents)) {
+    const previous = agentsByName.get(agent.name);
+    if (previous && !(agent.pkg.entry && previous.pkg.plugin === agent.pkg.plugin)) warnings.push(`sub-agent "${agent.name}" comes from ${previous.pkg.name} and ${agent.pkg.name}; using ${agent.pkg.name}`);
+    agentsByName.set(agent.name, agent);
+  }
+
   return {
     projectDir,
     projectName,
@@ -379,6 +425,11 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
     rules,
     skills: [...skillsByName.values()],
     docs,
+    scripts,
+    hooks,
+    mcp: keep(allMcp),
+    permissions: keep(allPermissions),
+    agents: [...agentsByName.values()],
     overrides,
     excludedUnits,
     excludedPackages,

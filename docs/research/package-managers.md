@@ -21,3 +21,15 @@ What follows for harnesspm:
 - So `init` uses `postinstall` in a private package, which covers Yarn 4, and `prepare` otherwise. A published package that uses Yarn 4 runs `yarn harnesspm sync` after installs.
 
 Also observed: pnpm's `node_modules/.pnpm` layout needs no special case. Resolving `extends` from each package's real folder finds the dependencies pnpm links next to it.
+
+## Runner speed
+
+🔍 Measured in the proof of concept (Node.js 22.23.4, npm 10.9.9), for `harnesspm run` of a script that prints one line, in a project with two harness packages:
+
+| Command | Time |
+| --- | --- |
+| `node -e 0` | 28 ms |
+| `node node_modules/harnesspm/dist/cli.js run kit:probe` | about 150 ms |
+| `npx harnesspm run kit:probe` | about 440 ms |
+
+`npx` adds about 290 ms, which a hook pays on every matching tool call. Two ways to cut it, not taken yet: write hook commands with `node_modules/.bin/harnesspm` instead of `npx harnesspm`, and let `run` read an index that `sync` writes instead of resolving every package.

@@ -1,6 +1,6 @@
 # harnesspm specification
 
-**Version:** 0.5 draft
+**Version:** 0.6 draft
 **Status:** Under discussion. Everything here can change before the first release.
 
 ## Reading order

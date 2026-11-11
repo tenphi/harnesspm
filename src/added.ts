@@ -195,12 +195,16 @@ export function loadAdded(projectDir: string | undefined, warnings: string[]): A
 
 export type Caller = 'model' | 'hook' | 'person';
 
-/** Who runs harnesspm (spec 6.2, rule 4). Claude Code marks model commands and hooks. */
+/**
+ * Who runs harnesspm (spec 6.2, rule 4). Claude Code marks model commands (`AI_AGENT=…_agent`) and hooks
+ * (`…_harness`). Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` only in commands the model runs.
+ */
 export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
   const agent = env['AI_AGENT'] ?? '';
   if (agent.endsWith('_agent')) return 'model';
   if (agent.endsWith('_harness')) return 'hook';
   if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
+  if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'model';
   return 'person';
 }
 
