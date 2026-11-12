@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  # Replace an outdated snapshot, but never stop a publish on main halfway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  snapshot:
+    name: Snapshot release
+    # Pull requests from forks get no OIDC token for the release environment.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      # npm trusted publishing (OIDC) needs npm 11.5.1 or later, which Node 24
+      # ships. Do not run `npm install -g npm@latest` on hosted runners.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify npm version and OIDC availability
+        run: |
+          echo "node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "OIDC available: $([ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && echo true || echo false)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set snapshot version
+        id: version
+        run: |
+          SNAPSHOT_VERSION="0.0.0-snapshot.$(git rev-parse --short HEAD)"
+          # A re-run builds the same commit, and npm never accepts a version twice.
+          if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ]; then
+            SNAPSHOT_VERSION="${SNAPSHOT_VERSION}.${GITHUB_RUN_ATTEMPT}"
+          fi
+          npm pkg set version="${SNAPSHOT_VERSION}"
+          echo "version=${SNAPSHOT_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Clear .npmrc auth token (use OIDC instead)
+        run: npm config delete //registry.npmjs.org/:_authToken || true
+
+      # prepack builds dist/ and runs `harnesspm check`, so an invalid harness
+      # cannot be published.
+      # No --provenance: with trusted publishing, npm adds provenance by itself
+      # when the repository is public, and refuses it while it is private.
+      - name: Publish snapshot
+        run: npm publish --tag pr_${{ github.event.number }} --access public
+
+      - name: Comment on PR
+        uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            const setMessage = (await import('${{ github.workspace }}/scripts/ci/set-message.mjs')).default;
+            const version = '${{ steps.version.outputs.version }}';
+
+            await setMessage({
+              header: '## 📦 Snapshot release',
+              body: [
+                `Published [\`${version}\`](https://www.npmjs.com/package/@tenphi/harnesspm/v/${version}).`,
+                '',
+                '```',
+                `npx @tenphi/harnesspm@${version} --help`,
+                `npm install -D @tenphi/harnesspm@${version}`,
+                '```',
+              ].join('\n'),
+              github,
+              repo: context.repo,
+              prNumber: ${{ github.event.number }},
+            });
+
+  release:
+    name: Version PR or publish
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      # See the snapshot job: Node 24 for npm trusted publishing.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify npm version and OIDC availability
+        run: |
+          echo "node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "OIDC available: $([ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && echo true || echo false)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Clear .npmrc auth token (use OIDC instead)
+        run: npm config delete //registry.npmjs.org/:_authToken || true
+
+      # With changesets on main: open or update the "chore: version packages"
+      # pull request. With none left (that PR merged): publish the new version,
+      # tag it v<version> and create its GitHub Release.
+      - name: Create version PR or publish
+        id: changesets
+        uses: changesets/action@v2.1.2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version-script: npm run version-packages
+          publish-script: npm run release
+          pr-title: 'chore: version packages'
+          commit-message: 'chore: version packages'
