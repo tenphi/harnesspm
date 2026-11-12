@@ -55,7 +55,9 @@ export function checkHarness(target: string): CheckResult {
     if (!files.includes('harness')) errors.push('package.json: "files" must include "harness"');
     if (pkg.ext.docs !== undefined) {
       const docsRel = relPosix(root, path.resolve(pkg.harnessDir, pkg.ext.docs));
-      if (!files.some((f) => docsRel === f || docsRel.startsWith(`${f}/`))) errors.push(`package.json: "files" must include the docs folder "${docsRel}"`);
+      // The folder itself, a parent of it, or entries inside it, such as `docs/components` or `docs/*.md`.
+      const covers = (f: string): boolean => docsRel === f || docsRel.startsWith(`${f}/`) || f.startsWith(`${docsRel}/`);
+      if (!files.some(covers)) errors.push(`package.json: "files" must include the docs folder "${docsRel}", or entries inside it`);
     }
   }
 

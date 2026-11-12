@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **`check`:** `files` may list entries inside the docs folder, such as `docs/components` or `docs/*.md`, so a package can leave contributor docs out. Found by the `@cube-dev/ui-kit` pilot.
+
 ## 0.1.0
 
 The first release: a proof of concept that covers every scenario of the [specification](docs/spec/README.md) (version 0.7 draft).

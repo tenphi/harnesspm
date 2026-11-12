@@ -19,6 +19,18 @@ test('S1: a small harness is valid', () => {
   assert.match(result.stdout, /harness is valid/);
 });
 
+test('files may list entries inside the docs folder, to leave some of it out', () => {
+  const dir = library(
+    { docs: '../docs' },
+    { 'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nText.\n', 'docs/components/button.md': '# Button\n', 'docs/rules/internal.md': '# Internal\n' },
+    { files: ['harness', 'docs/components', 'docs/*.md'] },
+  );
+  const ok = run(dir, 'check');
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'mylib', version: '1.0.0', files: ['harness', 'dist'] }) });
+  assert.match(run(dir, 'check').stdout, /"files" must include the docs folder "docs", or entries inside it/);
+});
+
 test('check reports the problems that would ship', () => {
   const dir = library(
     { extend: ['typo'], docs: '../docs' },
