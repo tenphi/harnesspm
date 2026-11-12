@@ -62,7 +62,7 @@ Releases run in GitHub Actions (`.github/workflows/release.yml`) through [Change
 
 1. **Snapshots.** Every push to a pull request publishes `0.0.0-snapshot.<short sha>` under the dist-tag `pr_<number>`. A comment on the pull request names the version. Try it with `npx @tenphi/harnesspm@<version>`.
 2. **Version PR.** A merge to `main` that brings changesets opens or updates the "chore: version packages" pull request. It sets `version` in `package.json` and `package-lock.json` and writes the changesets into `CHANGELOG.md`.
-3. **Publish.** Merging the version PR publishes the version to npm with provenance, tags it `v<version>` and creates its GitHub Release. `prepack` builds `dist/` and runs `harnesspm check` first, so an invalid harness cannot ship.
+3. **Publish.** Merging the version PR publishes the version to npm, tags it `v<version>` and creates its GitHub Release. npm adds provenance by itself while the repository is public. `prepack` builds `dist/` and runs `harnesspm check` first, so an invalid harness cannot ship.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request: typecheck, tests and `npm run check` on Node 24, and the built CLI on Node 20, the oldest version in `engines`.
 

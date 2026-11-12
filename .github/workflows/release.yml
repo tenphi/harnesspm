@@ -41,7 +41,7 @@ jobs:
         run: |
           echo "node version: $(node --version)"
           echo "npm version: $(npm --version)"
-          echo "OIDC available: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
+          echo "OIDC available: $([ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && echo true || echo false)"
 
       - name: Install dependencies
         run: npm ci
@@ -58,8 +58,10 @@ jobs:
 
       # prepack builds dist/ and runs `harnesspm check`, so an invalid harness
       # cannot be published.
+      # No --provenance: with trusted publishing, npm adds provenance by itself
+      # when the repository is public, and refuses it while it is private.
       - name: Publish snapshot
-        run: npm publish --tag pr_${{ github.event.number }} --access public --provenance
+        run: npm publish --tag pr_${{ github.event.number }} --access public
 
       - name: Comment on PR
         uses: actions/github-script@v9.0.0
@@ -106,7 +108,7 @@ jobs:
         run: |
           echo "node version: $(node --version)"
           echo "npm version: $(npm --version)"
-          echo "OIDC available: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
+          echo "OIDC available: $([ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && echo true || echo false)"
 
       - name: Install dependencies
         run: npm ci
@@ -126,5 +128,3 @@ jobs:
           publish-script: npm run release
           pr-title: 'chore: version packages'
           commit-message: 'chore: version packages'
-        env:
-          NPM_CONFIG_PROVENANCE: true
