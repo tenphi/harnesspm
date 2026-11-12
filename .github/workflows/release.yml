@@ -50,6 +50,10 @@ jobs:
         id: version
         run: |
           SNAPSHOT_VERSION="0.0.0-snapshot.$(git rev-parse --short HEAD)"
+          # A re-run builds the same commit, and npm never accepts a version twice.
+          if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ]; then
+            SNAPSHOT_VERSION="${SNAPSHOT_VERSION}.${GITHUB_RUN_ATTEMPT}"
+          fi
           npm pkg set version="${SNAPSHOT_VERSION}"
           echo "version=${SNAPSHOT_VERSION}" >> "$GITHUB_OUTPUT"
 
