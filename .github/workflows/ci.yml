@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      # The tests run the TypeScript in src/ directly, which needs Node 22.18+.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Validates harness/ and checks the committed outputs (sync --check).
+      - name: Check harness
+        run: npm run check
+
+  node20:
+    name: Built CLI on Node 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js 24 to build
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # package.json says engines.node >=20, so the published CLI must run there.
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 20
+
+      - name: Run the built CLI
+        run: |
+          node --version
+          node dist/cli.js --help
+          node dist/cli.js check
+          node dist/cli.js sync --check
