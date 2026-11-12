@@ -22,9 +22,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tenphi/tack.git"
+    "url": "git+https://github.com/tenphi/harnesspm.git"
   },
-  "homepage": "https://github.com/tenphi/tack#readme",
+  "homepage": "https://github.com/tenphi/harnesspm#readme",
   "keywords": [
     "agents",
     "harness",
