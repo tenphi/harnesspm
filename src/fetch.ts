@@ -58,7 +58,7 @@ export function fetchLocked(projectDir: string): FetchReport {
   // A lock without integrity, such as one that harnesspm 0.3 wrote with pnpm, can still be checked against the package manager's lockfile.
   const lookup = packageManagerLock(projectDir);
   for (const [name, entry] of Object.entries(lock.packages)) {
-    if (entry.project) continue;
+    if (entry.project || entry.version === undefined) continue;
     const installed = resolvePackageDir(name, projectDir);
     if (installed && installedVersion(installed) === entry.version) {
       located.set(name, installed);

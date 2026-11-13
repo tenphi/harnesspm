@@ -317,6 +317,31 @@ test("the project's own harness resolves like a package, then harnesspm.json app
   assert.match(run(dir, 'why', 'app:rules/release').stdout, /editable +yes/);
 });
 
+test("the lock leaves out the project's own version, so a release changes nothing", () => {
+  const dir = project({}, { name: '@acme/app', version: '1.4.0' });
+  writeFiles(dir, {
+    'harness/plugin.json': JSON.stringify({ $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'app' }),
+    'harness/dev.harnesspm/rules/release.md': '# Release\n\nTag first.\n',
+  });
+  run(dir, 'sync');
+  const lock = read(dir, 'harnesspm.lock.json');
+  assert.deepEqual(JSON.parse(lock).packages['@acme/app'], { plugin: 'app', project: true });
+
+  // A version PR raises the version: the committed files stay up to date.
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: '@acme/app', version: '1.5.0', devDependencies: {} }) });
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+
+  // A lock that harnesspm 0.3 wrote, with the version, passes --check, and the next sync drops the version.
+  const old = JSON.parse(lock);
+  old.packages['@acme/app'] = { version: '1.4.0', plugin: 'app', project: true };
+  writeFiles(dir, { 'harnesspm.lock.json': `${JSON.stringify(old, null, 2)}\n` });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'no false failure on the old form');
+  assert.match(run(dir, 'sync').stdout, /Updated 1 file/);
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+});
+
 test('one skills folder linked to the other gets each skill once', () => {
   const dir = chain();
   fs.mkdirSync(path.join(dir, '.claude/skills'), { recursive: true });

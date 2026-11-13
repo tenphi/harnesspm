@@ -7,7 +7,7 @@ import { caller, harnesspmHome } from './added.ts';
 import { applyEntries, desiredEntries, tomlTables, trustOf, type ExecEntries, type HookEntry, type Targets } from './exec-outputs.ts';
 import { claudeJsonFile } from './homes.ts';
 import { parseFrontmatter } from './frontmatter.ts';
-import { buildLock, LOCK_FILE, patchDrift, readLock, serializeLock, type Lock } from './lock.ts';
+import { buildLock, LOCK_FILE, patchDrift, readLock, sameLock, serializeLock, type Lock } from './lock.ts';
 import {
   alwaysOnText,
   extractBlock,
@@ -614,7 +614,7 @@ export function checkPlan(projectDir: string, plan: Plan): string[] {
   const problems: string[] = [];
   const agents = readTextIfExists(path.join(projectDir, 'AGENTS.md'));
   if (extractBlock(agents) !== extractBlock(plan.committed.agentsMd)) problems.push('AGENTS.md: the harnesspm block is out of date');
-  if (readTextIfExists(path.join(projectDir, LOCK_FILE)) !== plan.committed.lock) problems.push(`${LOCK_FILE} is out of date`);
+  if (!sameLock(readTextIfExists(path.join(projectDir, LOCK_FILE)), plan.committed.lock)) problems.push(`${LOCK_FILE} is out of date`);
   for (const ws of plan.committed.workspaces) {
     const rel = relPosix(projectDir, path.join(ws.dir, 'AGENTS.md'));
     if (extractBlock(readTextIfExists(path.join(ws.dir, 'AGENTS.md'))) !== extractBlock(ws.agentsMd)) problems.push(`${rel}: the harnesspm block is out of date`);
@@ -624,7 +624,7 @@ export function checkPlan(projectDir: string, plan: Plan): string[] {
     const agents = relPosix(projectDir, path.join(claude.dir, 'AGENTS.md'));
     problems.push(`${relPosix(projectDir, claude.file)}: the @AGENTS.md line is missing, so Claude Code does not read ${agents}`);
   }
-  const lock = JSON.parse(plan.committed.lock) as { packages: Record<string, { version: string; approved?: string }> };
+  const lock = JSON.parse(plan.committed.lock) as { packages: Record<string, { version?: string; approved?: string }> };
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (entry.approved !== undefined && entry.approved !== entry.version) {
       problems.push(`${name} ${entry.version} is pinned and not approved (approved: ${entry.approved}). Run \`npx harnesspm approve ${name}\`.`);

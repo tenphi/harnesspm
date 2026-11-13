@@ -53,6 +53,7 @@ Rules:
 `harnesspm.lock.json` is committed. It covers the dependency and project layers and records:
 
 - every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version. The URL and integrity come from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. pnpm records a URL only for a package outside the registry;
+- the project's own harness, and each workspace's: name, plugin name and `"project": true`, without a version. The project layer is always trusted and its unit hashes show every change, so a release that raises the project's version leaves the lock as it is. A lock with that version, as harnesspm 0.3 wrote it, still counts as up to date, and the next `sync` drops it;
 - every unit: ID, kind, content hash;
 - every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported;
 - the telemetry handler that a person's sync recorded ([14.5](14-telemetry.md#145-trust)).
@@ -68,7 +69,7 @@ People do not edit it. Added harnesses are not locked. They follow their branch 
 - a committed output or the lock is out of date, including a telemetry handler that differs from `harnesspm.json`;
 - a `"pin"` package has a version that nobody approved.
 
-With `CI=true`, `sync` also leaves the committed outputs as they are. An install runs `sync` from `prepare` or `postinstall`, and if that sync rewrote them, a later `sync --check` would compare fresh files and pass while the pull request missed a sync. So in CI, `sync` writes only the per-machine outputs, such as stable package paths, docs indexes and skill links, which jobs and review bots read. It says so in one line. A job that commits the result, such as a release that records a new version in the lock, runs `sync --write`.
+With `CI=true`, `sync` also leaves the committed outputs as they are. An install runs `sync` from `prepare` or `postinstall`, and if that sync rewrote them, a later `sync --check` would compare fresh files and pass while the pull request missed a sync. So in CI, `sync` writes only the per-machine outputs, such as stable package paths, docs indexes and skill links, which jobs and review bots read. It says so in one line. A job that commits the result runs `sync --write`.
 
 ## 6.5 Not covered
 

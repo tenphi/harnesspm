@@ -9,7 +9,8 @@ import { hash, isFile, isRecord, readJsonIfExists, readText, readTextIfExists, r
 export const LOCK_FILE = 'harnesspm.lock.json';
 
 export interface LockPackage {
-  version: string;
+  /** Left out for the project's own harness: a release would change it, and unit hashes already show every change. */
+  version?: string;
   plugin: string;
   project?: true;
   resolved?: string;
@@ -135,7 +136,7 @@ export function buildLock(res: Resolution, previous: Lock | undefined, telemetry
   const lookup = packageManagerLock(res.projectDir);
   for (const pkg of res.packages) {
     if (pkg.layer === 'project') {
-      packages[pkg.name] = { version: pkg.version, plugin: pkg.plugin, project: true };
+      packages[pkg.name] = { plugin: pkg.plugin, project: true };
       continue;
     }
     const entry: LockPackage = { version: pkg.version, plugin: pkg.plugin, ...lookup(pkg.name, pkg.version) };
@@ -171,6 +172,22 @@ function sortKeys<T>(record: Record<string, T>): Record<string, T> {
 
 export function serializeLock(lock: Lock): string {
   return `${JSON.stringify(lock, null, 2)}\n`;
+}
+
+/**
+ * Whether the lock text on disk records the same as `expected`. A lock that harnesspm 0.3 wrote, with the
+ * project's own version, still counts as up to date; the next sync drops the version.
+ */
+export function sameLock(text: string | undefined, expected: string): boolean {
+  if (text === expected) return true;
+  try {
+    const lock = JSON.parse(text ?? '') as unknown;
+    if (!isRecord(lock) || !isRecord(lock['packages']) || `${JSON.stringify(lock, null, 2)}\n` !== text) return false;
+    for (const entry of Object.values(lock['packages'])) if (isRecord(entry) && entry['project'] === true) delete entry['version'];
+    return `${JSON.stringify(lock, null, 2)}\n` === expected;
+  } catch {
+    return false;
+  }
 }
 
 export function readLock(projectDir: string): Lock | undefined {
