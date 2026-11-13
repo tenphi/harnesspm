@@ -19,11 +19,11 @@ import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
 import { heldEntries, trustOf } from './exec-outputs.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
-import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
+import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
-import { alwaysOnText, withClaudeImport } from './render.ts';
+import { alwaysOnText } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
@@ -193,8 +193,8 @@ export function init(projectDir: string, out: Output): number {
     writeIfChanged(pkgFile, `${JSON.stringify(pkg, null, indent)}\n`);
     out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
   }
-  const claudeFile = path.join(projectDir, 'CLAUDE.md');
-  if (writeIfChanged(claudeFile, withClaudeImport(readTextIfExists(claudeFile)))) out.log('CLAUDE.md now imports AGENTS.md');
+  const claude = claudeImport(projectDir);
+  if (writeIfChanged(claude.file, claude.text)) out.log(`${relPosix(projectDir, claude.file)} now imports AGENTS.md`);
   return sync(projectDir, out, { write: true });
 }
 

@@ -124,8 +124,9 @@ export function extractBlock(text: string | undefined): string | undefined {
 
 export const CLAUDE_IMPORT = '@AGENTS.md';
 
-export function hasClaudeImport(text: string | undefined): boolean {
-  return text !== undefined && /^@AGENTS\.md[ \t]*$/m.test(text);
+/** Whether `text` has `line`, such as `@AGENTS.md` or `@../AGENTS.md`, on a line of its own. */
+export function hasClaudeImport(text: string | undefined, line = CLAUDE_IMPORT): boolean {
+  return text !== undefined && text.split('\n').some((l) => l.trimEnd() === line);
 }
 
 export function withClaudeImport(existing: string | undefined): string {

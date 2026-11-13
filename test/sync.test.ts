@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
@@ -106,6 +107,42 @@ test('with CI=true, sync leaves committed outputs to --check and still writes pe
   assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
   assert.equal(runWith(dir, { CI: 'true' }, 'sync', '--check').status, 0);
   assert.match(run(dir, 'sync', '--check', '--write').stderr, /Use either --check or --write/);
+});
+
+test('a nested AGENTS.md that git tracks gets a CLAUDE.md that imports it, since the root CLAUDE.md silences it', () => {
+  const dir = chain();
+  run(dir, 'sync');
+  writeFiles(dir, {
+    'src/button/AGENTS.md': '# Button\n\nKeep it small.\n',
+    'src/form/AGENTS.md': '# Form\n\nUse the controller.\n',
+    'src/form/CLAUDE.md': 'Form notes.\n',
+    'src/menu/AGENTS.md': '# Menu\n\nKeyboard first.\n',
+    'src/menu/.claude/CLAUDE.md': '@../AGENTS.md\n',
+    'src/draft/AGENTS.md': '# Draft\n\nNot committed.\n',
+    'vendor/node_modules/x/AGENTS.md': '# Vendored\n',
+  });
+  spawnSync('git', ['add', '-f', 'src/button', 'src/form', 'src/menu', 'vendor'], { cwd: dir });
+
+  const check = run(dir, 'sync', '--check');
+  assert.equal(check.status, 1);
+  assert.match(check.stdout, /src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing, so Claude Code does not read src\/button\/AGENTS\.md/);
+  assert.match(check.stdout, /src\/form\/CLAUDE\.md: the @AGENTS\.md line is missing/);
+  assert.doesNotMatch(check.stdout, /src\/menu|src\/draft|vendor/);
+  assert.match(run(dir, 'doctor').stdout, /📦 Outputs\n {2}❌ src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing/);
+
+  // CI leaves them to --check, like every committed output.
+  runWith(dir, { CI: 'true' }, 'sync');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/button/CLAUDE.md')));
+
+  run(dir, 'sync');
+  assert.equal(read(dir, 'src/button/CLAUDE.md'), '@AGENTS.md\n');
+  assert.equal(read(dir, 'src/form/CLAUDE.md'), '@AGENTS.md\n\nForm notes.\n');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/menu/CLAUDE.md')), 'its .claude/CLAUDE.md imports it already');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/draft/CLAUDE.md')), 'not tracked');
+  assert.ok(!fs.existsSync(path.join(dir, 'vendor/node_modules/x/CLAUDE.md')), 'inside node_modules');
+  assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
 });
 
 test('text outside the block never changes', () => {

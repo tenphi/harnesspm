@@ -51,10 +51,11 @@ export interface Plan {
   /** Committed outputs. Undefined when the team layers were not resolved. */
   committed?: {
     agentsMd: string;
-    claudeMd: string;
     lock: string;
     /** A monorepo's workspace files (spec 4.5). Undefined `agentsMd` removes a file that held only the block. */
-    workspaces: { dir: string; agentsMd: string | undefined; claudeMd: string | undefined }[];
+    workspaces: { dir: string; agentsMd: string | undefined }[];
+    /** The files that make Claude Code read each AGENTS.md, root first, with their text (spec 4.3, note 7). */
+    claudeMds: ClaudeImport[];
   };
   /** Per-machine files: absolute path → content. */
   generated: Map<string, string>;
@@ -88,6 +89,39 @@ function repoSlug(projectDir: string): string {
 
 function isTracked(projectDir: string, rel: string): boolean {
   return spawnSync('git', ['ls-files', '--error-unmatch', rel], { cwd: projectDir, encoding: 'utf8' }).status === 0;
+}
+
+export interface ClaudeImport {
+  /** The folder of the AGENTS.md. */
+  dir: string;
+  file: string;
+  /** The file's text after sync. Equal to the file on disk when nothing is missing. */
+  text: string;
+}
+
+/**
+ * The CLAUDE.md that makes Claude Code read the AGENTS.md in `dir` (spec 4.3, note 7): `CLAUDE.md` gets `@AGENTS.md`,
+ * unless the folder's `.claude/CLAUDE.md` already imports `@../AGENTS.md`.
+ */
+export function claudeImport(dir: string): ClaudeImport {
+  const file = path.join(dir, 'CLAUDE.md');
+  const existing = readTextIfExists(file);
+  const dotClaude = path.join(dir, '.claude', 'CLAUDE.md');
+  const dotText = readTextIfExists(dotClaude);
+  if (!hasClaudeImport(existing) && dotText !== undefined && hasClaudeImport(dotText, '@../AGENTS.md')) return { dir, file: dotClaude, text: dotText };
+  return { dir, file, text: withClaudeImport(existing) };
+}
+
+/** Folders below the project with an AGENTS.md that git tracks, outside node_modules. */
+function nestedAgentsDirs(projectDir: string): string[] {
+  const result = spawnSync('git', ['ls-files', '-z', '--', ':(glob)**/AGENTS.md'], { cwd: projectDir, encoding: 'utf8' });
+  if (result.status !== 0) return [];
+  return result.stdout
+    .split('\0')
+    .filter((rel) => rel !== '' && rel !== 'AGENTS.md' && !rel.split('/').includes('node_modules'))
+    .map((rel) => path.join(projectDir, path.dirname(rel)))
+    .filter((dir) => isFile(path.join(dir, 'AGENTS.md')))
+    .sort();
 }
 
 function docsIndexText(dir: string, display: (file: string) => string): string {
@@ -264,16 +298,16 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
       const existing = readTextIfExists(agentsFile);
       const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
-      const claudeFile = path.join(ws.dir, 'CLAUDE.md');
-      const claudeMd = content !== '' ? withClaudeImport(readTextIfExists(claudeFile)) : readTextIfExists(claudeFile);
-      workspaces.push({ dir: ws.dir, agentsMd, claudeMd });
+      workspaces.push({ dir: ws.dir, agentsMd });
     }
     for (const [file, content] of teamGenerated) if (!generated.has(file)) generated.set(file, content);
+    // The root CLAUDE.md silences every nested AGENTS.md in Claude Code, so each one gets its own import (spec 4.3, note 7).
+    const claudeDirs = new Set([projectDir, ...workspaces.filter((ws) => ws.agentsMd !== undefined).map((ws) => ws.dir), ...nestedAgentsDirs(projectDir)]);
     committed = {
       agentsMd: upsertBlock(readTextIfExists(path.join(projectDir, 'AGENTS.md')), block),
-      claudeMd: withClaudeImport(readTextIfExists(path.join(projectDir, 'CLAUDE.md'))),
       lock: serializeLock(lock),
       workspaces,
+      claudeMds: [...claudeDirs].map(claudeImport),
     };
   }
 
@@ -541,7 +575,6 @@ export function applyPlan(projectDir: string, plan: Plan, options: { committed?:
 
   if (plan.committed && options.committed !== false) {
     note(path.join(projectDir, 'AGENTS.md'), writeIfChanged(path.join(projectDir, 'AGENTS.md'), plan.committed.agentsMd));
-    note(path.join(projectDir, 'CLAUDE.md'), writeIfChanged(path.join(projectDir, 'CLAUDE.md'), plan.committed.claudeMd));
     note(path.join(projectDir, LOCK_FILE), writeIfChanged(path.join(projectDir, LOCK_FILE), plan.committed.lock));
     for (const ws of plan.committed.workspaces) {
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
@@ -550,8 +583,8 @@ export function applyPlan(projectDir: string, plan: Plan, options: { committed?:
         fs.rmSync(agentsFile);
         changed.push(relPosix(projectDir, agentsFile));
       }
-      if (ws.claudeMd !== undefined) note(path.join(ws.dir, 'CLAUDE.md'), writeIfChanged(path.join(ws.dir, 'CLAUDE.md'), ws.claudeMd));
     }
+    for (const claude of plan.committed.claudeMds) note(claude.file, writeIfChanged(claude.file, claude.text));
   }
 
   // The index of harnesspm's agent hooks, only when the team layers were resolved.
@@ -576,11 +609,15 @@ export function checkPlan(projectDir: string, plan: Plan): string[] {
   const problems: string[] = [];
   const agents = readTextIfExists(path.join(projectDir, 'AGENTS.md'));
   if (extractBlock(agents) !== extractBlock(plan.committed.agentsMd)) problems.push('AGENTS.md: the harnesspm block is out of date');
-  if (!hasClaudeImport(readTextIfExists(path.join(projectDir, 'CLAUDE.md')))) problems.push('CLAUDE.md: the @AGENTS.md line is missing');
   if (readTextIfExists(path.join(projectDir, LOCK_FILE)) !== plan.committed.lock) problems.push(`${LOCK_FILE} is out of date`);
   for (const ws of plan.committed.workspaces) {
     const rel = relPosix(projectDir, path.join(ws.dir, 'AGENTS.md'));
     if (extractBlock(readTextIfExists(path.join(ws.dir, 'AGENTS.md'))) !== extractBlock(ws.agentsMd)) problems.push(`${rel}: the harnesspm block is out of date`);
+  }
+  for (const claude of plan.committed.claudeMds) {
+    if (readTextIfExists(claude.file) === claude.text) continue;
+    const agents = relPosix(projectDir, path.join(claude.dir, 'AGENTS.md'));
+    problems.push(`${relPosix(projectDir, claude.file)}: the @AGENTS.md line is missing, so Claude Code does not read ${agents}`);
   }
   const lock = JSON.parse(plan.committed.lock) as { packages: Record<string, { version: string; approved?: string }> };
   for (const [name, entry] of Object.entries(lock.packages)) {
