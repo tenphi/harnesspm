@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { caller, harnesspmHome } from './added.ts';
-import { applyEntries, desiredEntries, tomlTables, trustOf, type ExecEntries, type Targets } from './exec-outputs.ts';
+import { applyEntries, desiredEntries, tomlTables, trustOf, type ExecEntries, type HookEntry, type Targets } from './exec-outputs.ts';
 import { claudeJsonFile } from './homes.ts';
 import { parseFrontmatter } from './frontmatter.ts';
 import { buildLock, LOCK_FILE, patchDrift, readLock, serializeLock, type Lock } from './lock.ts';
@@ -24,6 +24,7 @@ import {
 } from './render.ts';
 import type { FinalRule, Resolution, ResolvedPackage } from './resolve.ts';
 import { headings } from './sections.ts';
+import { AGENT_EVENTS, INDEX_FILE, describeSend, sameSend, telemetryState, type EventType, type Send, type TelemetryIndex } from './telemetry.ts';
 import {
   NPX_ANY,
   NPX_LOCAL,
@@ -74,6 +75,10 @@ export interface Plan {
   claudeOurs: boolean;
   /** Executable entries per group. The team group is missing when the team layers were not resolved. */
   exec: { team?: ExecEntries; added: ExecEntries };
+  /** The index that harnesspm's agent hooks read (spec 14.4), or undefined to remove it. */
+  telemetryIndex?: string;
+  /** A telemetry handler that this run may not record (spec 14.5). */
+  telemetryHeld?: string;
   warnings: string[];
 }
 
@@ -165,7 +170,7 @@ function changesSection(team: Resolution, full: Resolution, rulePath: (rule: Fin
  * `team` is the dependency and project layers alone, for committed outputs. `full` adds the added
  * harnesses, for per-machine outputs. Without `team`, only the outputs of added harnesses change.
  */
-export function computePlan(team: Resolution | undefined, full: Resolution): Plan {
+export function computePlan(team: Resolution | undefined, full: Resolution, options: { widen?: boolean } = {}): Plan {
   const projectDir = full.projectDir;
   const warnings: string[] = [];
   const generated = new Map<string, string>();
@@ -222,9 +227,18 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
 
   let committed: Plan['committed'];
   let lock: Lock | undefined = readLock(projectDir);
+  let telemetryHeld: string | undefined;
   if (team) {
     const previous = lock;
-    lock = buildLock(team, previous);
+    // A model run keeps the handler a person recorded, and may only remove it (spec 14.5).
+    const wanted = team.config.telemetry?.send;
+    const before = previous?.telemetry?.send;
+    let record: Send | undefined = wanted;
+    if (wanted !== undefined && options.widen === false && !sameSend(wanted, before)) {
+      record = before;
+      telemetryHeld = `telemetry handler: ${describeSend(wanted)}`;
+    }
+    lock = buildLock(team, previous, record);
     warnings.push(...patchDrift(previous, lock));
     const teamGenerated = new Map<string, string>();
     const teamLock = lock;
@@ -300,6 +314,19 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
   const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => NPX_ANY });
   warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
+  // Telemetry's agent events (spec 14.4): harnesspm's own hooks, when the recorded handler and this machine allow them.
+  let telemetryIndex: string | undefined;
+  if (team && teamExec) {
+    const state = telemetryState(projectDir, team.config.telemetry, lock?.telemetry?.send);
+    const events = AGENT_EVENTS.filter((e) => state.events.has(e));
+    if (events.length > 0) {
+      teamExec.claude.hooks.push(...telemetryHooks(projectDir, 'claude', events));
+      teamExec.codex.hooks.push(...telemetryHooks(projectDir, 'codex', events));
+      const index = telemetryIndexFor(team, tools.generatedRule, (pkg) => path.join(teamGen, 'docs', pkg.plugin, 'llms.txt'));
+      telemetryIndex = `${JSON.stringify(index, null, 2)}\n`;
+    }
+  }
+
   return {
     ...(committed ? { committed } : {}),
     generated,
@@ -312,8 +339,58 @@ export function computePlan(team: Resolution | undefined, full: Resolution): Pla
     codexOurs,
     claudeOurs,
     exec: { ...(teamExec ? { team: teamExec } : {}), added: addedExec },
+    ...(telemetryIndex !== undefined ? { telemetryIndex } : {}),
+    ...(telemetryHeld !== undefined ? { telemetryHeld } : {}),
     warnings,
   };
+}
+
+/** The command of harnesspm's agent hooks. A local binary, because npx costs about 0.4 s per call (spec 14.4). */
+function trackCommand(projectDir: string, agent: 'claude' | 'codex'): string {
+  const bin = path.join(projectDir, 'node_modules', '.bin', 'harnesspm');
+  const prefix = isFile(bin) ? (/^[\w@%+=:,./-]+$/.test(bin) ? bin : `'${bin.replaceAll("'", "'\\''")}'`) : NPX_LOCAL;
+  return `${prefix} track --agent ${agent}`;
+}
+
+/** Claude Code: reads, skills, file-scoped rules it loads by itself, sessions. Codex: sessions only (spec 14.4). */
+function telemetryHooks(projectDir: string, agent: 'claude' | 'codex', events: EventType[]): HookEntry[] {
+  const command = trackCommand(projectDir, agent);
+  const hook = (event: string, matcher?: string): HookEntry => ({ event, ...(matcher !== undefined ? { matcher } : {}), command, timeout: 10, async: true });
+  const hooks: HookEntry[] = [];
+  if (agent === 'claude') {
+    const tools = [...(events.includes('read') ? ['Read'] : []), ...(events.includes('skill') ? ['Skill'] : [])];
+    if (tools.length > 0) hooks.push(hook('PostToolUse', tools.join('|')));
+    if (events.includes('read')) hooks.push(hook('InstructionsLoaded', 'path_glob_match'));
+  }
+  if (events.includes('session')) hooks.push(hook('SessionStart'));
+  return hooks;
+}
+
+const realOrSame = (p: string): string => {
+  try {
+    return realpath(p);
+  } catch {
+    return p;
+  }
+};
+
+/** Maps the files and folders agents read to the units of the dependency and project layers (spec 14.4). */
+function telemetryIndexFor(res: Resolution, generatedRule: (rule: FinalRule) => string, generatedDocsIndex: (pkg: ResolvedPackage) => string): TelemetryIndex {
+  const team = (pkg: ResolvedPackage): boolean => pkg.layer !== 'added';
+  const index: TelemetryIndex = { project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key), packages: {}, files: {}, dirs: {}, skills: {} };
+  for (const pkg of res.packages.filter(team)) index.packages[pkg.plugin] = { package: pkg.name, version: pkg.version };
+  for (const rule of res.rules.filter((r) => team(r.pkg))) {
+    for (const file of [rule.original, rule.source, generatedRule(rule)]) index.files[realOrSame(file)] = rule.id;
+  }
+  for (const docs of res.docs.filter((d) => team(d.pkg))) {
+    index.dirs[realOrSame(docs.dir)] = docs.id;
+    index.files[realOrSame(generatedDocsIndex(docs.pkg))] = docs.id;
+  }
+  for (const skill of res.skills.filter((s) => team(s.pkg))) {
+    index.dirs[realOrSame(skill.dir)] = skill.id;
+    index.skills[skill.name] = skill.id;
+  }
+  return index;
 }
 
 function sectionRange(lines: string[], marks: readonly [string, string]): [number, number] | undefined {
@@ -432,6 +509,8 @@ export function applyPlan(projectDir: string, plan: Plan): ApplyResult {
   const excludeFile = gitExcludeFile(projectDir);
   if (excludeFile) {
     const before = readTextIfExists(excludeFile);
+    // harnesspm.local.json is never committed, also when a person writes it by hand for an opt-out (spec 14.6).
+    if (isFile(path.join(projectDir, 'harnesspm.local.json')) && !(before ?? '').split('\n').includes('/harnesspm.local.json')) addedExcludes.push('/harnesspm.local.json');
     const prevTeam = readSection(before, TEAM_SECTION);
     const prevAdded = readSection(before, ADDED_SECTION);
     const keep = new Set([...(teamExcludes ?? prevTeam), ...addedExcludes]);
@@ -463,6 +542,13 @@ export function applyPlan(projectDir: string, plan: Plan): ApplyResult {
       }
       if (ws.claudeMd !== undefined) note(path.join(ws.dir, 'CLAUDE.md'), writeIfChanged(path.join(ws.dir, 'CLAUDE.md'), ws.claudeMd));
     }
+  }
+
+  // The index of harnesspm's agent hooks, only when the team layers were resolved.
+  if (plan.committed) {
+    const indexFile = path.join(projectDir, INDEX_FILE);
+    if (plan.telemetryIndex !== undefined) writeIfChanged(indexFile, plan.telemetryIndex);
+    else fs.rmSync(indexFile, { force: true });
   }
 
   const localFile = path.join(projectDir, 'CLAUDE.local.md');

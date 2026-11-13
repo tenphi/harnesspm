@@ -33,6 +33,8 @@ export interface HookEntry {
   matcher?: string;
   command: string;
   timeout?: number;
+  /** Runs in the background: the agent does not wait for it (spec 14.4). */
+  async?: boolean;
 }
 
 export interface ExecEntries {
@@ -226,7 +228,7 @@ function limit<T>(wanted: T[], had: T[], key: (t: T) => string, widen: boolean):
   return { kept: wanted.filter((w) => before.has(key(w))), held: wanted.filter((w) => !before.has(key(w))) };
 }
 
-type JsonHooks = Record<string, { matcher?: string; hooks?: { type?: string; command?: string; timeout?: number }[] }[]>;
+type JsonHooks = Record<string, { matcher?: string; hooks?: { type?: string; command?: string; timeout?: number; async?: boolean }[] }[]>;
 
 /** Replaces the owned hook entries in an agent's hooks object. */
 function mergeHooks(hooks: JsonHooks, previous: HookEntry[], next: HookEntry[]): JsonHooks {
@@ -240,7 +242,8 @@ function mergeHooks(hooks: JsonHooks, previous: HookEntry[], next: HookEntry[]):
   }
   for (const entry of next) {
     const list = (result[entry.event] ??= []);
-    list.push({ ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}), hooks: [{ type: 'command', command: entry.command, ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}) }] });
+    const handler = { type: 'command', command: entry.command, ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}), ...(entry.async ? { async: true } : {}) };
+    list.push({ ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}), hooks: [handler] });
   }
   return result;
 }

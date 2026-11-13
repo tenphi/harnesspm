@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { harnesspmHome } from './homes.ts';
 import { loadHarnessPackage, NS, parseExtension, type HarnessPackage } from './manifest.ts';
 import { HarnessError, NPX_ANY, ensureDir, isDir, isFile, isRecord, readJson, readJsonIfExists } from './util.ts';
 
@@ -10,11 +11,6 @@ export type Scope = 'user' | 'local';
 export type SourceKind = 'git' | 'folder' | 'npm';
 
 export const LOCAL_FILE = 'harnesspm.local.json';
-
-/** harnesspm's own folder for working copies, caches and state. */
-export function harnesspmHome(): string {
-  return process.env['HARNESSPM_HOME'] ?? path.join(os.homedir(), '.harnesspm');
-}
 
 export function userConfigFile(): string {
   return path.join(harnesspmHome(), 'config.json');
@@ -193,19 +189,8 @@ export function loadAdded(projectDir: string | undefined, warnings: string[]): A
   return result;
 }
 
-export type Caller = 'model' | 'hook' | 'person';
-
-/**
- * Who runs harnesspm (spec 6.2, rule 4). Claude Code marks model commands (`AI_AGENT=…_agent`) and hooks
- * (`…_harness`). Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` only in commands the model runs.
- */
-export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
-  const agent = env['AI_AGENT'] ?? '';
-  if (agent.endsWith('_agent')) return 'model';
-  if (agent.endsWith('_harness')) return 'hook';
-  if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
-  if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'model';
-  return 'person';
-}
+// Moved to light modules, so `harnesspm track` can load them without the rest (spec 14.4).
+export { harnesspmHome } from './homes.ts';
+export { caller, type Caller } from './util.ts';
 
 export const RULES_DIR = path.join(NS, 'rules');

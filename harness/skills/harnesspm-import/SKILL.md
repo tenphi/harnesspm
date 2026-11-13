@@ -22,6 +22,7 @@ Run `npx harnesspm status`. It lists the packages, pending tools and the always-
 - **You cannot grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the user to run `npx harnesspm approve` in their own terminal. Do not edit agent settings files to work around it.
 - **One upstream rule does not fit** the project: run `npx harnesspm new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `harnesspm.json` to change or drop a whole unit.
 - **A job that does not install dependencies**, such as a review bot, runs `npx -y @tenphi/harnesspm fetch` first.
+- **The team wants to see how agents use the harness:** add `"telemetry": { "send": { "file": ".harnesspm/events.jsonl" } }` to `harnesspm.json`, or a command as `send`, and ask the user to run `npx harnesspm sync`. A person opts out with `DO_NOT_TRACK=1`. The spec's telemetry chapter, in the docs index, has the events and a rule template for reporting harness problems.
 
 ## 3. Add a harness on top
 

@@ -76,10 +76,15 @@ export function run(cwd: string, ...args: string[]): RunResult {
 }
 
 export function runWith(cwd: string, env: Record<string, string>, ...args: string[]): RunResult {
+  return runInput(cwd, env, undefined, ...args);
+}
+
+/** Runs the CLI with `input` on stdin, as an agent's hook does. */
+export function runInput(cwd: string, env: Record<string, string>, input: string | undefined, ...args: string[]): RunResult {
   const home = homeOf(cwd);
-  const clean: Record<string, string | undefined> = { ...process.env, CI: '', AI_AGENT: '', CLAUDECODE: '', HOME: home };
-  for (const key of ['HARNESSPM_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME']) delete clean[key];
-  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...clean, ...env } });
+  const clean: Record<string, string | undefined> = { ...process.env, CI: '', AI_AGENT: '', CLAUDECODE: '', DO_NOT_TRACK: '', HOME: home };
+  for (const key of ['HARNESSPM_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CLAUDE_CODE_SESSION_ID', 'CODEX_CI', 'CODEX_TOOL_CALL_ID']) delete clean[key];
+  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...clean, ...env }, ...(input !== undefined ? { input } : {}) });
   return { status: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
 }
 

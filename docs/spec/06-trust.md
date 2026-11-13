@@ -16,6 +16,7 @@
 | Scripts, hooks, MCP servers | **Yes** | They run code, some of them automatically. |
 | Allow permissions | **Yes** | They remove a prompt. |
 | Deny and ask permissions | No | They only restrict. |
+| The telemetry handler | **Yes** | It runs a command on every machine of the team. Recorded in the lock by a person's sync ([14.5](14-telemetry.md#145-trust)). |
 
 ## 6.2 Trusting a package
 
@@ -45,6 +46,7 @@ Rules:
    - These markers are advisory: a model can unset them. They stop accidents, such as an install the model starts, not a model that works around them.
    - A hook runs from settings a person wrote, so a hook run may add entries.
    - A model run keeps the entries a person granted before, and never removes a deny or ask rule. Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and other removals are written as usual.
+   - A model run also keeps the telemetry handler that the lock has. A new or changed handler is held the same way ([14.5](14-telemetry.md#145-trust)).
 
 ## 6.3 The lock
 
@@ -52,7 +54,8 @@ Rules:
 
 - every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version;
 - every unit: ID, kind, content hash;
-- every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported.
+- every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported;
+- the telemetry handler that a person's sync recorded ([14.5](14-telemetry.md#145-trust)).
 
 The lock holds no per-machine state, so every machine writes the same lock. `harnesspm status` shows which executable units are pending on this machine, and why.
 
@@ -62,7 +65,7 @@ People do not edit it. Added harnesses are not locked. They follow their branch 
 
 `harnesspm sync --check` and every run with `CI=true` ignore added harnesses. `--check` writes nothing and fails when:
 
-- a committed output or the lock is out of date;
+- a committed output or the lock is out of date, including a telemetry handler that differs from `harnesspm.json`;
 - a `"pin"` package has a version that nobody approved.
 
 ## 6.5 Not covered

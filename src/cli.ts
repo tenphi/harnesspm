@@ -1,7 +1,21 @@
 #!/usr/bin/env node
-import { add, approve, check, fetch, init, mcp, newUnit, remove, run, status, sync, update, why, type Output } from './commands.ts';
-import { Refused } from './run.ts';
+import type { Output } from './commands.ts';
 import { HarnessError, readJson } from './util.ts';
+
+async function main(): Promise<void> {
+  const commands = await import('./commands.ts');
+  const { Refused } = await import('./run.ts');
+  try {
+    process.exitCode = dispatch(process.argv.slice(2), commands);
+  } catch (error) {
+    if (error instanceof HarnessError) {
+      console.error(`harnesspm: ${error.message}`);
+      process.exitCode = error instanceof Refused ? 2 : 1;
+    } else {
+      throw error;
+    }
+  }
+}
 
 const HELP = `harnesspm — the harness package manager
 
@@ -34,7 +48,7 @@ const out: Output = {
   warn: (line) => console.error(line),
 };
 
-function main(argv: string[]): number {
+function dispatch(argv: string[], { add, approve, check, fetch, init, mcp, newUnit, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number {
   const [command, ...rest] = argv;
   if (command !== 'run' && command !== 'mcp' && (rest.includes('--help') || rest.includes('-h'))) {
     console.log(HELP);
@@ -119,13 +133,10 @@ function main(argv: string[]): number {
   }
 }
 
-try {
-  process.exitCode = main(process.argv.slice(2));
-} catch (error) {
-  if (error instanceof HarnessError) {
-    console.error(`harnesspm: ${error.message}`);
-    process.exitCode = error instanceof Refused ? 2 : 1;
-  } else {
-    throw error;
-  }
+// Agent hooks call `harnesspm track` on every matching tool call, so it loads only what it needs (spec 14.4).
+if (process.argv[2] === 'track') {
+  const { track } = await import('./telemetry.ts');
+  process.exitCode = track(process.argv.slice(3));
+} else {
+  await main();
 }

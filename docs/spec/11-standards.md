@@ -16,6 +16,8 @@
 | `CONTRIBUTING.md` | Community convention, recognized by GitHub and GitLab | Widely used | **How to propose changes** to a harness repository, read together with its `AGENTS.md` ([08-improving.md](08-improving.md#83-the-owner-decides-how-to-save)). |
 | [Model Context Protocol](https://modelcontextprotocol.io/) | Agentic AI Foundation | Published | **MCP servers.** harnesspm does not touch the protocol. It configures servers through the Agent Plugins `mcp.json` format. |
 | [llms.txt](https://llmstxt.org/) | Community convention | Widely used | **Docs index.** A package's `llms.txt` is its docs index. |
+| [JSON Lines](https://jsonlines.org/) | Community convention | Widely used | **Telemetry file handler.** One event per line ([14.1](14-telemetry.md#141-turning-it-on)). |
+| [Console Do Not Track](https://consoledonottrack.com/) | Community convention | Used by many command-line tools | **Opting out of telemetry.** `DO_NOT_TRACK=1` stops every event ([14.6](14-telemetry.md#146-opting-out)). |
 | [Semantic Versioning](https://semver.org/), [SPDX](https://spdx.org/licenses/), [JSON Schema](https://json-schema.org/) | — | Stable | Versions, licenses and the schemas for `harnesspm.json` and the harnesspm extension. |
 
 ## 11.2 What no standard covers yet
@@ -30,6 +32,7 @@
 | Scripts for agents | Agent Skills allows `scripts/` inside a skill, with no runner or permission model | Named scripts, one runner, generated permissions |
 | Overrides across packages | None | `exclude` and `replace` by unit ID, and `patch` by Markdown section |
 | Harnesses added on top of a repository | None | Added harnesses with two scopes, improved under their owner's rules |
+| Events about how agents use a harness | None. [OpenTelemetry](https://opentelemetry.io/) defines how to send telemetry, not what a harness event is | Small JSON events sent to the project's own handler, which can forward them to OpenTelemetry ([14](14-telemetry.md)) |
 
 ## 11.3 Proposing upstream
 

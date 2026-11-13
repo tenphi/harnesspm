@@ -19,3 +19,8 @@ export function codexHome(): string {
 export function agentsHome(): string {
   return path.join(os.homedir(), '.agents');
 }
+
+/** harnesspm's own folder for working copies, caches and state. */
+export function harnesspmHome(): string {
+  return process.env['HARNESSPM_HOME'] ?? path.join(os.homedir(), '.harnesspm');
+}

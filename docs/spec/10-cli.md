@@ -16,7 +16,7 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 | `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. |
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
-| `harnesspm status` | Layers, packages, versions, pending trust, changes that added harnesses make to the repository's units, always-on size per agent. |
+| `harnesspm status` | Layers, packages, versions, pending trust, changes that added harnesses make to the repository's units, always-on size per agent, and whether telemetry is on, held or off on this machine. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). Works for every unit ID ([2.8](02-package-format.md#28-unit-ids)). For a script, also the command that runs it; for a script, hook, MCP server or sub-agent of a dependency, whether its package is trusted. |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. |
@@ -24,7 +24,7 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 
 Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 
-`harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. People do not need it.
+`harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. `harnesspm track --agent <agent>` is the command of harnesspm's own telemetry hooks ([14.4](14-telemetry.md#144-agent-events)). People do not need either.
 
 ```text
 $ npx harnesspm status
@@ -33,6 +33,7 @@ $ npx harnesspm status
 ➕ added         github:cube-js/frontend-harness (user) · github:alex/harness (user), project entry cube-ui-kit
 ⏳ pending       some-third-party: 1 hook (not trusted)
 📏 always-on     Codex 18.4 KiB of 32 KiB · Claude Code 212 lines
+📡 telemetry     run, mcp, sync, why, read, skill, session → file .harnesspm/events.jsonl
 ```
 
 ## 10.2 Authors

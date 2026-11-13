@@ -5,7 +5,8 @@ import { harnesspmHome } from './added.ts';
 import { trustOf } from './exec-outputs.ts';
 import { readLock } from './lock.ts';
 import type { Resolution, ResolvedPackage } from './resolve.ts';
-import { HarnessError, ensureDir, isFile } from './util.ts';
+import { commandCaller, readTelemetryState, sendEvent, type EventType } from './telemetry.ts';
+import { HarnessError, agentOf, ensureDir, isFile } from './util.ts';
 
 /** Thrown when the runner refuses a script. The CLI exits with code 2 (spec 10.4). */
 export class Refused extends HarnessError {}
@@ -35,8 +36,15 @@ function environment(pkg: ResolvedPackage, res: Resolution, agent: string | unde
     PLUGIN_ROOT: pkg.harnessDir,
     PLUGIN_DATA: data,
     HARNESSPM_PROJECT_DIR: res.projectDir,
-    HARNESSPM_AGENT: agent ?? (process.env['AI_AGENT']?.startsWith('claude-code') ? 'claude' : ''),
+    HARNESSPM_AGENT: agent ?? agentOf() ?? '',
   };
+}
+
+/** A `run` or `mcp` event for a unit of the dependency or project layer (spec 14.2). Units of added harnesses stay private. */
+function unitEvent(res: Resolution, type: EventType, unit: { id: string; pkg: ResolvedPackage }, agent: string | undefined, extra: Record<string, unknown> = {}): void {
+  if (unit.pkg.layer === 'added') return;
+  const ctx = { projectDir: res.projectDir, project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key) };
+  sendEvent(readTelemetryState(res.projectDir), ctx, { type, ...commandCaller(agent), unit: unit.id, package: unit.pkg.name, version: unit.pkg.version, ...extra });
 }
 
 function interpreter(file: string): [string, string[]] {
@@ -55,9 +63,13 @@ export function runScript(res: Resolution, ref: string, args: string[], agent: s
   checkPackage(script.pkg, res, `Script ${ref}`);
   if (!isFile(script.file)) throw new HarnessError(`Script ${ref}: ${script.file} does not exist`);
   const [command, prefix] = interpreter(script.file);
+  const started = Date.now();
   const result = spawnSync(command, [...prefix, ...args], { stdio: 'inherit', cwd: process.cwd(), env: environment(script.pkg, res, agent) });
   if (result.error) throw new HarnessError(`Script ${ref} could not start: ${result.error.message}`);
-  return result.status ?? 1;
+  const status = result.status ?? 1;
+  // Never the arguments: they can hold anything (spec 14.2).
+  unitEvent(res, 'run', script, agent, { exit: status, duration: Date.now() - started });
+  return status;
 }
 
 export function runMcp(res: Resolution, ref: string, agent: string | undefined): number {
@@ -72,6 +84,7 @@ export function runMcp(res: Resolution, ref: string, agent: string | undefined):
   const args = Array.isArray(server.config['args']) ? server.config['args'].map((a) => expand(String(a))) : [];
   const extra = server.config['env'];
   if (extra !== null && typeof extra === 'object') for (const [k, v] of Object.entries(extra)) env[k] = expand(String(v));
+  unitEvent(res, 'mcp', server, agent);
   const result = spawnSync(command, args, { stdio: 'inherit', env });
   if (result.error) throw new HarnessError(`MCP server ${ref} could not start: ${result.error.message}`);
   return result.status ?? 1;

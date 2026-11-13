@@ -49,7 +49,7 @@ The runner:
 | `HARNESSPM_PROJECT_DIR` | The project root |
 | `HARNESSPM_AGENT` | `claude`, `codex`, or empty when a person runs it. harnesspm puts it into the hook and MCP commands it writes, and reads the agent's marker for a script an agent runs ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). |
 
-The runner must start fast, because hooks call it on every matching tool call.
+The runner must start fast, because hooks call it on every matching tool call. With telemetry on, it sends a `run` event when the script ends ([14.2](14-telemetry.md#142-events)).
 
 Why a runner instead of file paths:
 

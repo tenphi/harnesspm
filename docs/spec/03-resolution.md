@@ -98,6 +98,7 @@ Workspaces come from the `workspaces` field of the root `package.json` or from `
 | `replace` | `{}` | Unit ID → path of a project file that takes its place. |
 | `patch` | `{}` | Rule ID → path of a project patch that changes some of its sections. |
 | `trust` | `{}` | Which packages may run executable units. See [06-trust.md](06-trust.md). |
+| `telemetry` | off | Which events to send, and the handler that gets them. See [14-telemetry.md](14-telemetry.md). |
 
 The project's own `harness/`, if it has one, resolves like any harness package: its `extends` bring packages into the dependency layer, and its `exclude`, `replace` and `patch` apply here as they do for its users. `harnesspm.json` applies after it, for this repository only. So contributors see what users see, plus the repository's own changes.
 
