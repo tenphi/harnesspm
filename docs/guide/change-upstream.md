@@ -83,7 +83,7 @@ Changes come from three layers. Higher layers win:
 | Project | `harnesspm.json` | Everyone who works on the repository |
 | Added | An added harness's `plugin.json` | The person who added it |
 
-For one rule, harnesspm takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. See [priority](../spec/03-resolution.md#34-priority).
+For one rule, harnesspm takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. See [priority](https://github.com/tenphi/harnesspm/blob/main/docs/spec/03-resolution.md#34-priority).
 
 An added harness cannot change committed text. When it patches or excludes a team always-on rule, harnesspm writes the change into your local instructions instead, which both agents read after the team block.
 
@@ -106,5 +106,5 @@ harnesspm does not push or talk to git hosts. The agent uses its own tools, such
 
 ## More
 
-- [Improving a harness](../spec/08-improving.md): the full flow.
-- [Patches](../spec/02-package-format.md#patches) and [project configuration](../spec/03-resolution.md#37-project-configuration).
+- [Improving a harness](https://github.com/tenphi/harnesspm/blob/main/docs/spec/08-improving.md) in the specification: the full flow.
+- [Patches](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#patches) and [project configuration](https://github.com/tenphi/harnesspm/blob/main/docs/spec/03-resolution.md#37-project-configuration) in the specification.

@@ -20,10 +20,10 @@ harnesspm reads workspaces from the `workspaces` field of the root `package.json
 | --- | --- |
 | Units that the root reaches, or that every workspace shares | The root `AGENTS.md` block |
 | Units of one workspace | A block in `<workspace>/AGENTS.md`, with paths relative to that folder |
-| `CLAUDE.md` with `@AGENTS.md` | Next to each workspace `AGENTS.md`, when it is missing |
+| `CLAUDE.md` with `@AGENTS.md` | Next to each workspace `AGENTS.md`, and each nested `AGENTS.md` that git tracks |
 | Skills, scripts, hooks, MCP servers, permissions | The root, where both agents read them |
 
-Codex joins `AGENTS.md` files from the root down to the folder it works in. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`, so harnesspm writes a `CLAUDE.md` next to it ([sources](../research/agent-capabilities.md)). Commit both files. A block that becomes empty is removed, and so is a file that held only the block.
+Codex joins `AGENTS.md` files from the root down to the folder it works in. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`, so harnesspm makes a `CLAUDE.md` next to it import it, also for an `AGENTS.md` you wrote yourself ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). Commit both files. A block that becomes empty is removed, and so is a file that held only the block.
 
 ## Your own workspaces
 
@@ -35,4 +35,4 @@ Outputs point at one path per package, so the whole repository uses one version 
 
 ## More
 
-- [Monorepos in Resolution](../spec/03-resolution.md#36-monorepos) and [in Outputs](../spec/04-outputs.md#45-monorepos).
+- Monorepos in the specification's [Resolution](https://github.com/tenphi/harnesspm/blob/main/docs/spec/03-resolution.md#36-monorepos) and [Outputs](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md#45-monorepos) chapters.

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { installPackage, isLink, project, read, run, skill, writeFiles } from './helpers.ts';
+import { installPackage, isLink, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
 
 const TASTY_RULES = {
   'dev.harnesspm/rules/style-values.md': '# Style values\n\nNever put dynamic values into styles. Use tokens.\n',
@@ -78,6 +79,95 @@ test('S5: an upgrade shows up in the committed files, and --check fails until sy
   assert.match(check.stdout, /harnesspm\.lock\.json is out of date/);
   run(dir, 'sync');
   assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+});
+
+test('with CI=true, sync leaves committed outputs to --check and still writes per-machine ones; --write writes them', () => {
+  const dir = chain();
+  run(dir, 'sync');
+  const committed = ['AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json'].map((file) => [file, read(dir, file)] as const);
+  // A pull request upgrades a package and forgets to sync. The install's sync runs in CI.
+  writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\nUse tokens only.\n' });
+  fs.rmSync(path.join(dir, 'node_modules/.harnesspm'), { recursive: true });
+  fs.rmSync(path.join(dir, '.claude'), { recursive: true });
+  const ci = runWith(dir, { CI: 'true' }, 'sync');
+  assert.equal(ci.status, 0, ci.stderr);
+  assert.match(ci.stdout, /^CI: committed outputs left as they are; `npx harnesspm sync --check` compares them, `sync --write` writes them\.$/m);
+  for (const [file, text] of committed) assert.equal(read(dir, file), text, `${file} is left as it is`);
+  assert.ok(isLink(dir, 'node_modules/.harnesspm/pkgs/@tenphi/tasty'), 'stable package paths');
+  assert.ok(fs.existsSync(path.join(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt')), 'docs indexes');
+  assert.ok(isLink(dir, '.claude/skills/uikit-review'), 'skill links');
+  const check = runWith(dir, { CI: 'true' }, 'sync', '--check');
+  assert.equal(check.status, 1, 'the missed sync still fails the check');
+  assert.match(check.stdout, /AGENTS\.md: the harnesspm block is out of date/);
+
+  // A job that commits the result, such as a release, writes them.
+  const write = runWith(dir, { CI: 'true' }, 'sync', '--write');
+  assert.equal(write.status, 0, write.stderr);
+  assert.doesNotMatch(write.stdout, /^CI:/m);
+  assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+  assert.equal(runWith(dir, { CI: 'true' }, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync', '--check', '--write').stderr, /Use either --check or --write/);
+});
+
+test('a nested AGENTS.md that git tracks gets a CLAUDE.md that imports it, since the root CLAUDE.md silences it', () => {
+  const dir = chain();
+  run(dir, 'sync');
+  writeFiles(dir, {
+    'src/button/AGENTS.md': '# Button\n\nKeep it small.\n',
+    'src/form/AGENTS.md': '# Form\n\nUse the controller.\n',
+    'src/form/CLAUDE.md': 'Form notes.\n',
+    'src/menu/AGENTS.md': '# Menu\n\nKeyboard first.\n',
+    'src/menu/.claude/CLAUDE.md': '@../AGENTS.md\n',
+    'src/draft/AGENTS.md': '# Draft\n\nNot committed.\n',
+    'vendor/node_modules/x/AGENTS.md': '# Vendored\n',
+  });
+  spawnSync('git', ['add', '-f', 'src/button', 'src/form', 'src/menu', 'vendor'], { cwd: dir });
+
+  const check = run(dir, 'sync', '--check');
+  assert.equal(check.status, 1);
+  assert.match(check.stdout, /src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing, so Claude Code does not read src\/button\/AGENTS\.md/);
+  assert.match(check.stdout, /src\/form\/CLAUDE\.md: the @AGENTS\.md line is missing/);
+  assert.doesNotMatch(check.stdout, /src\/menu|src\/draft|vendor/);
+  assert.match(run(dir, 'doctor').stdout, /📦 Outputs\n {2}❌ src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing/);
+
+  // CI leaves them to --check, like every committed output.
+  runWith(dir, { CI: 'true' }, 'sync');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/button/CLAUDE.md')));
+
+  run(dir, 'sync');
+  assert.equal(read(dir, 'src/button/CLAUDE.md'), '@AGENTS.md\n');
+  assert.equal(read(dir, 'src/form/CLAUDE.md'), '@AGENTS.md\n\nForm notes.\n');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/menu/CLAUDE.md')), 'its .claude/CLAUDE.md imports it already');
+  assert.ok(!fs.existsSync(path.join(dir, 'src/draft/CLAUDE.md')), 'not tracked');
+  assert.ok(!fs.existsSync(path.join(dir, 'vendor/node_modules/x/CLAUDE.md')), 'inside node_modules');
+  assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+});
+
+test('the block has a blank line after BEGIN and before END, so Prettier leaves it alone; the old form still passes --check', () => {
+  const dir = chain();
+  writeFiles(dir, { 'AGENTS.md': '# Team\n' });
+  run(dir, 'sync');
+  const agents = read(dir, 'AGENTS.md');
+  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\n## @tenphi\/tasty/);
+  assert.match(agents, /\(uikit:docs\)\n\n<!-- END:harnesspm -->\n/);
+
+  // A block that harnesspm 0.3 wrote, without the blank lines, is up to date until the next sync rewrites it once.
+  const old = agents.replace(/(<!-- BEGIN:harnesspm[^\n]*-->)\n\n/, '$1\n').replace(/\n\n(<!-- END:harnesspm -->)/, '\n$1');
+  writeFiles(dir, { 'AGENTS.md': old });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'no false failure on the old form');
+  assert.match(run(dir, 'sync').stdout, /Updated 1 file/);
+  assert.equal(read(dir, 'AGENTS.md'), agents);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+
+  // A block that a person wrapped in prettier-ignore comments keeps them.
+  const wrapped = `# Team\n\n<!-- prettier-ignore-start -->\n${old.slice(old.indexOf('<!-- BEGIN'))}<!-- prettier-ignore-end -->\n`;
+  writeFiles(dir, { 'AGENTS.md': wrapped });
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  run(dir, 'sync');
+  assert.match(read(dir, 'AGENTS.md'), /^# Team\n\n<!-- prettier-ignore-start -->\n<!-- BEGIN:harnesspm[^\n]*-->\n\n[^]*\n\n<!-- END:harnesspm -->\n<!-- prettier-ignore-end -->\n$/);
+  assert.equal(run(dir, 'sync', '--check').status, 0);
 });
 
 test('text outside the block never changes', () => {
@@ -225,6 +315,31 @@ test("the project's own harness resolves like a package, then harnesspm.json app
   assert.doesNotMatch(agents, /tasty:rules\/legacy/, "the project harness's exclude applies here too");
   assert.equal(fs.readlinkSync(path.join(dir, '.claude/skills/app-deploy')), '../../harness/skills/app-deploy');
   assert.match(run(dir, 'why', 'app:rules/release').stdout, /editable +yes/);
+});
+
+test("the lock leaves out the project's own version, so a release changes nothing", () => {
+  const dir = project({}, { name: '@acme/app', version: '1.4.0' });
+  writeFiles(dir, {
+    'harness/plugin.json': JSON.stringify({ $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'app' }),
+    'harness/dev.harnesspm/rules/release.md': '# Release\n\nTag first.\n',
+  });
+  run(dir, 'sync');
+  const lock = read(dir, 'harnesspm.lock.json');
+  assert.deepEqual(JSON.parse(lock).packages['@acme/app'], { plugin: 'app', project: true });
+
+  // A version PR raises the version: the committed files stay up to date.
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: '@acme/app', version: '1.5.0', devDependencies: {} }) });
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+
+  // A lock that harnesspm 0.3 wrote, with the version, passes --check, and the next sync drops the version.
+  const old = JSON.parse(lock);
+  old.packages['@acme/app'] = { version: '1.4.0', plugin: 'app', project: true };
+  writeFiles(dir, { 'harnesspm.lock.json': `${JSON.stringify(old, null, 2)}\n` });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'no false failure on the old form');
+  assert.match(run(dir, 'sync').stdout, /Updated 1 file/);
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
 });
 
 test('one skills folder linked to the other gets each skill once', () => {

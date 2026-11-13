@@ -41,7 +41,7 @@ jobs:
       - name: Check harness
         run: npm run check
 
-      # The docs site reads docs/spec/ and docs/guide/. Build it and run
+      # The docs site reads docs-site/ and docs/guide/. Build it and run
       # Cookbook's checks of the built output, such as broken links.
       - name: Docs site
         run: npm run build:docs && npm run docs:check

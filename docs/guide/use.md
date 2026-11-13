@@ -31,19 +31,19 @@ harnesspm only reads files. It never runs code from a package to find its harnes
 | Script | A line in the block with the command that runs it, once the package is trusted. |
 | Hook, MCP server, permission | Entries in each agent's settings, once the package is trusted. |
 
-Every line in the block ends with the unit's ID, such as `glaze:rules/colors`. `npx harnesspm why <ID>` finds its source. The [package format](../spec/02-package-format.md#24-unit-kinds) lists every kind.
+Every line in the block ends with the unit's ID, such as `glaze:rules/colors`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
 
 ## Stable paths
 
 Package managers put packages in different places. harnesspm links each harness package to one stable path in `node_modules/.harnesspm/pkgs/`, and the block uses only these paths. So the same block works on every machine and with every package manager.
 
-A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths.
+A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths. The lock takes each package's integrity from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. With Yarn 4, `fetch` downloads without that check and says so for each package.
 
 ## Upgrades
 
 - A full install (`npm install`, `npm ci`, `pnpm install`, `yarn`) runs `harnesspm sync` for you.
 - `npm install <pkg>`, `npm uninstall <pkg>`, `pnpm add <pkg>` and `pnpm remove <pkg>` run no scripts. Run `npx harnesspm sync` after them.
-- Yarn 4 runs `postinstall` but not `prepare`. In a published package, where `init` uses `prepare`, run `yarn harnesspm sync` after installs. See [package managers](../research/package-managers.md).
+- Yarn 4 runs `postinstall` but not `prepare`. In a published package, where `init` uses `prepare`, run `yarn harnesspm sync` after installs. See [package managers](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md).
 
 The pull request shows the change. The block names each package's version, and the lock records every unit's hash:
 
@@ -56,7 +56,7 @@ When an upgrade changes a section that your patch replaces or removes, `sync` wa
 
 ## One version per package
 
-The block points at one path per package, so harnesspm uses one version of each package in a repository. A direct dependency wins. Otherwise the copy closest to your project in the `extends` chain wins, then the highest version. harnesspm warns and names the versions. See [one package, several versions](../spec/03-resolution.md#35-one-package-several-versions).
+The block points at one path per package, so harnesspm uses one version of each package in a repository. A direct dependency wins. Otherwise the copy closest to your project in the `extends` chain wins, then the highest version. harnesspm warns and names the versions. See [one package, several versions](https://github.com/tenphi/harnesspm/blob/main/docs/spec/03-resolution.md#35-one-package-several-versions).
 
 ## Keep the always-on text small
 
@@ -66,9 +66,9 @@ Always-on text is in every session. `npx harnesspm status` reports its size for 
 📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
 ```
 
-Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](../research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
+Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
 
 ## More
 
-- [Resolution](../spec/03-resolution.md): layers, `extends` and priority.
-- [Outputs](../spec/04-outputs.md): every file harnesspm writes for each agent.
+- [Resolution](https://github.com/tenphi/harnesspm/blob/main/docs/spec/03-resolution.md) in the specification: layers, `extends` and priority.
+- [Outputs](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md) in the specification: every file harnesspm writes for each agent.

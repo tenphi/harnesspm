@@ -56,7 +56,7 @@ The pending lines are normal. Rules, docs and skills work at once. Scripts, hook
 | File | What it holds | Commit |
 | --- | --- | --- |
 | `AGENTS.md` | The managed block: always-on rules, a docs index and scripts for each package | Yes |
-| `CLAUDE.md` | `@AGENTS.md`, so Claude Code reads the block | Yes |
+| `CLAUDE.md` | `@AGENTS.md`, so Claude Code reads the block. A folder with its own `AGENTS.md` that git tracks gets one too. | Yes |
 | `harnesspm.json` | Your configuration: trust, patches, exclusions | Yes |
 | `harnesspm.lock.json` | Every harness package and every unit's hash | Yes |
 | `package.json` | The `postinstall` or `prepare` script | Yes |
@@ -67,7 +67,9 @@ git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json
 git commit -m "chore: set up harnesspm"
 ```
 
-harnesspm never edits `.gitignore`. Text outside the managed block in `AGENTS.md` stays yours. See [what is committed](../spec/01-overview.md#17-what-is-committed).
+If your repository has `AGENTS.md` files in subfolders, also commit the `CLAUDE.md` that `sync` wrote next to each. Claude Code skips a nested `AGENTS.md` once the root has a `CLAUDE.md`, and the import brings it back.
+
+harnesspm never edits `.gitignore`. Text outside the managed block in `AGENTS.md` stays yours. See [what is committed](https://github.com/tenphi/harnesspm/blob/main/docs/spec/01-overview.md#17-what-is-committed).
 
 ## 4. Turn on a package's tools
 
@@ -101,7 +103,9 @@ Add a check to CI, so a missed sync fails the pull request:
 - run: npx harnesspm sync --check
 ```
 
-`--check` writes nothing and ignores harnesses that people added on their machines. When something is out of date, it says what to do:
+`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs indexes, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx harnesspm sync --write` instead.
+
+When something is out of date, `--check` says what to do:
 
 ```text
 $ npx harnesspm sync --check

@@ -40,7 +40,7 @@ Without help, an agent in your project guesses how your libraries work, or it re
 - Each agent reads its own files: `CLAUDE.md` and `.claude/` for Claude Code, `.codex/` for Codex.
 - A library that builds on another one copies the upstream rules, and the copies go stale.
 
-[A real chain of packages](../docs/research/motivating-case.md) shows each of these problems.
+[A real chain of packages](https://github.com/tenphi/harnesspm/blob/main/docs/research/motivating-case.md) shows each of these problems.
 
 ## How it works
 
@@ -73,7 +73,7 @@ On its own, the agent:
 3. read Tasty's styling docs, which UI Kit passes on;
 4. checked its CSS with `tasty:styles`, using the setup that UI Kit's patch adds to Tasty's rule.
 
-None of these were in the task. This was one run of Claude Code in non-interactive mode, recorded in the [UI Kit pull request](https://github.com/cube-js/cube-ui-kit/pull/1643) and in [agent capabilities](../docs/research/agent-capabilities.md#claude-code).
+None of these were in the task. This was one run of Claude Code in non-interactive mode, recorded in the [UI Kit pull request](https://github.com/cube-js/cube-ui-kit/pull/1643) and in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code).
 
 ## Upgrade the package, upgrade the rules
 
@@ -108,7 +108,7 @@ The lint plugin is an optional peer of UI Kit, so its harness applies only when 
 
 ## One source for Claude Code and Codex
 
-You keep one copy of each instruction, not one per agent. Write a rule, skill, sub-agent or hook once. Each agent gets it in its own files: the managed block in `AGENTS.md` for both, `.claude/` for Claude Code, `.codex/` and `.agents/skills/` for Codex. See [every file harnesspm writes](../docs/spec/04-outputs.md).
+You keep one copy of each instruction, not one per agent. Write a rule, skill, sub-agent or hook once. Each agent gets it in its own files: the managed block in `AGENTS.md` for both, `.claude/` for Claude Code, `.codex/` and `.agents/skills/` for Codex. See [every file harnesspm writes](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md).
 
 This works before any library ships a harness:
 
@@ -171,7 +171,7 @@ It applies in every repository on your machine, and one line in a setup script b
   </Card>
 </CardGrid>
 
-Every format, rule and command is in [the specification](../docs/spec/README.md).
+Every format, rule and command is in [the specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md), on GitHub. It also ships in the npm package, so your agents read the version you installed.
 
 ## Scope today
 

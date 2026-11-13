@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
@@ -62,6 +63,10 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   assert.ok(!fs.existsSync(path.join(dir, 'packages/web/.claude')));
 
   assert.equal(run(dir, 'sync', '--check').status, 0);
+  // Once committed, a workspace's AGENTS.md is also a nested one that git tracks: still one import.
+  spawnSync('git', ['add', 'packages'], { cwd: dir });
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.equal(read(dir, 'packages/web/CLAUDE.md'), '@AGENTS.md\n');
   writeFiles(dir, { 'node_modules/@acme/server-kit/harness/dev.harnesspm/rules/handlers.md': rule('Handlers', 'Validate all input.') });
   const check = run(dir, 'sync', '--check');
   assert.equal(check.status, 1);

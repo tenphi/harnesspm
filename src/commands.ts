@@ -19,11 +19,11 @@ import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
 import { heldEntries, trustOf } from './exec-outputs.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
-import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
+import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
-import { alwaysOnText, withClaudeImport } from './render.ts';
+import { alwaysOnText } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
@@ -97,8 +97,13 @@ function resolveAll(projectDir: string, options: { withAdded: boolean }): Resolv
   return { ...(team ? { team } : {}), full, added, mode, warnings: [...warnings, ...(team?.warnings ?? []), ...full.warnings] };
 }
 
-export function sync(cwd: string, out: Output, options: { check?: boolean; quiet?: boolean } = {}): number {
+/**
+ * `check` compares and writes nothing. With `CI=true`, the committed outputs stay as they are unless `write` is set,
+ * so that an install's sync cannot hide a missed sync from a later `sync --check` (spec 6.4, 10.1).
+ */
+export function sync(cwd: string, out: Output, options: { check?: boolean; write?: boolean; quiet?: boolean } = {}): number {
   const projectDir = findProjectDir(cwd);
+  if (options.check && options.write) throw new HarnessError('Use either --check or --write, not both.');
   if (options.check) {
     const { team, full, warnings } = resolveAll(projectDir, { withAdded: false });
     const plan = computePlan(team, full);
@@ -118,10 +123,13 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   const changed: string[] = [];
   const report: UserReport = { pending: [], held: [] };
   const before = readLock(projectDir);
+  const keepCommitted = process.env['CI'] === 'true' && options.write !== true;
+  let keptCommitted = false;
   if (mode !== 'none') {
     const plan = computePlan(resolved.team, full, { widen: caller() !== 'model' });
     warnings.push(...plan.warnings);
-    const applied = applyPlan(projectDir, plan);
+    keptCommitted = keepCommitted && plan.committed !== undefined;
+    const applied = applyPlan(projectDir, plan, { committed: !keepCommitted });
     changed.push(...applied.changed);
     report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
@@ -131,6 +139,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   printWarnings(out, warnings);
   printPending(out, report);
   if (options.quiet) return 0;
+  if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(full.rules.length, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
@@ -184,9 +193,9 @@ export function init(projectDir: string, out: Output): number {
     writeIfChanged(pkgFile, `${JSON.stringify(pkg, null, indent)}\n`);
     out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
   }
-  const claudeFile = path.join(projectDir, 'CLAUDE.md');
-  if (writeIfChanged(claudeFile, withClaudeImport(readTextIfExists(claudeFile)))) out.log('CLAUDE.md now imports AGENTS.md');
-  return sync(projectDir, out);
+  const claude = claudeImport(projectDir);
+  if (writeIfChanged(claude.file, claude.text)) out.log(`${relPosix(projectDir, claude.file)} now imports AGENTS.md`);
+  return sync(projectDir, out, { write: true });
 }
 
 /** Directories of editable added harnesses, which agents may write to (spec 8.5). */
@@ -271,6 +280,10 @@ export function update(cwd: string, out: Output): number {
   return sync(projectDir, out);
 }
 
+/** Codex reads `AGENTS.md` files up to `project_doc_max_bytes`, 32 KiB by default, and cuts off the rest (spec 4.9). */
+const CODEX_LIMIT = 32 * 1024;
+const CODEX_OVER = "Codex's 32 KiB limit: Codex reads only the first 32 KiB";
+
 function describeAdded(h: AddedHarness): string {
   return `${h.pkg.plugin} (${h.source.spec}, ${h.scope})${h.entry ? ', with an entry for this repository' : ''}`;
 }
@@ -315,7 +328,8 @@ export function status(cwd: string, out: Output): number {
     const bytes = Buffer.byteLength(agents);
     const claudeLines = agents.split('\n').length + (plan!.localMd ?? '').split('\n').length;
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
-    if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
+    if (bytes > CODEX_LIMIT) out.warn(`⚠️  AGENTS.md is over ${CODEX_OVER}. Move details into on-demand rules or docs.`);
+    else if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
   }
   const telemetry = readTelemetryState(projectDir);
   if (telemetry.config) {
@@ -401,6 +415,8 @@ export function doctor(cwd: string, out: Output): number {
     if (stale > 0) outputs.push({ level: 'warn', text: `${plural(stale, 'per-machine output')} missing or out of date. Run \`${sync}\`.` });
     else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
     if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
+    const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
+    if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${(bytes / 1024).toFixed(1)} KiB, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
   }
   if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
 
@@ -537,7 +553,7 @@ export function approve(cwd: string, name: string | undefined, out: Output): num
     if (name !== undefined && approved === 0 && resolved.team.config.trust[name] !== 'pin') throw new HarnessError(`${name} is not a "pin" package in ${CONFIG_FILE}`);
     if (approved > 0) writeIfChanged(path.join(projectDir, LOCK_FILE), serializeLock(lock));
   }
-  return sync(projectDir, out);
+  return sync(projectDir, out, { write: true });
 }
 
 export function newUnit(cwd: string, kind: string, name: string, options: { to?: string; entry?: boolean }, out: Output): number {
@@ -556,7 +572,7 @@ export function newUnit(cwd: string, kind: string, name: string, options: { to?:
     for (const file of files) out.log(`  ${show(file)}`);
     out.log('Edit it, then save it the way that harness\'s owner wants (`npx harnesspm why <ID>` names the rules).');
   }
-  sync(projectDir, out, { quiet: true });
+  sync(projectDir, out, { quiet: true, write: true });
   return 0;
 }
 

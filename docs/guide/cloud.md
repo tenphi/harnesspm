@@ -47,5 +47,5 @@ The agent changes your harness the usual way ([Change upstream units](./change-u
 
 ## More
 
-- [Cloud sessions](../spec/09-cloud.md), including what a probe confirmed in cloud sessions.
-- [Agent capabilities](../research/agent-capabilities.md#cloud-sessions): sources for each fact.
+- [Cloud sessions](https://github.com/tenphi/harnesspm/blob/main/docs/spec/09-cloud.md) in the specification, including what a probe confirmed there.
+- [Agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud-sessions) in the research notes: the source of each fact about the agents.

@@ -131,6 +131,6 @@ Every feature serves at least one of these. Each must take as few steps as possi
 
 | Committed | Per machine (excluded through `.git/info/exclude`) |
 | --- | --- |
-| `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` | Everything else: links, agent settings, `.codex/`, outputs of added harnesses |
+| `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files (at the root and next to each nested `AGENTS.md`) | Everything else: links, agent settings, `.codex/`, outputs of added harnesses |
 
 Committed files depend only on the dependency and project layers, so every teammate and CI produce the same result. harnesspm never edits `.gitignore`.

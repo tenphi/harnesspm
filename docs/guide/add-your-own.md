@@ -115,5 +115,5 @@ When a file is tracked or not ignored, `doctor` fails and names the fix, such as
 
 ## More
 
-- [Added harnesses](../spec/07-added.md): the full rules.
+- [Added harnesses](https://github.com/tenphi/harnesspm/blob/main/docs/spec/07-added.md) in the specification: the full rules.
 - [Cloud sessions](./cloud.md): the same harness in Claude Code cloud sessions.

@@ -12,7 +12,9 @@ npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
-`init` adds `harnesspm sync` to the `postinstall` script of a private package, or to `prepare` otherwise, so every full install updates the agent files. After `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync` yourself. Commit `harnesspm.json`, `harnesspm.lock.json` and the `AGENTS.md` block.
+`init` adds `harnesspm sync` to the `postinstall` script of a private package, or to `prepare` otherwise, so every full install updates the agent files. After `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync` yourself. Commit `harnesspm.json`, `harnesspm.lock.json`, the `AGENTS.md` block and the `CLAUDE.md` files that import `AGENTS.md`, also the ones next to nested `AGENTS.md` files.
+
+In CI, run `npx harnesspm sync --check` after the install. With `CI=true`, `sync` leaves committed files as they are, so the check sees a missed sync. A job that commits them runs `npx harnesspm sync --write`.
 
 ## 2. Check what arrived
 

@@ -108,7 +108,7 @@ A script is registered in `plugin.json`:
 - `description` shows the script to agents. Without it, only your hooks and MCP servers use it.
 - `allow: true` asks that agents may run it without a prompt. It takes effect only in projects that trust your package.
 
-Nothing executable runs until a project trusts your package. See [Trust and safety](./trust.md) and [Executables](../spec/05-executables.md).
+Nothing executable runs until a project trusts your package. See [Trust and safety](./trust.md) and [Executables](https://github.com/tenphi/harnesspm/blob/main/docs/spec/05-executables.md).
 
 ## Pass on the harness you build on
 
@@ -142,6 +142,6 @@ With harnesspm in your repository, your own agents also read your harness, in th
 
 ## More
 
-- [Package format](../spec/02-package-format.md): every unit kind, manifest field and validation rule.
+- [Package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md) in the specification: every unit kind, manifest field and validation rule.
 - [Package format reference](./reference/package-format.md): the same, as lookup tables.
 - harnesspm's own harness is a small example: [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness).

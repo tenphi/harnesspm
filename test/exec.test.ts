@@ -191,6 +191,23 @@ test('rule 4: a model run adds no allow rules, hooks or MCP servers, and keeps t
   }
 });
 
+test('outside a git repository, sync keeps its state in ~/.harnesspm and creates no .git folder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-nogit-'));
+  writeFiles(dir, {
+    'package.json': JSON.stringify({ name: 'app', version: '1.0.0', devDependencies: { '@acme/kit': '1' } }),
+    'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true } }),
+  });
+  installPackage(dir, '@acme/kit', kitFiles());
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.ok(!fs.existsSync(path.join(dir, '.git')), 'no .git folder in a folder that is not a repository');
+  assert.equal(fs.readdirSync(path.join(homeOf(dir), '.harnesspm', 'state')).length, 1);
+  // The state is read back: the next sync replaces harnesspm's own hook instead of adding a second one.
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.equal(json(path.join(dir, '.claude/settings.local.json')).hooks.PostToolUse.length, 1);
+  assert.equal(run(dir, 'status').status, 0);
+  assert.ok(!fs.existsSync(path.join(dir, '.git')));
+});
+
 test("exclude drops a package's hook, and a hook whose script is excluded", () => {
   const dir = app(true);
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, exclude: ['kit:hooks/notify', 'kit:scripts/check-styles', 'kit:mcp/figma'] }) });

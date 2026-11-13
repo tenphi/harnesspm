@@ -1,43 +1,12 @@
-import { readdirSync } from 'node:fs';
 import { defineDocsConfig } from '@tenphi/cookbook/config';
 import harnesspmPackage from './package.json' with { type: 'json' };
 
 /*
-  docs/spec/ is also the docs index that harnesspm's own harness gives to
-  agents (harness/plugin.json → "docs"), so the site reads its chapters as they
-  are. Each chapter gets a route without its number: 01-overview.md →
-  /spec/overview. Relative links between chapters keep working, because
-  Cookbook resolves them by file path.
+  The site holds Home, Getting started, the guides and the reference. The
+  specification (docs/spec/) and the research notes (docs/research/) stay on
+  GitHub, and site pages link to them there: docs/spec/ is also the docs index
+  that harnesspm's own harness gives to agents, and it ships in the npm package.
 */
-const specDescriptions: Record<string, string> = {
-  overview: 'How harnesspm works, its goals, terms and base scenarios.',
-  'package-format': 'The harness/ folder: an Agent Plugins plugin plus the harnesspm extension.',
-  resolution: 'Layers, extends, overrides, versions and monorepos.',
-  outputs: 'What harnesspm writes for Claude Code and Codex, and what is committed.',
-  executables: 'Scripts, hooks, MCP servers and permissions.',
-  trust: 'What may run, and how changes are reviewed through the lock.',
-  added: 'A team’s or a person’s workflow, context and tools, added on top of a repository.',
-  improving: 'How agents change any harness under its owner’s rules.',
-  cloud: 'Claude Code cloud sessions and added harnesses.',
-  cli: 'Every harnesspm command.',
-  standards: 'Which open standards harnesspm uses and where it goes beyond them.',
-  dogfooding: 'How this repository uses and publishes its own harness.',
-  'open-questions': 'Undecided points, and options removed in review.',
-  telemetry: 'Opt-in events about how agents and people use a harness.',
-};
-
-const specChapters = readdirSync(new URL('./docs/spec/', import.meta.url))
-  .filter((file) => /^\d+-.+\.md$/.test(file))
-  .sort()
-  .map((file) => {
-    const slug = file.replace(/^\d+-/, '').replace(/\.md$/, '');
-    return {
-      file: `docs/spec/${file}`,
-      route: `/spec/${slug}`,
-      description: specDescriptions[slug],
-    };
-  });
-
 export default defineDocsConfig({
   site: {
     title: 'harnesspm',
@@ -68,19 +37,6 @@ export default defineDocsConfig({
       { id: 'start', file: 'docs/guide/getting-started.mdx', route: '/getting-started' },
       { id: 'guides', glob: 'docs/guide/*.md', base: 'docs/guide', routeBase: '/guides' },
       { id: 'reference', glob: 'docs/guide/reference/*.md', base: 'docs/guide/reference', routeBase: '/reference' },
-      {
-        id: 'spec-index',
-        file: 'docs/spec/README.md',
-        route: '/spec',
-        description: 'The harnesspm specification: every chapter, and where to start.',
-      },
-      ...specChapters,
-      {
-        id: 'research',
-        glob: 'docs/research/**/*.md',
-        base: 'docs/research',
-        routeBase: '/research',
-      },
     ],
   },
   navigation: {
@@ -106,20 +62,6 @@ export default defineDocsConfig({
           { label: 'CLI', link: '/reference/cli' },
           { label: 'harnesspm.json', link: '/reference/config' },
           { label: 'Package format', link: '/reference/package-format' },
-        ],
-      },
-      {
-        label: 'Specification',
-        link: '/spec',
-        items: specChapters.map((chapter) => chapter.route),
-      },
-      {
-        label: 'Research',
-        items: [
-          '/research/agent-capabilities',
-          '/research/motivating-case',
-          '/research/package-managers',
-          '/research/prior-art',
         ],
       },
     ],
