@@ -288,3 +288,26 @@ test('status names the layers and the always-on size', () => {
   assert.match(result.stdout, /📦 dependencies  @cube-dev\/ui-kit 0\.206\.1 → @tenphi\/tasty 3\.17\.1/);
   assert.match(result.stdout, /📏 always-on     Codex \d+\.\d KiB of 32 KiB/);
 });
+
+test('a pattern anchored with / keeps the / for Claude Code, and the pointer line shows it from the root', () => {
+  const dir = project({ '@tenphi/tasty': '^3.0.0' });
+  installPackage(dir, '@tenphi/tasty', {
+    plugin: 'tasty',
+    version: '3.17.1',
+    harness: { 'dev.harnesspm/rules/setup.md': '---\ndescription: How to configure Tasty\npaths: ["/src/tasty-setup.ts", "**/*.tsx"]\n---\n\n# Setup\n\nCall configure() once.\n' },
+  });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(read(dir, 'AGENTS.md'), /- When editing `src\/tasty-setup\.ts`, `\*\*\/\*\.tsx`, read /);
+  assert.match(read(dir, '.claude/rules/harnesspm/tasty/setup.md'), /paths: \["\/src\/tasty-setup\.ts", "\*\*\/\*\.tsx"\]/);
+});
+
+test("harnesspm's own file-scoped rules match only the project's files, not a dependency's", () => {
+  // Claude Code matches a pattern without a leading / at any depth, node_modules too (spec 2.5).
+  const rules = path.join(import.meta.dirname, '..', 'harness', 'dev.harnesspm', 'rules');
+  for (const name of fs.readdirSync(rules)) {
+    const paths = /^paths: (\[.*\])$/m.exec(fs.readFileSync(path.join(rules, name), 'utf8'))?.[1];
+    if (paths === undefined) continue;
+    for (const pattern of JSON.parse(paths) as string[]) assert.match(pattern, /^(\/|\*\*\/)/, `${name}: ${pattern}`);
+  }
+});

@@ -1,6 +1,6 @@
 ---
 description: How to change harnesspm configuration and harness files safely
-paths: ["harnesspm.json", "harnesspm.local.json", "harness/**"]
+paths: ["/harnesspm.json", "/harnesspm.local.json", "/harness/**"]
 ---
 
 # Changing harnesspm configuration

@@ -46,7 +46,8 @@ export function alwaysOnText(rule: FinalRule, label = rule.id): string {
 
 export function pointerLine(rule: FinalRule, file: string): string {
   if (rule.activation === 'file') {
-    const globs = (rule.paths ?? []).map((p) => `\`${p}\``).join(', ');
+    // A leading `/` anchors a pattern at the project root (spec 2.5). Readers of a pointer line take paths from the root anyway.
+    const globs = (rule.paths ?? []).map((p) => `\`${p.replace(/^\/(?!\/)/, '')}\``).join(', ');
     const description = rule.description !== undefined ? ` — ${rule.description}` : '';
     return `- When editing ${globs}, read ${file}${description} (${rule.id})`;
   }

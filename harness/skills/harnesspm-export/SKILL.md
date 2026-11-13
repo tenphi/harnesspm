@@ -16,7 +16,7 @@ Share what the package's **users** need. Keep contributor-only instructions (rel
 | Users need | Unit kind | Command |
 | --- | --- | --- |
 | A rule to always follow | Rule, no frontmatter | `npx harnesspm new rule <name>` |
-| A rule for some files only | Rule with `paths` frontmatter | same, then add `paths` |
+| A rule for some files only | Rule with `paths` frontmatter. Start a pattern with `/` to match only the project's own folder, such as `/src/**`: without it, the pattern matches at any depth, `node_modules` too | same, then add `paths` |
 | Background to read when needed | Docs, or a rule with `description` only | set `docs` in `plugin.json` |
 | A multi-step workflow | Skill, named `<plugin name>-<name>` | `npx harnesspm new skill <name>` |
 | A specialist the agent can delegate to | Sub-agent, written for Claude Code and Codex | `npx harnesspm new agent <name>` |
