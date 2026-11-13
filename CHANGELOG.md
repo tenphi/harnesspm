@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- [#3](https://github.com/tenphi/harnesspm/pull/3) [`0aa47d8`](https://github.com/tenphi/harnesspm/commit/0aa47d8eca675a4de1f70b7ba8b5ace1515127ea) Thanks [@tenphi](https://github.com/tenphi)! - Opt-in telemetry: with `telemetry` in `harnesspm.json`, harnesspm sends events about script runs, MCP server starts, `sync` and `why` to the team's own handler, a command or a JSON Lines file. With agent events on, its own async hooks also report when Claude Code reads a harness file or loads a skill, and when a Claude Code or Codex session starts. Events never hold arguments, file contents or prompts. A handler gets events only after a person's `sync` records it in the lock, and a person opts out with `DO_NOT_TRACK=1` or `"telemetry": false` in `harnesspm.local.json`.
+
+### Patch Changes
+
+- [#3](https://github.com/tenphi/harnesspm/pull/3) [`0aa47d8`](https://github.com/tenphi/harnesspm/commit/0aa47d8eca675a4de1f70b7ba8b5ace1515127ea) Thanks [@tenphi](https://github.com/tenphi)! - harnesspm's own config rule loads only for the project's `harnesspm.json` and `harness/`, no longer when Claude Code reads a dependency's harness files.
+
+- [#3](https://github.com/tenphi/harnesspm/pull/3) [`0aa47d8`](https://github.com/tenphi/harnesspm/commit/0aa47d8eca675a4de1f70b7ba8b5ace1515127ea) Thanks [@tenphi](https://github.com/tenphi)! - An `extends` entry that is an optional peer dependency of its package (`optional: true` in `peerDependenciesMeta`) is skipped without a warning when it is not installed.
+
+- [#3](https://github.com/tenphi/harnesspm/pull/3) [`0aa47d8`](https://github.com/tenphi/harnesspm/commit/0aa47d8eca675a4de1f70b7ba8b5ace1515127ea) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm why` explains every unit ID: scripts, hooks, MCP servers, sub-agents and permissions too, not only rules, skills and docs. For a script it also shows the command that runs it, and for an executable unit of a dependency whether its package is trusted.
+
 ## 0.1.1
 
 ### Patch Changes
