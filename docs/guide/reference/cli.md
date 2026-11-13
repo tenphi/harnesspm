@@ -10,7 +10,7 @@ description: Every harnesspm command and option, with exit codes.
 - Authors use `check` and `new`. People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Use `npx harnesspm …` in a project that depends on harnesspm, and `npx -y @tenphi/harnesspm …` anywhere else.
 
-The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command. [CLI](../../spec/10-cli.md) in the specification says exactly what each one does.
+The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
 
 ## Projects
 

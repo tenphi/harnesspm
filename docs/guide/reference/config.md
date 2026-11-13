@@ -83,4 +83,4 @@ Per machine, for every repository. Same fields:
 | `@AGENTS.md` in `CLAUDE.md` | Yes | The rest of `CLAUDE.md` is yours. |
 | Everything else: `.claude/`, `.codex/`, `.agents/skills/`, `CLAUDE.local.md`, `node_modules/.harnesspm/` | No | No |
 
-See [Outputs](../../spec/04-outputs.md) for every file.
+The specification's [Outputs chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md) lists every file.

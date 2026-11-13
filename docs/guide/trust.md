@@ -65,9 +65,9 @@ When the agent's model runs harnesspm, for example through an install the model 
    Ask the person to run `npx -y @tenphi/harnesspm sync` or `npx -y @tenphi/harnesspm approve` in their own terminal.
 ```
 
-harnesspm tells a model run from the markers that Claude Code and Codex set on commands their models run. A hook runs from settings a person wrote, so a hook may add entries. The markers stop accidents, such as an install that the model starts. A model that unsets them on purpose is not stopped. See [trusting a package](../spec/06-trust.md#62-trusting-a-package) for the exact markers.
+harnesspm tells a model run from the markers that Claude Code and Codex set on commands their models run. A hook runs from settings a person wrote, so a hook may add entries. The markers stop accidents, such as an install that the model starts. A model that unsets them on purpose is not stopped. See [trusting a package](https://github.com/tenphi/harnesspm/blob/main/docs/spec/06-trust.md#62-trusting-a-package) for the exact markers.
 
-The agents keep their own gates too. Codex loads project `.codex/` files only in a trusted project and asks you to review each hook once ([sources](../research/agent-capabilities.md#codex)).
+The agents keep their own gates too. Codex loads project `.codex/` files only in a trusted project and asks you to review each hook once ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#codex)).
 
 ## Review every change
 
@@ -83,4 +83,4 @@ In CI, `npx harnesspm sync --check` fails when the block or the lock is out of d
 
 ## More
 
-- [Trust and lock](../spec/06-trust.md) and [Executables](../spec/05-executables.md).
+- [Trust and lock](https://github.com/tenphi/harnesspm/blob/main/docs/spec/06-trust.md) and [Executables](https://github.com/tenphi/harnesspm/blob/main/docs/spec/05-executables.md) in the specification.

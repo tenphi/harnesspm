@@ -37,7 +37,7 @@ The handler gets events only after a person's `sync` has recorded it in `harness
 | `skill` | The agent loads a skill. Claude Code only. |
 | `session` | A session starts or resumes |
 
-`read`, `skill` and `session` come from harnesspm's own asynchronous hooks, so the agent never waits for them. Every event names units by their IDs, and covers only the dependency and project layers. Units of added harnesses belong to a person and never reach the team's handler. [Events](../spec/14-telemetry.md#142-events) lists every field, with an example.
+`read`, `skill` and `session` come from harnesspm's own asynchronous hooks, so the agent never waits for them. Every event names units by their IDs, and covers only the dependency and project layers. Units of added harnesses belong to a person and never reach the team's handler. [Events](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#142-events) lists every field, with an example.
 
 ## Send events somewhere
 
@@ -76,4 +76,4 @@ Reporting is a rule of your own, not a harnesspm feature. Add one with `npx harn
 
 ## More
 
-- [Telemetry](../spec/14-telemetry.md): every field, and the trust rules for handlers.
+- [Telemetry](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md) in the specification: every field, and the trust rules for handlers.

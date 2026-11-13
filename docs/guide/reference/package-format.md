@@ -10,7 +10,7 @@ description: The harness/ folder at a glance - layout, manifest fields, unit kin
 - Every file is optional except `plugin.json`.
 - Every unit has an ID, `<plugin name>:<kind>/<name>`, which projects use to exclude, replace or patch it.
 
-[Package format](../../spec/02-package-format.md) and [Executables](../../spec/05-executables.md) in the specification have every rule.
+The specification's chapters on the [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md) and [executables](https://github.com/tenphi/harnesspm/blob/main/docs/spec/05-executables.md), on GitHub, have every rule.
 
 ## Layout
 
