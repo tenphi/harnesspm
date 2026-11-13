@@ -26,6 +26,33 @@
       "description": "Packages whose executable units may run: true follows upgrades, \"pin\" needs an approval for each new version.",
       "type": "object",
       "additionalProperties": { "enum": [true, "pin"] }
+    },
+    "telemetry": {
+      "description": "Events about how agents and people use the harness, sent to the project's handler. Off when missing. See spec chapter 14.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["send"],
+      "properties": {
+        "events": {
+          "description": "The event types to send, or \"all\" (the default). \"read\", \"skill\" and \"session\" come from harnesspm's own agent hooks.",
+          "oneOf": [
+            { "const": "all" },
+            { "type": "array", "uniqueItems": true, "items": { "enum": ["run", "mcp", "sync", "why", "read", "skill", "session"] } }
+          ]
+        },
+        "send": {
+          "description": "The handler: a command that gets each event as JSON on stdin, run from the project root, or { \"file\": \"<path>\" }, which appends one JSON line per event. It gets events only as a person's sync recorded it in harnesspm.lock.json.",
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["file"],
+              "properties": { "file": { "type": "string", "minLength": 1, "description": "Path relative to the project root." } }
+            }
+          ]
+        }
+      }
     }
   }
 }

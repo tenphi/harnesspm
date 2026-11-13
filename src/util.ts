@@ -3,7 +3,6 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-/** An error that the CLI prints without a stack trace. */
 /** The npm package of harnesspm. The command it installs is `harnesspm` (spec 10.1). */
 export const PACKAGE_NAME = '@tenphi/harnesspm';
 /** Runs harnesspm in a project that depends on it: npx finds the installed command. */
@@ -11,6 +10,7 @@ export const NPX_LOCAL = 'npx harnesspm';
 /** Runs harnesspm anywhere: npx downloads the package by its full name when it is not installed. */
 export const NPX_ANY = `npx -y ${PACKAGE_NAME}`;
 
+/** An error that the CLI prints without a stack trace. */
 export class HarnessError extends Error {}
 
 export function exists(p: string): boolean {
@@ -145,4 +145,26 @@ export function listDir(dir: string): string[] {
   } catch {
     return [];
   }
+}
+
+export type Caller = 'model' | 'hook' | 'person';
+
+/**
+ * Who runs harnesspm (spec 6.2, rule 4). Claude Code marks model commands (`AI_AGENT=…_agent`) and hooks
+ * (`…_harness`). Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` only in commands the model runs.
+ */
+export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
+  const agent = env['AI_AGENT'] ?? '';
+  if (agent.endsWith('_agent')) return 'model';
+  if (agent.endsWith('_harness')) return 'hook';
+  if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
+  if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'model';
+  return 'person';
+}
+
+/** The agent whose marker is in the environment: `claude`, `codex`, or undefined (spec 5.1). */
+export function agentOf(env: NodeJS.ProcessEnv = process.env): 'claude' | 'codex' | undefined {
+  if ((env['AI_AGENT'] ?? '').startsWith('claude-code') || env['CLAUDECODE'] === '1') return 'claude';
+  if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'codex';
+  return undefined;
 }

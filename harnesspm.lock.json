@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "packages": {
     "@tenphi/harnesspm": {
-      "version": "0.1.0",
+      "version": "0.1.1",
       "plugin": "harnesspm",
       "project": true
     }
@@ -10,7 +10,7 @@
   "units": {
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "83c0b5747846d9ce"
+      "hash": "a4d7827baba31b7d"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",
@@ -18,15 +18,15 @@
     },
     "harnesspm:rules/harnesspm-config": {
       "kind": "rules",
-      "hash": "7abaddf82145917f"
+      "hash": "4ab34118776febeb"
     },
     "harnesspm:skills/harnesspm-export": {
       "kind": "skills",
-      "hash": "59bda1aa8cf56ff0"
+      "hash": "e97f20b7bd0320ab"
     },
     "harnesspm:skills/harnesspm-import": {
       "kind": "skills",
-      "hash": "1587b6ee3cb22a5b"
+      "hash": "c7a22d7c99d202c3"
     },
     "harnesspm:skills/harnesspm-improve": {
       "kind": "skills",

@@ -141,6 +141,8 @@ paths: ["**/*.tsx", "**/*.ts"]
 | `paths`, with or without `description` | **File-scoped.** Active when the agent works on matching files. The description, if any, is the text of the pointer line. |
 | `description` only | **On demand.** Listed with its description. The agent reads it when relevant. |
 
+`paths` are globs from the project root, as Claude Code reads them. A pattern without a leading `/` also matches at any depth, so `harness/**` also matches a dependency's `node_modules/<package>/harness/` when the agent only reads it there. Start a pattern with `/`, such as `/harness/**`, to match only at the root ([research](../research/agent-capabilities.md#claude-code)). Pointer lines show patterns without the `/`.
+
 Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `harnesspm check` reports the size of a package's always-on text.
 
 A package SHOULD split a rule into small sections with `##` headings, so that others can change one section with a patch.

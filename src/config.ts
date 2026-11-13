@@ -1,6 +1,7 @@
 // harnesspm.json (spec 3.7).
 import * as path from 'node:path';
 import { stringList } from './frontmatter.ts';
+import { parseTelemetry, type TelemetryConfig } from './telemetry.ts';
 import { HarnessError, PACKAGE_NAME, isRecord, readJsonIfExists } from './util.ts';
 
 export const CONFIG_FILE = 'harnesspm.json';
@@ -13,10 +14,12 @@ export interface ProjectConfig {
   replace: Record<string, string>;
   patch: Record<string, string>;
   trust: Record<string, TrustValue>;
+  /** Events and their handler (spec chapter 14). Undefined when telemetry is off. */
+  telemetry?: TelemetryConfig;
   warnings: string[];
 }
 
-const FIELDS = new Set(['$schema', 'exclude', 'replace', 'patch', 'trust']);
+const FIELDS = new Set(['$schema', 'exclude', 'replace', 'patch', 'trust', 'telemetry']);
 
 export function emptyConfig(): ProjectConfig {
   return { exclude: [], replace: {}, patch: {}, trust: {}, warnings: [] };
@@ -44,5 +47,6 @@ export function readConfig(projectDir: string): ProjectConfig {
       else throw new HarnessError(`${CONFIG_FILE}: trust for "${name}" must be true or "pin"`);
     }
   }
-  return { exclude, replace: map('replace'), patch: map('patch'), trust, warnings };
+  const telemetry = parseTelemetry(raw['telemetry']);
+  return { exclude, replace: map('replace'), patch: map('patch'), trust, ...(telemetry ? { telemetry } : {}), warnings };
 }

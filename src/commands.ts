@@ -15,15 +15,16 @@ import {
 } from './added.ts';
 import { checkHarness } from './check.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
-import { loadHarnessPackage } from './manifest.ts';
-import { heldEntries } from './exec-outputs.ts';
-import { buildLock, LOCK_FILE, readLock, serializeLock } from './lock.ts';
+import { loadHarnessPackage, NS } from './manifest.ts';
+import { heldEntries, trustOf } from './exec-outputs.ts';
+import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, withClaudeImport } from './render.ts';
-import { resolve, resolvePackageDir, type Resolution } from './resolve.ts';
+import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
+import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
 import { HarnessError, NPX_ANY, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
@@ -115,14 +116,16 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   const warnings = [...resolved.warnings];
   const changed: string[] = [];
   const report: UserReport = { pending: [], held: [] };
+  const before = readLock(projectDir);
   if (mode !== 'none') {
-    const plan = computePlan(resolved.team, full);
+    const plan = computePlan(resolved.team, full, { widen: caller() !== 'model' });
     warnings.push(...plan.warnings);
     const applied = applyPlan(projectDir, plan);
     changed.push(...applied.changed);
-    report.held.push(...applied.held);
+    report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
   }
+  if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir));
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   printWarnings(out, warnings);
   printPending(out, report);
@@ -131,6 +134,29 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
   return 0;
+}
+
+/** Where events about a resolved project go (spec chapter 14). */
+const eventContext = (res: Resolution): EventContext => ({ projectDir: res.projectDir, project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key) });
+
+/** The `sync` event: packages and the units that changed since the last lock (spec 14.2). */
+function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | undefined): void {
+  const state = readTelemetryState(team.projectDir);
+  if (!state.events.has('sync') || !after) return;
+  const old = before?.units ?? {};
+  const units = after.units;
+  const pending = team.packages.filter(
+    (pkg) => pkg.layer === 'dependencies' && [...team.scripts, ...team.hooks, ...team.mcp].some((u) => u.pkg === pkg) && !trustOf(pkg, team, after).trusted,
+  );
+  sendEvent(state, eventContext(team), {
+    type: 'sync',
+    ...commandCaller(),
+    packages: team.packages.filter((p) => p.layer !== 'added').map((p) => ({ name: p.name, version: p.version })),
+    added: Object.keys(units).filter((id) => old[id] === undefined),
+    removed: Object.keys(old).filter((id) => units[id] === undefined),
+    changed: Object.keys(units).filter((id) => old[id] !== undefined && old[id].hash !== units[id]!.hash),
+    pending: pending.map((p) => p.name),
+  });
 }
 
 export function init(projectDir: string, out: Output): number {
@@ -290,6 +316,10 @@ export function status(cwd: string, out: Output): number {
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
     if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
   }
+  const telemetry = readTelemetryState(projectDir);
+  if (telemetry.config) {
+    out.log(`📡 telemetry     ${telemetry.send !== undefined ? `${[...telemetry.events].join(', ')} → ${describeSend(telemetry.send)}` : telemetry.off}`);
+  }
   printWarnings(out, resolved.warnings);
   return 0;
 }
@@ -310,21 +340,45 @@ export function why(cwd: string, id: string, out: Output): number {
   const rule = res.rules.find((r) => r.id === id);
   const skill = res.skills.find((s) => s.id === id);
   const docs = res.docs.find((d) => d.id === id);
-  const pkg = rule?.pkg ?? skill?.pkg ?? docs?.pkg;
+  const exec: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions | undefined = [
+    ...res.scripts,
+    ...res.hooks,
+    ...res.mcp,
+    ...res.agents,
+    ...res.permissions,
+  ].find((u) => u.id === id);
+  const pkg = rule?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg;
   if (!pkg) {
     if (excluded) {
       row('excluded', `by ${excluded.by}`);
       return 0;
     }
     const plugin = id.split(':')[0];
-    const near = [...res.rules.map((r) => r.id), ...res.skills.map((s) => s.id)].filter((x) => x.startsWith(`${plugin}:`)).slice(0, 5);
+    const all = [res.rules, res.skills, res.docs, res.scripts, res.hooks, res.mcp, res.agents, res.permissions].flatMap((units) => units.map((u) => u.id));
+    const near = all.filter((x) => x.startsWith(`${plugin}:`)).slice(0, 8);
     throw new HarnessError(`No unit ${id}.${near.length > 0 ? ` Units of ${plugin}: ${near.join(', ')}` : ''}`);
+  }
+  if (pkg.layer !== 'added') {
+    sendEvent(readTelemetryState(res.projectDir), eventContext(res), { type: 'why', ...commandCaller(), unit: id, package: pkg.name, version: pkg.version });
   }
   if (pkg.layer === 'project') row('owner', `project ${pkg.name} (harness/)`);
   else if (pkg.layer === 'added') row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${pkg.entry ? ', entry for this repository' : ''})`);
   else row('owner', `dependency ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`);
-  const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs!.dir);
+  const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!));
   row('source', rel(source));
+  if (exec?.kind === 'scripts') row('run', `npx harnesspm run ${pkg.plugin}:${exec.name}`);
+  // Deny and ask rules only restrict, so they need no trust (spec 6.1).
+  if (exec && exec.kind !== 'permissions' && pkg.layer === 'dependencies') {
+    const trust = res.config.trust[pkg.name];
+    row(
+      'trust',
+      trust === true
+        ? 'yes'
+        : trust === 'pin'
+          ? 'pinned: active in the version approved in the lock'
+          : `no: it stays off. Add "${pkg.name}": true to "trust" in ${CONFIG_FILE} to turn it on.`,
+    );
+  }
   if (rule?.replacedBy) row('replaced', `by ${rule.replacedBy.by}: ${rel(rule.replacedBy.file!)}`);
   if (rule && rule.original !== rule.source) row('original', rel(rule.original));
   for (const p of rule?.patches ?? []) row('patch', `${p.patch} (from ${p.by})`);
@@ -338,6 +392,13 @@ export function why(cwd: string, id: string, out: Output): number {
     row('editable', pkg.added!.source.editable ? "yes. Edit the source, then save it the way that harness's rules say." : 'no: it comes from npm. Change it in its own repository.');
   } else row('editable', `no. Add a \`patch\`, \`replace\` or \`exclude\` in ${CONFIG_FILE}, or propose the change upstream.`);
   return 0;
+}
+
+/** The file that defines an executable unit: a script or agent file, or the package's JSON for hooks, MCP servers and permissions. */
+function execSource(unit: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions): string {
+  if (unit.kind === 'scripts' || unit.kind === 'agents') return unit.file;
+  if (unit.kind === 'mcp') return path.join(unit.pkg.harnessDir, 'mcp.json');
+  return path.join(unit.pkg.harnessDir, NS, unit.kind === 'hooks' ? 'hooks.json' : 'permissions.json');
 }
 
 export function run(cwd: string, ref: string, args: string[], agent: string | undefined): number {

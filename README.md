@@ -45,6 +45,8 @@ Add `"harness"` to the `files` field of `package.json`. To add your own or your 
 npx harnesspm add github:<owner>/<repo>
 ```
 
+To see how agents use the harness, a team can turn on telemetry in `harnesspm.json`. It is off by default, sends events only to the team's own handler (a command or a file), and never sends arguments or file contents. See [chapter 14](docs/spec/14-telemetry.md).
+
 Node.js 20 or later. `npx harnesspm help` lists every command. [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## First targets
@@ -80,6 +82,7 @@ Start with [docs/spec/README.md](docs/spec/README.md). Every chapter opens with 
 | [11. Standards](docs/spec/11-standards.md) | Which open standards harnesspm uses and where it goes beyond them |
 | [12. Dogfooding](docs/spec/12-dogfooding.md) | How this repository uses and publishes its own harness |
 | [13. Open questions](docs/spec/13-open-questions.md) | Undecided points, and options removed in review |
+| [14. Telemetry](docs/spec/14-telemetry.md) | Opt-in events about how agents and people use a harness |
 
 Background research lives in [docs/research/](docs/research/).
 

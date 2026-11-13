@@ -2,6 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Resolution } from './resolve.ts';
+import type { Send } from './telemetry.ts';
 import { hash, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
 
 export const LOCK_FILE = 'harnesspm.lock.json';
@@ -21,6 +22,8 @@ export interface Lock {
   units: Record<string, { kind: string; hash: string }>;
   /** Rule ID → patch file → section heading → hash of the section the patch changes. */
   patches: Record<string, Record<string, Record<string, string>>>;
+  /** The telemetry handler that a person's sync recorded (spec 14.5). */
+  telemetry?: { send: Send };
 }
 
 function hashDir(dir: string): string {
@@ -47,7 +50,8 @@ function packageLockEntry(projectDir: string, name: string): { resolved?: string
   };
 }
 
-export function buildLock(res: Resolution, previous: Lock | undefined): Lock {
+/** `telemetry` is the handler to record: harnesspm.json's for a person's sync, the previous one for a model run (spec 14.5). */
+export function buildLock(res: Resolution, previous: Lock | undefined, telemetry?: Send): Lock {
   const packages: Record<string, LockPackage> = {};
   for (const pkg of res.packages) {
     if (pkg.layer === 'project') {
@@ -78,7 +82,7 @@ export function buildLock(res: Resolution, previous: Lock | undefined): Lock {
       byPatch[applied.patch] = Object.fromEntries(applied.sections.map((s) => [s.heading, s.hash]));
     }
   }
-  return { lockfileVersion: 1, packages: sortKeys(packages), units: sortKeys(units), patches: sortKeys(patches) };
+  return { lockfileVersion: 1, packages: sortKeys(packages), units: sortKeys(units), patches: sortKeys(patches), ...(telemetry !== undefined ? { telemetry: { send: telemetry } } : {}) };
 }
 
 function sortKeys<T>(record: Record<string, T>): Record<string, T> {

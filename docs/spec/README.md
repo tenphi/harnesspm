@@ -12,9 +12,10 @@
 | Use harness in a project | [3. Resolution](03-resolution.md), [6. Trust and lock](06-trust.md) |
 | Keep your own workflow and context | [7. Added harnesses](07-added.md), [9. Cloud sessions](09-cloud.md) |
 | Let agents improve a harness | [8. Improving a harness](08-improving.md) |
+| See how agents use a harness | [14. Telemetry](14-telemetry.md) |
 | Implement harnesspm | Everything, including [4. Outputs](04-outputs.md) and [10. CLI](10-cli.md) |
 
-Also: [11. Standards](11-standards.md), [12. Dogfooding](12-dogfooding.md), [13. Open questions](13-open-questions.md).
+Also: [11. Standards](11-standards.md), [12. Dogfooding](12-dogfooding.md), [13. Open questions](13-open-questions.md), [14. Telemetry](14-telemetry.md).
 
 Every chapter starts with **In short**: the few points an agent or a person needs to act on it.
 

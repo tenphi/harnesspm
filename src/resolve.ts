@@ -140,6 +140,14 @@ function dependencyNames(pkgJson: Record<string, unknown>): string[] {
 
 const isUnitId = (entry: string): boolean => entry.includes(':');
 
+/** True when `name` is in `peerDependencies` of the package at `dir` and marked optional in `peerDependenciesMeta`. */
+function isOptionalPeer(dir: string, name: string): boolean {
+  const raw = readJsonIfExists(path.join(dir, 'package.json'));
+  if (!isRecord(raw) || !isRecord(raw['peerDependencies']) || raw['peerDependencies'][name] === undefined) return false;
+  const meta = isRecord(raw['peerDependenciesMeta']) ? raw['peerDependenciesMeta'][name] : undefined;
+  return isRecord(meta) && meta['optional'] === true;
+}
+
 interface Occurrence {
   dir: string;
   depth: number;
@@ -195,7 +203,8 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       }
       const dir = resolvePackageDir(name, pkg.dir) ?? options.locate?.(name);
       if (!dir) {
-        warnings.push(`${pkg.name} extends ${name}, which is not installed`);
+        // An optional peer that the project did not install is skipped quietly (spec 3.3).
+        if (!isOptionalPeer(pkg.dir, name)) warnings.push(`${pkg.name} extends ${name}, which is not installed`);
         continue;
       }
       if (stack.includes(dir)) {

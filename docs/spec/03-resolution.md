@@ -38,6 +38,7 @@ harnesspm reads files only. It never runs code from a dependency during discover
 2. harnesspm follows `extends` recursively and stops with an error on a cycle.
 3. Only `extends` passes harness on. A library's other dependencies, including its development tools, never reach its users.
 4. A package's `exclude`, `replace` and `patch` change what it passes on. A middle package can fix an upstream rule for all its users.
+5. An entry may name an optional peer dependency (`optional: true` in `peerDependenciesMeta`), which harnesspm skips quietly when it is not installed; any other entry that is not installed gives a warning.
 
 Example: an app depends only on `@cube-dev/ui-kit`, which extends Tasty and Glaze. The app gets all three, in the versions UI Kit installed.
 
@@ -98,6 +99,7 @@ Workspaces come from the `workspaces` field of the root `package.json` or from `
 | `replace` | `{}` | Unit ID → path of a project file that takes its place. |
 | `patch` | `{}` | Rule ID → path of a project patch that changes some of its sections. |
 | `trust` | `{}` | Which packages may run executable units. See [06-trust.md](06-trust.md). |
+| `telemetry` | off | Which events to send, and the handler that gets them. See [14-telemetry.md](14-telemetry.md). |
 
 The project's own `harness/`, if it has one, resolves like any harness package: its `extends` bring packages into the dependency layer, and its `exclude`, `replace` and `patch` apply here as they do for its users. `harnesspm.json` applies after it, for this repository only. So contributors see what users see, plus the repository's own changes.
 
