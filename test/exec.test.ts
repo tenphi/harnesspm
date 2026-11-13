@@ -261,3 +261,28 @@ test('check reports problems in executable units', () => {
   assert.match(text, /"allow" is not supported/);
   assert.match(text, /stdio server "s" needs a "command"/);
 });
+
+test('why explains scripts, hooks, MCP servers, sub-agents and permissions, with their trust', () => {
+  const dir = app();
+  const why = (id: string): string => {
+    const result = run(dir, 'why', id);
+    assert.equal(result.status, 0, `${id}: ${result.stderr}`);
+    return result.stdout;
+  };
+
+  const script = why('kit:scripts/probe');
+  assert.match(script, /owner +dependency @acme\/kit 1\.0\.0/);
+  assert.match(script, /source +node_modules\/\.harnesspm\/pkgs\/@acme\/kit\/harness\/dev\.harnesspm\/scripts\/probe\.mjs/);
+  assert.match(script, /run +npx harnesspm run kit:probe/);
+  assert.match(script, /trust +no: it stays off\. Add "@acme\/kit": true to "trust" in harnesspm\.json/);
+  assert.match(why('kit:hooks/check-styles'), /source +.*\/harness\/dev\.harnesspm\/hooks\.json/);
+  assert.match(why('kit:mcp/docs'), /source +.*\/harness\/mcp\.json/);
+  assert.match(why('kit:agents/kit-reviewer'), /source +.*\/harness\/dev\.harnesspm\/agents\/kit-reviewer\.md/);
+  const permissions = why('kit:permissions');
+  assert.match(permissions, /source +.*\/harness\/dev\.harnesspm\/permissions\.json/);
+  assert.doesNotMatch(permissions, /trust/, 'deny and ask rules need no trust');
+
+  assert.match(run(app(true), 'why', 'kit:scripts/probe').stdout, /trust +yes/);
+  assert.match(run(app('pin'), 'why', 'kit:scripts/probe').stdout, /trust +pinned/);
+  assert.match(run(dir, 'why', 'kit:scripts/nope').stderr, /No unit kit:scripts\/nope\. Units of kit: .*kit:scripts\/probe/);
+});

@@ -15,7 +15,7 @@ import {
 } from './added.ts';
 import { checkHarness } from './check.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
-import { loadHarnessPackage } from './manifest.ts';
+import { loadHarnessPackage, NS } from './manifest.ts';
 import { heldEntries } from './exec-outputs.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock } from './lock.ts';
 import { applyPlan, checkPlan, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
@@ -23,7 +23,7 @@ import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, withClaudeImport } from './render.ts';
-import { resolve, resolvePackageDir, type Resolution } from './resolve.ts';
+import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
 import { HarnessError, NPX_ANY, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
@@ -310,21 +310,42 @@ export function why(cwd: string, id: string, out: Output): number {
   const rule = res.rules.find((r) => r.id === id);
   const skill = res.skills.find((s) => s.id === id);
   const docs = res.docs.find((d) => d.id === id);
-  const pkg = rule?.pkg ?? skill?.pkg ?? docs?.pkg;
+  const exec: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions | undefined = [
+    ...res.scripts,
+    ...res.hooks,
+    ...res.mcp,
+    ...res.agents,
+    ...res.permissions,
+  ].find((u) => u.id === id);
+  const pkg = rule?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg;
   if (!pkg) {
     if (excluded) {
       row('excluded', `by ${excluded.by}`);
       return 0;
     }
     const plugin = id.split(':')[0];
-    const near = [...res.rules.map((r) => r.id), ...res.skills.map((s) => s.id)].filter((x) => x.startsWith(`${plugin}:`)).slice(0, 5);
+    const all = [res.rules, res.skills, res.docs, res.scripts, res.hooks, res.mcp, res.agents, res.permissions].flatMap((units) => units.map((u) => u.id));
+    const near = all.filter((x) => x.startsWith(`${plugin}:`)).slice(0, 8);
     throw new HarnessError(`No unit ${id}.${near.length > 0 ? ` Units of ${plugin}: ${near.join(', ')}` : ''}`);
   }
   if (pkg.layer === 'project') row('owner', `project ${pkg.name} (harness/)`);
   else if (pkg.layer === 'added') row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${pkg.entry ? ', entry for this repository' : ''})`);
   else row('owner', `dependency ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`);
-  const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs!.dir);
+  const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!));
   row('source', rel(source));
+  if (exec?.kind === 'scripts') row('run', `npx harnesspm run ${pkg.plugin}:${exec.name}`);
+  // Deny and ask rules only restrict, so they need no trust (spec 6.1).
+  if (exec && exec.kind !== 'permissions' && pkg.layer === 'dependencies') {
+    const trust = res.config.trust[pkg.name];
+    row(
+      'trust',
+      trust === true
+        ? 'yes'
+        : trust === 'pin'
+          ? 'pinned: active in the version approved in the lock'
+          : `no: it stays off. Add "${pkg.name}": true to "trust" in ${CONFIG_FILE} to turn it on.`,
+    );
+  }
   if (rule?.replacedBy) row('replaced', `by ${rule.replacedBy.by}: ${rel(rule.replacedBy.file!)}`);
   if (rule && rule.original !== rule.source) row('original', rel(rule.original));
   for (const p of rule?.patches ?? []) row('patch', `${p.patch} (from ${p.by})`);
@@ -338,6 +359,13 @@ export function why(cwd: string, id: string, out: Output): number {
     row('editable', pkg.added!.source.editable ? "yes. Edit the source, then save it the way that harness's rules say." : 'no: it comes from npm. Change it in its own repository.');
   } else row('editable', `no. Add a \`patch\`, \`replace\` or \`exclude\` in ${CONFIG_FILE}, or propose the change upstream.`);
   return 0;
+}
+
+/** The file that defines an executable unit: a script or agent file, or the package's JSON for hooks, MCP servers and permissions. */
+function execSource(unit: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions): string {
+  if (unit.kind === 'scripts' || unit.kind === 'agents') return unit.file;
+  if (unit.kind === 'mcp') return path.join(unit.pkg.harnessDir, 'mcp.json');
+  return path.join(unit.pkg.harnessDir, NS, unit.kind === 'hooks' ? 'hooks.json' : 'permissions.json');
 }
 
 export function run(cwd: string, ref: string, args: string[], agent: string | undefined): number {
