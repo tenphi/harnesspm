@@ -100,3 +100,17 @@ test('doctor: outside a git repository it warns and does not fail', () => {
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /⚠️ {2}Not a git repository: nothing keeps per-machine files out of commits/);
 });
+
+test('doctor: an untrusted package is a warning that says the fix once', () => {
+  const dir = project({ '@acme/kit': '1' });
+  installPackage(dir, '@acme/kit', {
+    plugin: 'kit',
+    ext: { scripts: { probe: { file: './dev.harnesspm/scripts/probe.mjs', description: 'Probe' } } },
+    harness: { 'dev.harnesspm/scripts/probe.mjs': "console.log('ok');\n" },
+  });
+  assert.equal(run(dir, 'sync').status, 0);
+  const result = run(dir, 'doctor');
+  assert.equal(result.status, 0, result.stdout);
+  const line = result.stdout.split('\n').find((l) => l.includes('@acme/kit'));
+  assert.equal(line, '  ⚠️  Off: @acme/kit: 1 script (not trusted; add it to "trust" in harnesspm.json)');
+});
