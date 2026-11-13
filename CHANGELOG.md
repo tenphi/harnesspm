@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - With `CI=true`, `harnesspm sync` writes only per-machine files and leaves `AGENTS.md`, `CLAUDE.md` and the lock as they are, so `sync --check` after an install catches a missed sync. `sync --write` writes them anyway, for jobs that commit the result.
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm sync` makes Claude Code read nested `AGENTS.md` files again: each one that git tracks gets a `CLAUDE.md` next to it with `@AGENTS.md`, because the root `CLAUDE.md` silenced them. `sync --check` and `doctor` report a missing import.
+
+### Patch Changes
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm status` says `AGENTS.md` is over Codex's 32 KiB limit, instead of close to it, once it is past 32 KiB, and `harnesspm doctor` warns about it under Outputs: Codex reads only the first 32 KiB.
+
+- [#7](https://github.com/tenphi/harnesspm/pull/7) [`b58879e`](https://github.com/tenphi/harnesspm/commit/b58879e0850c56658c4bc5b59d7fec8e2b3331e0) Thanks [@tenphi](https://github.com/tenphi)! - The package's homepage is now the docs site, https://harnesspm.tenphi.me. The specification's links to files of this repository that are not in the package point at GitHub.
+
+- [#7](https://github.com/tenphi/harnesspm/pull/7) [`b58879e`](https://github.com/tenphi/harnesspm/commit/b58879e0850c56658c4bc5b59d7fec8e2b3331e0) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm doctor` says how to turn on an untrusted package's units once per line, not twice.
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm.lock.json` no longer records the project's own version, so a release that raises `version` in `package.json` no longer makes the lock out of date. A lock that has it still passes `sync --check`, and the next `sync` drops it.
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm.lock.json` now takes each harness package's integrity and tarball URL from `pnpm-lock.yaml` and Yarn 1's `yarn.lock` too, so `harnesspm fetch` checks its downloads in pnpm and Yarn projects. For a lock without them, `fetch` reads the package manager's lockfile, and it names each package it cannot check.
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - The managed block now has a blank line after its BEGIN marker and before its END marker, so Prettier no longer changes it and breaks `sync --check`. A block in the old form still passes `--check`, and the next `sync` rewrites it once.
+
+- [#9](https://github.com/tenphi/harnesspm/pull/9) [`2d69197`](https://github.com/tenphi/harnesspm/commit/2d69197802d6ab483ac8b72143c2b500f2d7fc6d) Thanks [@tenphi](https://github.com/tenphi)! - Outside a git repository, `harnesspm sync` no longer creates `.git/harnesspm/state.json`. It keeps that per-machine state in `~/.harnesspm/state/` instead.
+
 ## 0.3.0
 
 ### Minor Changes
