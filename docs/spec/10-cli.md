@@ -70,7 +70,7 @@ $ npx harnesspm status
 | --- | --- | --- |
 | 🔒 Local files | Every per-machine file on disk is ignored by git and not tracked. The files are the ones harnesspm lists in `.git/info/exclude`, plus `harnesspm.local.json`, `CLAUDE.local.md`, `.claude/settings.local.json` and a telemetry file. Git answers, so `.gitignore`, `.git/info/exclude` and a global excludes file all count. | A file is tracked (fix: `git rm --cached`), or not ignored (fix: `sync` for a file harnesspm writes, otherwise a `.gitignore` entry). Outside a git repository it only warns. |
 | ➕ Harnesses of your own | The clone's exclude file can be written. Each added harness is on this machine. | The exclude file cannot be written, or an added harness is missing. |
-| 📦 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place. | A committed output or the lock is out of date. Missing per-machine outputs only warn, because `sync` writes them. |
+| 📦 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place. `AGENTS.md` fits in Codex's 32 KiB. | A committed output or the lock is out of date. Missing per-machine outputs only warn, because `sync` writes them, and so does an `AGENTS.md` over 32 KiB. |
 | 🛡️ Trust | Entries that wait for trust or for a person, and a held telemetry handler. | Never: these are warnings ([10.4](#104-exit-codes)). |
 
 ```text

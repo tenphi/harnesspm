@@ -92,6 +92,21 @@ test('doctor: an added harness that is not on this machine fails', () => {
   assert.match(result.stdout, /❌ .*harnesspm-alex-.* is not on this machine yet\./);
 });
 
+test("status and doctor: an AGENTS.md over Codex's 32 KiB limit is called over, not close", () => {
+  const dir = project({ '@acme/kit': '1' });
+  const long = Array.from({ length: 400 }, (_, i) => `- Line ${i}: ${'a long always-on instruction '.repeat(3)}`).join('\n');
+  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/long.md': `# Long\n\n${long}\n` } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const size = (fs.statSync(path.join(dir, 'AGENTS.md')).size / 1024).toFixed(1);
+  const status = run(dir, 'status');
+  assert.match(status.stdout, new RegExp(`📏 always-on {5}Codex ${size} KiB of 32 KiB`));
+  assert.match(status.stderr, /⚠️ {2}AGENTS\.md is over Codex's 32 KiB limit: Codex reads only the first 32 KiB\. Move details into on-demand rules or docs\./);
+  assert.doesNotMatch(status.stderr, /close to/);
+  const doctor = run(dir, 'doctor');
+  assert.equal(doctor.status, 0, 'a warning, not a failure');
+  assert.match(doctor.stdout, new RegExp(`📦 Outputs\n[^]*  ⚠️  AGENTS\\.md is ${size} KiB, over Codex's 32 KiB limit: Codex reads only the first 32 KiB\\. Move details into on-demand rules or docs\\.`));
+});
+
 test('doctor: outside a git repository it warns and does not fail', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-nogit-'));
   writeFiles(dir, { 'package.json': '{ "name": "app", "version": "1.0.0" }\n', 'harnesspm.json': '{}\n' });

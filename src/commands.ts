@@ -280,6 +280,10 @@ export function update(cwd: string, out: Output): number {
   return sync(projectDir, out);
 }
 
+/** Codex reads `AGENTS.md` files up to `project_doc_max_bytes`, 32 KiB by default, and cuts off the rest (spec 4.9). */
+const CODEX_LIMIT = 32 * 1024;
+const CODEX_OVER = "Codex's 32 KiB limit: Codex reads only the first 32 KiB";
+
 function describeAdded(h: AddedHarness): string {
   return `${h.pkg.plugin} (${h.source.spec}, ${h.scope})${h.entry ? ', with an entry for this repository' : ''}`;
 }
@@ -324,7 +328,8 @@ export function status(cwd: string, out: Output): number {
     const bytes = Buffer.byteLength(agents);
     const claudeLines = agents.split('\n').length + (plan!.localMd ?? '').split('\n').length;
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
-    if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
+    if (bytes > CODEX_LIMIT) out.warn(`⚠️  AGENTS.md is over ${CODEX_OVER}. Move details into on-demand rules or docs.`);
+    else if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
   }
   const telemetry = readTelemetryState(projectDir);
   if (telemetry.config) {
@@ -410,6 +415,8 @@ export function doctor(cwd: string, out: Output): number {
     if (stale > 0) outputs.push({ level: 'warn', text: `${plural(stale, 'per-machine output')} missing or out of date. Run \`${sync}\`.` });
     else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
     if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
+    const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
+    if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${(bytes / 1024).toFixed(1)} KiB, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
   }
   if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
 

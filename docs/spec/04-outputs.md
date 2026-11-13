@@ -112,4 +112,4 @@ Both agents have plugin systems. harnesspm does not generate plugins in v1, beca
 | Codex | `AGENTS.md` files are joined up to `project_doc_max_bytes`, 32 KiB by default. The rest is cut off. |
 | Claude Code | No hard limit. The vendor advises under about 200 lines per `CLAUDE.md`. |
 
-`harnesspm status` reports the always-on size per agent and per package, and warns near a limit.
+`harnesspm status` reports the always-on size per agent, warns near a limit, and says when `AGENTS.md` is over Codex's. `harnesspm doctor` warns under Outputs when `AGENTS.md` is over 32 KiB, because Codex then reads only its first 32 KiB.

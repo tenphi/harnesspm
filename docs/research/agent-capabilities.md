@@ -101,7 +101,7 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Fact | | Source |
 | --- | --- | --- |
 | Global: the first non-empty of `~/.codex/AGENTS.override.md` and `~/.codex/AGENTS.md`. Project: from the root down to the current folder, at most one file per folder, `AGENTS.override.md` before `AGENTS.md`. Later files come later in the prompt. | ✅ | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
-| Files are joined up to `project_doc_max_bytes`, 32 KiB by default. | ✅ | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
+| Files are joined up to `project_doc_max_bytes`, 32 KiB by default. The file that crosses the budget is cut to what is left, with a warning ("Loaded only … of … bytes"), and later files are skipped. | ✅ 🔍 | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md); source at commit 69231e1: [`DEFAULT_PROJECT_DOC_MAX_BYTES = 32 * 1024`](https://github.com/openai/codex/blob/69231e119bfca0b14453515e97d99688ce1c47c9/codex-rs/config/src/config_toml.rs#L76), [agents_md.rs](https://github.com/openai/codex/blob/69231e119bfca0b14453515e97d99688ce1c47c9/codex-rs/core/src/agents_md.rs#L142-L185) |
 | `developer_instructions` and `model_instructions_file` exist in `config.toml`. | ✅ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
 | `developer_instructions` is read from a project's `.codex/config.toml` (when the project is trusted): it is not on the list of keys a project file cannot set. harnesspm uses it for added harnesses in a repository. | ✅ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
 

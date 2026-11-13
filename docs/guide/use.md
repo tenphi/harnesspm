@@ -66,7 +66,7 @@ Always-on text is in every session. `npx harnesspm status` reports its size for 
 📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
 ```
 
-Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](../research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
+Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](../research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
 
 ## More
 
