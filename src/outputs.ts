@@ -472,9 +472,14 @@ function unlinkAndPrune(target: string, stopAt: string): void {
   }
 }
 
+/**
+ * The per-machine record of the entries harnesspm wrote for this project (spec 4.7): in the clone's git folder, or,
+ * in a folder that is not a git repository, in ~/.harnesspm/state/, so sync never creates a `.git` folder there.
+ */
 export function repoStateFile(projectDir: string): string {
   const result = spawnSync('git', ['rev-parse', '--git-path', 'harnesspm/state.json'], { cwd: projectDir, encoding: 'utf8' });
-  const p = result.status === 0 ? result.stdout.trim() : path.join('.git', 'harnesspm', 'state.json');
+  if (result.status !== 0) return path.join(harnesspmHome(), 'state', `${repoSlug(projectDir)}.json`);
+  const p = result.stdout.trim();
   return path.isAbsolute(p) ? p : path.join(projectDir, p);
 }
 

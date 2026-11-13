@@ -99,7 +99,7 @@ A blank line follows the BEGIN marker and comes before the END marker, so Markdo
 
 ## 4.7 Files shared with people
 
-`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, `harnesspm/state.json` in the clone's git folder or `~/.harnesspm/state.json`, so it can remove them later. A settings file that held only harnesspm's entries is deleted with them.
+`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, so it can remove them later: `harnesspm/state.json` in the clone's git folder for project outputs, and `~/.harnesspm/state.json` for user-level ones. In a folder that is not a git repository, project outputs use `~/.harnesspm/state/<folder>-<hash>.json`, so harnesspm never creates a `.git` folder. A settings file that held only harnesspm's entries is deleted with them.
 
 ## 4.8 Why native files and not plugins
 

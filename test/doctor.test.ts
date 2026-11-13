@@ -111,6 +111,7 @@ test('doctor: outside a git repository it warns and does not fail', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-nogit-'));
   writeFiles(dir, { 'package.json': '{ "name": "app", "version": "1.0.0" }\n', 'harnesspm.json': '{}\n' });
   assert.equal(run(dir, 'sync').status, 0);
+  assert.ok(!fs.existsSync(path.join(dir, '.git')), 'sync creates no .git folder');
   const result = run(dir, 'doctor');
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /⚠️ {2}Not a git repository: nothing keeps per-machine files out of commits/);
