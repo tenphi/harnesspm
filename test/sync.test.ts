@@ -182,6 +182,26 @@ test('the same plugin name in two packages stops sync', () => {
   assert.match(result.stderr, /a and b both use the plugin name "same"/);
 });
 
+test('a missing extends warns, unless it is an optional peer', () => {
+  const dir = project({ '@cube-dev/ui-kit': '1' });
+  const uikit = installPackage(dir, '@cube-dev/ui-kit', { plugin: 'uikit', ext: { extends: ['@tenphi/eslint-plugin-tasty', '@tenphi/glaze'] } });
+  const pkgFile = path.join(uikit, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
+  // The lint plugin is an optional peer; Glaze is a plain extends that is missing.
+  pkg.peerDependencies = { '@tenphi/eslint-plugin-tasty': '^1.0.0', '@tenphi/glaze': '^2.0.0' };
+  pkg.peerDependenciesMeta = { '@tenphi/eslint-plugin-tasty': { optional: true } };
+  fs.writeFileSync(pkgFile, JSON.stringify(pkg));
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /eslint-plugin-tasty/);
+  assert.match(result.stderr, /@cube-dev\/ui-kit extends @tenphi\/glaze, which is not installed/);
+
+  // Once it is installed, the optional peer's harness comes through as usual.
+  installPackage(dir, '@tenphi/eslint-plugin-tasty', { plugin: 'tasty-lint', harness: { 'dev.harnesspm/rules/lint.md': '# Lint\n\nRun the linter.\n' } });
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.match(read(dir, 'AGENTS.md'), /\(tasty-lint:rules\/lint\)/);
+});
+
 test('an extends cycle stops sync', () => {
   const dir = project({ a: '1' });
   installPackage(dir, 'a', { plugin: 'a', ext: { extends: ['b'] } });

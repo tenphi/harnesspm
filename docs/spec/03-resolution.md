@@ -38,6 +38,7 @@ harnesspm reads files only. It never runs code from a dependency during discover
 2. harnesspm follows `extends` recursively and stops with an error on a cycle.
 3. Only `extends` passes harness on. A library's other dependencies, including its development tools, never reach its users.
 4. A package's `exclude`, `replace` and `patch` change what it passes on. A middle package can fix an upstream rule for all its users.
+5. An entry may name an optional peer dependency (`optional: true` in `peerDependenciesMeta`), which harnesspm skips quietly when it is not installed; any other entry that is not installed gives a warning.
 
 Example: an app depends only on `@cube-dev/ui-kit`, which extends Tasty and Glaze. The app gets all three, in the versions UI Kit installed.
 
