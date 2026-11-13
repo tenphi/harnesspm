@@ -1,9 +1,10 @@
 // harnesspm.lock.json (spec 6.3). The lock holds no per-machine state.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { parse } from 'yaml';
 import type { Resolution } from './resolve.ts';
 import type { Send } from './telemetry.ts';
-import { hash, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
+import { hash, isFile, isRecord, readJsonIfExists, readText, readTextIfExists, relPosix } from './util.ts';
 
 export const LOCK_FILE = 'harnesspm.lock.json';
 
@@ -39,26 +40,105 @@ function hashDir(dir: string): string {
   return hash(parts.join('\n\0\n'));
 }
 
-function packageLockEntry(projectDir: string, name: string): { resolved?: string; integrity?: string } {
-  const lock = readJsonIfExists(path.join(projectDir, 'package-lock.json'));
-  if (!isRecord(lock) || !isRecord(lock['packages'])) return {};
-  const entry = lock['packages'][`node_modules/${name}`];
-  if (!isRecord(entry)) return {};
-  return {
-    ...(typeof entry['resolved'] === 'string' ? { resolved: entry['resolved'] } : {}),
-    ...(typeof entry['integrity'] === 'string' ? { integrity: entry['integrity'] } : {}),
+/** Where a package's tarball comes from, as the package manager's lockfile records it. */
+export interface Origin {
+  resolved?: string;
+  integrity?: string;
+}
+
+const origin = (resolved: unknown, integrity: unknown): Origin => ({
+  ...(typeof resolved === 'string' && resolved !== '' ? { resolved } : {}),
+  ...(typeof integrity === 'string' && integrity !== '' ? { integrity } : {}),
+});
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/** package-lock.json (lockfile 2 and 3): `packages["…node_modules/<name>"]`. */
+function fromPackageLock(text: string, name: string, version: string): Origin | undefined {
+  const lock = JSON.parse(text) as unknown;
+  if (!isRecord(lock) || !isRecord(lock['packages'])) return undefined;
+  for (const [key, entry] of Object.entries(lock['packages'])) {
+    if (!isRecord(entry) || entry['version'] !== version || (key !== `node_modules/${name}` && !key.endsWith(`/node_modules/${name}`))) continue;
+    return origin(entry['resolved'], entry['integrity']);
+  }
+  return undefined;
+}
+
+/**
+ * pnpm-lock.yaml (lockfile 6 and 9): `packages["<name>@<version>"].resolution`, with `integrity` and, outside the
+ * registry, `tarball`. Only the entries of `name` are parsed, because a large lockfile takes long to parse whole.
+ */
+function fromPnpmLock(text: string, name: string, version: string): Origin | undefined {
+  const entries = new RegExp(`^ {2}['"]?/?${escapeRegExp(name)}@([^\n]*?)['"]?:\n((?: {4}[^\n]*\n?)*)`, 'gm');
+  for (const [, ref, body] of text.matchAll(entries)) {
+    const entry = parse(body!.replace(/^ {4}/gm, '')) as unknown;
+    if (!isRecord(entry) || !isRecord(entry['resolution'])) continue;
+    // A peer suffix such as `(react@18.3.1)` follows the version. A `file:` entry keeps its version in `version`.
+    const entryVersion = typeof entry['version'] === 'string' ? entry['version'] : ref!.replace(/\(.*$/, '');
+    if (entryVersion !== version) continue;
+    return origin(entry['resolution']['tarball'], entry['resolution']['integrity']);
+  }
+  return undefined;
+}
+
+/** Yarn 1 yarn.lock: blocks headed by one or more `"<name>@<range>"`, with `version`, `resolved` and `integrity`. */
+function fromYarnLock(text: string, name: string, version: string): Origin | undefined {
+  if (!text.includes('# yarn lockfile v1')) return undefined;
+  for (const block of text.split(/\n\s*\n/)) {
+    const [header, ...fields] = block.split('\n');
+    if (header === undefined || !header.endsWith(':') || /^[\s#]/.test(header)) continue;
+    const names = header.slice(0, -1).split(/,\s*/).map((spec) => spec.replace(/^"|"$/g, '')).map((spec) => spec.slice(0, spec.lastIndexOf('@')));
+    if (!names.includes(name)) continue;
+    const field = (key: string): string | undefined => {
+      for (const line of fields) {
+        const match = new RegExp(`^ {2}${key} "?([^"]*)"?$`).exec(line);
+        if (match) return match[1];
+      }
+      return undefined;
+    };
+    if (field('version') !== version) continue;
+    return origin(field('resolved')?.replace(/#.*$/, ''), field('integrity'));
+  }
+  return undefined;
+}
+
+/**
+ * Looks up a package's tarball URL and integrity in the project's package-manager lockfiles: package-lock.json,
+ * pnpm-lock.yaml or Yarn 1's yarn.lock (spec 6.3). Each file is read once, when it is first needed.
+ */
+export function packageManagerLock(projectDir: string): (name: string, version: string) => Origin {
+  const readers: [string, typeof fromPackageLock][] = [
+    ['package-lock.json', fromPackageLock],
+    ['pnpm-lock.yaml', fromPnpmLock],
+    ['yarn.lock', fromYarnLock],
+  ];
+  const texts = new Map<string, string | undefined>();
+  return (name, version) => {
+    for (const [file, read] of readers) {
+      if (!texts.has(file)) texts.set(file, readTextIfExists(path.join(projectDir, file)));
+      const text = texts.get(file);
+      if (text === undefined) continue;
+      try {
+        const found = read(text, name, version);
+        if (found !== undefined) return found;
+      } catch {
+        // A lockfile that does not parse gives nothing; fetch then says the download is not checked.
+      }
+    }
+    return {};
   };
 }
 
 /** `telemetry` is the handler to record: harnesspm.json's for a person's sync, the previous one for a model run (spec 14.5). */
 export function buildLock(res: Resolution, previous: Lock | undefined, telemetry?: Send): Lock {
   const packages: Record<string, LockPackage> = {};
+  const lookup = packageManagerLock(res.projectDir);
   for (const pkg of res.packages) {
     if (pkg.layer === 'project') {
       packages[pkg.name] = { version: pkg.version, plugin: pkg.plugin, project: true };
       continue;
     }
-    const entry: LockPackage = { version: pkg.version, plugin: pkg.plugin, ...packageLockEntry(res.projectDir, pkg.name) };
+    const entry: LockPackage = { version: pkg.version, plugin: pkg.plugin, ...lookup(pkg.name, pkg.version) };
     if (res.config.trust[pkg.name] === 'pin') {
       const approved = previous?.packages[pkg.name]?.approved;
       entry.approved = approved ?? pkg.version;

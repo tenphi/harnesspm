@@ -37,7 +37,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.6 CI without an install
 
-**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this, from `package-lock.json`. Without them, as with pnpm and Yarn lockfiles, `fetch` downloads `<name>@<version>` from the registry and says the download is not checked.
+**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this, from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock` ([research](../research/package-managers.md#lockfiles)). Without a URL, `fetch` downloads `<name>@<version>` from the registry. Without integrity, as with Yarn 2 and later, it says for each package that the download is not checked.
 
 ### 13.7 Team lock on rules (rejected)
 

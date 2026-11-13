@@ -52,7 +52,7 @@ Rules:
 
 `harnesspm.lock.json` is committed. It covers the dependency and project layers and records:
 
-- every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version;
+- every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version. The URL and integrity come from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. pnpm records a URL only for a package outside the registry;
 - every unit: ID, kind, content hash;
 - every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported;
 - the telemetry handler that a person's sync recorded ([14.5](14-telemetry.md#145-trust)).

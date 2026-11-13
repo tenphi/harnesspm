@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { readLock } from './lock.ts';
+import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
 import { computePlan, STATE_DIR } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
@@ -55,6 +55,8 @@ export function fetchLocked(projectDir: string): FetchReport {
   if (!lock) throw new HarnessError('No harnesspm.lock.json here. Run `npx harnesspm sync` where the dependencies are installed, and commit the lock.');
   const report: FetchReport = { fetched: [], reused: [], warnings: [] };
   const located = new Map<string, string>();
+  // A lock without integrity, such as one that harnesspm 0.3 wrote with pnpm, can still be checked against the package manager's lockfile.
+  const lookup = packageManagerLock(projectDir);
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (entry.project) continue;
     const installed = resolvePackageDir(name, projectDir);
@@ -65,9 +67,11 @@ export function fetchLocked(projectDir: string): FetchReport {
     }
     const target = path.join(projectDir, STATE_DIR, 'fetched', name);
     if (installedVersion(target) !== entry.version) {
-      const spec = entry.resolved ?? `${name}@${entry.version}`;
-      if (entry.integrity === undefined) report.warnings.push(`${name}: the lock has no integrity, so the download is not checked`);
-      download(projectDir, name, spec, entry.integrity, target);
+      const found = entry.integrity === undefined ? lookup(name, entry.version) : {};
+      const spec = entry.resolved ?? found.resolved ?? `${name}@${entry.version}`;
+      const integrity = entry.integrity ?? found.integrity;
+      if (integrity === undefined) report.warnings.push(`${name} ${entry.version}: no integrity in ${LOCK_FILE} or the package manager's lockfile, so the download is not checked`);
+      download(projectDir, name, spec, integrity, target);
       report.fetched.push(`${name} ${entry.version}`);
     } else report.reused.push(name);
     located.set(name, target);

@@ -22,6 +22,20 @@ What follows for harnesspm:
 
 Also observed: pnpm's `node_modules/.pnpm` layout needs no special case. Resolving `extends` from each package's real folder finds the dependencies pnpm links next to it.
 
+## Lockfiles
+
+`harnesspm.lock.json` copies each harness package's tarball URL and integrity from the package manager's lockfile, so `harnesspm fetch` can download and check it without an install ([spec 13.6](../spec/13-open-questions.md#136-ci-without-an-install)).
+
+🔍 Observed in November 2026 with npm 10.9.9, pnpm 10.28.0 and Yarn 1.22.22, each after adding `@tenphi/glaze` 3.1.0 from the npm registry:
+
+| Lockfile | Where a package is | URL | Integrity |
+| --- | --- | --- | --- |
+| `package-lock.json` (lockfile 3) | `packages["node_modules/<name>"]`, also nested under another package's `node_modules/` | `resolved` | `integrity` |
+| `pnpm-lock.yaml` (lockfile 9.0) | `packages["<name>@<version>"]`. Lockfile 6.0 keys start with `/`, and keys may end with peer versions, such as `(react@18.3.1)`. A `file:` dependency keeps its version in `version`. | `resolution.tarball`, only for a package outside the registry | `resolution.integrity` |
+| Yarn 1 `yarn.lock` | A block headed by every range that resolved to it, such as `"<name>@^3.0.0", "<name>@^3.1.0":` | `resolved`, with a `#<sha1>` fragment that harnesspm drops | `integrity` |
+
+The integrity of `@tenphi/glaze` 3.1.0 was the same `sha512-…` in all three. With harnesspm 0.3.0, which read only `package-lock.json`, a pnpm project's lock had neither field, and `fetch` downloaded `<name>@<version>` with a warning that it was not checked. harnesspm does not read the lockfile of Yarn 2 and later yet.
+
 ## Runner speed
 
 🔍 Measured in the proof of concept (Node.js 22.23.4, npm 10.9.9), for `harnesspm run` of a script that prints one line, in a project with two harness packages:
