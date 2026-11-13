@@ -80,7 +80,7 @@ Per machine, for every repository. Same fields:
 | --- | --- | --- |
 | `harnesspm.lock.json` | Yes | No |
 | The block in `AGENTS.md`, between `BEGIN:harnesspm` and `END:harnesspm` | Yes | No. Text outside the block is yours. |
-| `@AGENTS.md` in `CLAUDE.md` | Yes | The rest of `CLAUDE.md` is yours. |
+| `@AGENTS.md` in `CLAUDE.md`, at the root and next to each nested `AGENTS.md` that git tracks | Yes | The rest of `CLAUDE.md` is yours. |
 | Everything else: `.claude/`, `.codex/`, `.agents/skills/`, `CLAUDE.local.md`, `node_modules/.harnesspm/` | No | No |
 
 The specification's [Outputs chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md) lists every file.
