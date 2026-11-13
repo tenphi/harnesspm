@@ -133,17 +133,24 @@ export default defineDocsConfig({
       */
       CodeGroup: { Caption: { hide: true } },
       /*
-        Headings and prose name long paths and IDs in code
-        (`node_modules/.harnesspm/pkgs/@tenphi/glaze`), which can't wrap on a
-        phone and would widen the page.
+        Some headings are names in code (`~/.harnesspm/config.json`) that
+        can't wrap on a phone and would widen the page.
       */
       MarkdownHeading: { Heading: { overflowWrap: 'anywhere' } },
-      MarkdownInlineCode: { overflowWrap: 'anywhere' },
-      /* The logo mark beside the hero text, smaller on phones. */
+      /*
+        The hero has no image: one centered column, with less space around
+        it, so the install commands under it show above the fold.
+      */
       Hero: {
-        Visual: {
-          inlineSize: { '': 'min(100%, 17rem)', '!@md': 'clamp(6rem, 28vw, 8rem)' },
+        gridColumns: 'minmax(0, 1fr)',
+        blockPadding: {
+          '': 'clamp(2.5rem, 5vw, 4.5rem) start, 2.5rem end',
+          '!@md': '4x start, 2rem end',
         },
+        Stack: { alignItems: 'center', textAlign: 'center' },
+        Title: { inlineSize: 'max 24ch' },
+        Tagline: { inlineSize: 'max 60ch' },
+        Actions: { justifyContent: 'center' },
       },
     },
   },

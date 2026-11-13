@@ -1,17 +1,15 @@
 ---
 title: harnesspm
-description: Libraries ship rules, docs, skills and tools for coding agents in their npm package. harnesspm puts them in front of Claude Code and Codex on every install, matched to the installed version.
+description: A library can ship rules, docs, skills and tools for coding agents in its npm package. harnesspm gives them to Claude Code and Codex on every install, for the version you installed.
 template: splash
 hero:
   title: Coding agents that know your dependencies.
-  tagline: Libraries ship their agent harness (rules, docs, skills and tools) inside the npm package. harnesspm puts it in front of Claude Code and Codex on every install, matched to the installed version. Your project stays in control.
-  image:
-    file: ../assets/harnesspm.svg
+  tagline: A library can ship rules, docs, skills and tools for coding agents in its npm package. That is its harness. harnesspm gives it to Claude Code and Codex on every install, for the version you installed.
   actions:
     - text: Get started
       link: /getting-started
       variant: primary
-    - text: Share a harness
+    - text: Share from your library
       link: /guides/share
       variant: secondary
 ---
@@ -19,6 +17,8 @@ hero:
 import { Card, CardGrid, CodeGroup } from '@tenphi/cookbook/components';
 import Flow from './components/Flow.astro';
 import ManagedBlock from './components/ManagedBlock.astro';
+import Terminal from './components/Terminal.astro';
+import whyGlazeColors from './examples/why-glaze-colors.txt?raw';
 
 <CodeGroup
   label="Set up harnesspm in a project"
@@ -29,159 +29,141 @@ import ManagedBlock from './components/ManagedBlock.astro';
   ]}
 />
 
-Run these once in a project. `init` creates `harnesspm.json`, runs `harnesspm sync` after every install and makes `CLAUDE.md` import `AGENTS.md`. From then on, every install keeps your agents current.
+Run these once in a project. `init` makes every install run `harnesspm sync`, which updates what your agents read.
 
 ## Your agent doesn't know your libraries
 
-An agent in your project doesn't know how your libraries should be used, or it knows an older version. Today that knowledge travels by hand:
+Without help, an agent in your project guesses how your libraries work, or it remembers an older version. Today the fix is manual:
 
 - Teams paste rules into `AGENTS.md`, and the rules drift away from the code.
-- Every agent wants its own files: `CLAUDE.md`, `.claude/`, `.codex/`.
-- A library author has no way to ship guidance with the package.
+- A library can put docs in its package, but nothing points the agent at them.
+- Each agent reads its own files: `CLAUDE.md` and `.claude/` for Claude Code, `.codex/` for Codex.
 - A library that builds on another one copies the upstream rules, and the copies go stale.
 
 [A real chain of packages](../docs/research/motivating-case.md) shows each of these problems.
 
 ## How it works
 
-A library writes its harness once, and every project that installs it gets it.
+A library writes its harness once, and every project that installs the library gets it.
 
 <Flow />
 
-## What your agent reads
+## What your agent sees
 
-Every rule, docs index and script names the unit it came from, so you and the agent can always trace it. This is part of the block that harnesspm wrote into `AGENTS.md` for an app on Cube UI Kit:
+Your agent gets short, current instructions, and you can trace each one to its source. Our example is an app on Cube UI Kit, a React design system built on Glaze (colors) and Tasty (styles). UI Kit's harness is on a branch and not published yet; this is real output from that branch.
 
-<ManagedBlock />
+Each rule, docs index or script is a **unit** with an ID, such as `glaze:rules/colors`. The managed block that harnesspm writes into `AGENTS.md` names the unit behind every line:
 
-The app depends only on UI Kit. Glaze and Tasty come through UI Kit, and the first rule under Glaze is UI Kit's change to it. The excerpt comes from the UI Kit pilot. Lines marked `…` are cut.
+<ManagedBlock marks={{ '#### Where colors come from': 'patched by uikit' }} />
 
-## Knowledge that matches the installed version
+The app depends only on UI Kit. Glaze comes through UI Kit, and UI Kit's patch rewrites the first section of Glaze's rule for apps on UI Kit. Lines marked `…` are cut here.
 
-Upgrade a package, and its agent rules and docs upgrade with it. There is nothing to copy and nothing to drift. Every pointer goes to the files of the version in `node_modules`, and the pull request shows what changed. Here, Tasty 3.19.1 changed one of its scripts:
+Docs are one pointer line each, and skills load when needed, so the always-on text stays small. `npx harnesspm status` shows its size.
+
+## Your agent uses it
+
+A harness changes what the agent does, not only what it reads. In one headless Claude Code run, in a fresh app on that UI Kit branch, the task was: *"Create src/components/StatusBadge.tsx: a small pill that shows a status ('ok', 'warning' or 'error') with a matching color, slightly darker on hover…"* It did not mention harnesspm or the tools. In 12 turns, the agent:
+
+1. read UI Kit's docs and Usage guide, and built a `tasty()` component instead of restyling the protected `Badge` and `Tag`;
+2. picked palette pairs and checked their contrast with `uikit:tokens`;
+3. read Tasty's `dsl.md` from Tasty's own docs index;
+4. checked its CSS with `tasty:styles --setup @cube-dev/ui-kit/dist/components/Root.js`.
+
+Source: the [UI Kit pull request](https://github.com/cube-js/cube-ui-kit/pull/1643), recorded in [agent capabilities](../docs/research/agent-capabilities.md#claude-code).
+
+## Upgrade the package, upgrade the rules
+
+Your agent's knowledge of a library updates when the library does. Rules, docs and tools come from the version in `node_modules`. Nothing is copied, so nothing drifts. The managed block and the lock are committed, so the pull request shows what changed. Here, Tasty 3.19.1 changed its `styles` script:
 
 <CodeGroup
   label="An upgrade in review"
   items={[
     {
-      label: 'AGENTS.md',
-      language: 'diff',
-      code: '-## @tenphi/tasty 3.19.0\n+## @tenphi/tasty 3.19.1\n \n ### Tasty styles (tasty:rules/usage)',
-    },
-    {
       label: 'harnesspm.lock.json',
       language: 'diff',
       code: '     "tasty:scripts/styles": {\n       "kind": "scripts",\n-      "hash": "4f2d190a45a06034"\n+      "hash": "bd020ff534f6ae40"\n     }',
     },
+    {
+      label: 'AGENTS.md',
+      language: 'diff',
+      code: '-## @tenphi/tasty 3.19.0\n+## @tenphi/tasty 3.19.1\n \n ### Tasty styles (tasty:rules/usage)',
+    },
   ]}
 />
 
-## One harness, every agent
+## Libraries pass on what they build on
 
-You write a unit once, and each agent gets it in its own native format. The `harness/` folder is an [Agent Plugins 1.0](https://agent-plugins.org/) plugin, with skills in the [Agent Skills](https://agentskills.io/specification) format.
+A library gives your agent the harness of the libraries under it too, adapted to itself. An app that installs UI Kit gets:
 
-| In `harness/` | Claude Code | Codex |
-| --- | --- | --- |
-| Always-on rules, docs index, scripts | `AGENTS.md` block, through `@AGENTS.md` in `CLAUDE.md` | `AGENTS.md` block |
-| File-scoped rules | `.claude/rules/`, active on matching files | A pointer line in the block |
-| Skills | `.claude/skills/` | `.agents/skills/` |
-| Sub-agents | `.claude/agents/` | `.codex/agents/` |
-| Hooks and permissions | `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/` |
-| MCP servers | `~/.claude.json`, for this project | `.codex/config.toml` |
+- `@cube-dev/ui-kit`: its rule, its component docs and `uikit:tokens`
+  - `@tenphi/glaze`: its colors rule, patched by UI Kit, its docs, the `glaze-theme` skill and three scripts
+  - `@tenphi/tasty`: its styles rule, patched by UI Kit, its docs and `tasty:styles`
+  - `@tenphi/eslint-plugin-tasty`: its lint rule, its docs, `tasty-lint:check` and a hook
 
-Other agents that read `AGENTS.md` and `.agents/skills/` get the portable parts. See [what harnesspm writes](../docs/spec/04-outputs.md) for every file.
-
-## Composes like dependencies
-
-A library passes on the harness of the libraries it builds on (`extends`) and adapts it for its users (`patch`). An app that installs Cube UI Kit gets this:
+The lint plugin is an optional peer of UI Kit, so its harness applies only when the app installs the plugin. Each package comes in the version that UI Kit uses. This is the core of UI Kit's manifest:
 
 <CodeGroup
-  label="UI Kit's harness"
+  label="UI Kit's manifest"
   items={[
-    { label: 'What the app gets', language: 'text', code: 'my-app\n└── @cube-dev/ui-kit                 rules · component docs · uikit:tokens\n    ├── @tenphi/glaze                colors rule, patched · docs · glaze-theme · 3 scripts\n    ├── @tenphi/tasty                styles rule, patched · docs · tasty:styles\n    └── @tenphi/eslint-plugin-tasty  lint rule · docs · tasty-lint:check · a hook' },
-    { label: 'harness/plugin.json', language: 'json', code: '{\n  "name": "uikit",\n  "extensions": {\n    "dev.harnesspm": {\n      "extends": ["@tenphi/glaze", "@tenphi/tasty", "@tenphi/eslint-plugin-tasty"],\n      "docs": "../src",\n      "patch": {\n        "glaze:rules/colors": "./dev.harnesspm/patches/glaze-colors.patch.md",\n        "tasty:rules/usage": "./dev.harnesspm/patches/tasty-usage.patch.md"\n      }\n    }\n  }\n}' },
+    {
+      label: 'harness/plugin.json',
+      language: 'json',
+      code: '{\n  "name": "uikit",\n  "extensions": {\n    "dev.harnesspm": {\n      "extends": ["@tenphi/glaze", "@tenphi/tasty", "@tenphi/eslint-plugin-tasty"],\n      "docs": "../src",\n      "patch": {\n        "glaze:rules/colors": "./dev.harnesspm/patches/glaze-colors.patch.md",\n        "tasty:rules/usage": "./dev.harnesspm/patches/tasty-usage.patch.md"\n      }\n    }\n  }\n}',
+    },
   ]}
 />
 
-UI Kit adapts the Glaze and Tasty rules to its own palette and setup. The Tasty lint plugin is an optional peer of UI Kit, so its harness comes only when the app installs the plugin. Each package arrives in the version that UI Kit uses.
+## One source for Claude Code and Codex
 
-## Yours to adjust
+You keep one copy of each instruction, not one per agent. Write a rule, skill, sub-agent or hook once. Each agent gets it in its own files: the managed block in `AGENTS.md` for both, `.claude/` for Claude Code, `.codex/` and `.agents/skills/` for Codex. See [every file harnesspm writes](../docs/spec/04-outputs.md).
 
-You can change any unit from any package without forking it. Patch one section of a rule, or replace or exclude a whole unit, in `harnesspm.json`:
+This works before any library ships a harness:
 
-```json
-{
-  "patch": { "glaze:rules/colors": "./harnesspm/patches/glaze-colors.patch.md" },
-  "exclude": ["@tenphi/eslint-plugin-tasty"]
-}
-```
+- **Your project.** `npx harnesspm new rule usage` starts a `harness/` folder in your repository.
+- **All your repositories.** Publish shared rules as a harness-only package, and add it as a dev dependency in each.
 
-`npx harnesspm why <ID>` says where any line came from and how to change it:
+## You decide what applies and what runs
 
-```text
-$ npx harnesspm why glaze:rules/colors
-owner       dependency @tenphi/glaze 3.1.0
-source      node_modules/.harnesspm/pkgs/@tenphi/glaze/harness/dev.harnesspm/rules/colors.md
-patch       harnesspm/patches/glaze-colors.patch.md (from harnesspm.json)
-repository  https://github.com/tenphi/glaze
-editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
-```
-
-Agents use the same command. harnesspm's own `harnesspm-improve` skill walks them from `why` to a change that the unit's owner accepts.
-
-## Safe by default
-
-Text needs no permission, and anything that runs code waits for yours.
-
-- Scripts, hooks and MCP servers run only for packages that your project trusts in `harnesspm.json`.
-- Trust never passes through `extends`: trusting UI Kit does not trust Tasty.
-- An agent cannot grant itself permissions. New allow rules, hooks and MCP servers from a run the agent started wait for a person.
-- `npx harnesspm sync --check` in CI fails when the block or the lock is out of date.
+Your project has the last word on every unit. One `harnesspm.json` holds your changes and your trust:
 
 ```json
 {
+  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
+  "patch": {
+    "glaze:rules/colors": "./harnesspm/patches/glaze-colors.patch.md"
+  },
+  "exclude": ["tasty-lint:hooks/check-edit"],
   "trust": {
     "@cube-dev/ui-kit": true,
+    "@tenphi/tasty": true,
+    "@tenphi/eslint-plugin-tasty": true,
     "@tenphi/glaze": "pin"
   }
 }
 ```
 
-`true` follows upgrades. `"pin"` keeps a package at the version you approved until you run `npx harnesspm approve`.
+- A **patch** changes one section of a rule and keeps the rest. When an upgrade changes that section, `sync` warns you. **exclude** drops a unit or a whole package. **replace** swaps a unit for your own file.
+- Rules, docs and skills work at once. Scripts, hooks and MCP servers run only for packages you trust. Trusting UI Kit does not trust Tasty.
+- `"pin"` keeps a new version's tools off until you run `npx harnesspm approve`.
+- When an agent runs harnesspm, new hooks, MCP servers and allow rules wait for a person.
+- Rules are instructions to your agent. Review their changes in the pull request, like code.
 
-## A layer of your own
+`why` shows where any unit comes from and every change made to it. In the UI Kit app, Glaze's rule has UI Kit's patch and the app's own:
 
-Bring your team's or your own rules, notes and skills to every repository, without committing them:
+<Terminal command="npx harnesspm why glaze:rules/colors" output={whyGlazeColors} fields />
+
+Agents run the same command. The `harnesspm-improve` skill takes them from `why` to a change saved the way the unit's owner asks.
+
+## Bring your own rules to every repository
+
+Your team's and your own way of working can follow you into every repository, without a commit. `add` puts a harness on top of the repository's, on your machine:
 
 ```shell
-npx -y @tenphi/harnesspm add github:<owner>/<repo>
+npx -y @tenphi/harnesspm add \
+  github:<owner>/<repo>
 ```
 
-An added harness applies on top of the repository's, in every repository on your machine. One line in a setup script brings it to Claude Code cloud sessions. Its files stay out of git, and `doctor` checks that they do:
-
-```text
-$ npx harnesspm doctor
-🔒 Local files
-  ✅ 12 per-machine files: ignored by git and not tracked
-➕ Harnesses of your own
-  ✅ .git/info/exclude can be written, so harnesspm keeps per-machine files out of git
-  ✅ Added: alex (github:alex/harness, user)
-📦 Outputs
-  ✅ Committed outputs are up to date
-  ✅ 14 per-machine outputs in place
-
-✅ Ready. Nothing to fix.
-```
-
-## Small, focused context
-
-Always-on text costs context in every session, so harnesspm keeps it short and tells you its size. Docs and on-demand rules are one pointer line each, and skills load when they are needed. `npx harnesspm status` reports the always-on size for each agent:
-
-```text
-📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
-```
-
-A team that wants to see how agents use its harness can turn on [telemetry](../docs/guide/telemetry.md). It is off by default, and events go only to the team's own handler.
+It applies in every repository on your machine, and one line in a setup script brings it to Claude Code cloud sessions. `npx harnesspm doctor` checks that its files stay out of git.
 
 ## Start where you are
 
@@ -195,10 +177,9 @@ A team that wants to see how agents use its harness can turn on [telemetry](../d
   <Card title="Add your own" href="/guides/add-your-own">
     Your team's or your own workflow, notes and skills, on top of any repository and never committed.
   </Card>
-  <Card title="Read the specification" href="/spec">
-    Every format, rule and command, and why it works the way it does.
-  </Card>
 </CardGrid>
+
+Every format, rule and command is in [the specification](../docs/spec/README.md).
 
 ## Scope today
 
@@ -206,3 +187,4 @@ A team that wants to see how agents use its harness can turn on [telemetry](../d
 - It writes files for Claude Code and Codex first. Other agents that read `AGENTS.md` and `.agents/skills/` get the portable parts.
 - It runs on a person's computer and in Claude Code cloud sessions. Codex Cloud is not supported yet.
 - It works with npm, pnpm, Yarn 1, and Yarn 4 with the `node-modules` linker, on Node.js 20 or later.
+- Packages with a harness on npm today: `@tenphi/glaze`, `@tenphi/tasty`, `@tenphi/eslint-plugin-tasty` and `@tenphi/harnesspm`. UI Kit's harness, in the examples above, is not published yet.

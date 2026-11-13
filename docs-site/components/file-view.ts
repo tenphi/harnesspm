@@ -1,13 +1,15 @@
 /**
- * Styles of ManagedBlock.astro: an excerpt of a managed block in AGENTS.md,
- * shown as a file whose long lines wrap, with each unit ID highlighted.
+ * Styles of ManagedBlock.astro and Terminal.astro: a file or a command's
+ * output in a frame whose long lines wrap, so nothing hides behind a scroll
+ * bar or a copy button on a phone.
  *
- * Parts (`data-element`): Bar, File, Tag, Body, Comment, Heading, Bullet,
- * Text, Cut, Id.
+ * Parts (`data-element`): Bar, Title, Tag, Body, and one per line kind:
+ * Comment, Heading, Bullet, Text, Cut and Field (a `why` line: a Label column
+ * and its value). Inside lines: Id (a unit ID) and Mark (a note on a line).
  */
 import { defineComponent } from '@tenphi/cookbook/styling';
 
-export const ManagedBlockFrame = defineComponent('ManagedBlock', {
+export const FileView = defineComponent('FileView', {
   as: 'figure',
   styles: {
     display: 'grid',
@@ -27,10 +29,11 @@ export const ManagedBlockFrame = defineComponent('ManagedBlock', {
       padding: '1.25x 2x',
       border: 'bottom 1bw solid #border',
     },
-    File: {
+    Title: {
       preset: 'inline-code',
       fontWeight: 600,
       color: '#heading',
+      overflowWrap: 'anywhere',
     },
     Tag: {
       preset: 'small',
@@ -62,6 +65,13 @@ export const ManagedBlockFrame = defineComponent('ManagedBlock', {
       paddingLeft: '2ch',
       textIndent: '-2ch',
     },
+    Field: {
+      display: 'grid',
+      gridColumns: '12ch minmax(0, 1fr)',
+    },
+    Label: {
+      color: '#text-soft',
+    },
     Text: {
       display: 'block',
       minBlockSize: '1lh',
@@ -73,6 +83,18 @@ export const ManagedBlockFrame = defineComponent('ManagedBlock', {
     Id: {
       color: '#accent-text',
       fontWeight: 600,
+    },
+    Mark: {
+      display: 'inline-block',
+      marginLeft: '1x',
+      padding: '0 0.75x',
+      radius: '1r',
+      fill: '#accent-surface-subtle',
+      color: '#accent-text',
+      preset: 'small',
+      fontWeight: 600,
+      textIndent: '0',
+      whiteSpace: 'nowrap',
     },
   },
 });

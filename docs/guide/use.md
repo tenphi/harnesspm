@@ -35,7 +35,7 @@ Every line in the block ends with the unit's ID, such as `glaze:rules/colors`. `
 
 ## Stable paths
 
-Package managers put packages in different places. harnesspm links each harness package to one stable path, such as `node_modules/.harnesspm/pkgs/@tenphi/glaze`, and the block uses only these paths. So the same block works on every machine and with every package manager.
+Package managers put packages in different places. harnesspm links each harness package to one stable path in `node_modules/.harnesspm/pkgs/`, and the block uses only these paths. So the same block works on every machine and with every package manager.
 
 A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths.
 

@@ -15,8 +15,8 @@ const arrow =
 
 <HarnessFlow data-not-content="" aria-label="How a library's harness reaches your agents">
   <div data-element="Step">
-    <span data-element="Eyebrow">1 · In the library</span>
-    <p data-element="Title"><code data-element="Code">harness/</code> in the npm package</p>
+    <span data-element="Eyebrow">1 · In the npm package</span>
+    <p data-element="Title"><code data-element="Code">harness/</code> folder</p>
     <ul data-element="List">
       <li data-element="Item">Rules and docs</li>
       <li data-element="Item">Skills and sub-agents</li>
@@ -47,15 +47,15 @@ const arrow =
   </div>
 
   <div data-element="Step">
-    <span data-element="Eyebrow">3 · Where agents look</span>
+    <span data-element="Eyebrow">3 · In your project</span>
     <p data-element="Title">Native files</p>
     <ul data-element="List">
-      <li data-element="Item"><code data-element="Code">AGENTS.md</code> <span data-element="Note">block · committed</span></li>
-      <li data-element="Item"><code data-element="Code">harnesspm.lock.json</code> <span data-element="Note">committed</span></li>
+      <li data-element="Item"><span><code data-element="Code">AGENTS.md</code> <code data-element="Code">CLAUDE.md</code></span> <span data-element="Note">both agents · committed</span></li>
       <li data-element="Item"><code data-element="Code">.claude/</code> <span data-element="Note">Claude Code · per machine</span></li>
-      <li data-element="Item"><code data-element="Code">.codex/</code> <code data-element="Code">.agents/</code> <span data-element="Note">Codex · per machine</span></li>
+      <li data-element="Item"><span><code data-element="Code">.codex/</code> <code data-element="Code">.agents/</code></span> <span data-element="Note">Codex · per machine</span></li>
+      <li data-element="Item"><code data-element="Code">harnesspm.lock.json</code> <span data-element="Note">for review · committed</span></li>
     </ul>
   </div>
 
-  <figcaption data-element="Caption">Only the block and the lock are committed, so a pull request shows every change. The rest stays on each machine, out of git.</figcaption>
+  <figcaption data-element="Caption">Only <code data-element="Code">AGENTS.md</code>, <code data-element="Code">CLAUDE.md</code> and the lock are committed, so a pull request shows every change. The rest stays on each machine, out of git.</figcaption>
 </HarnessFlow>
