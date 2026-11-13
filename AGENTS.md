@@ -61,7 +61,7 @@ Do not put internal ticket IDs, private repository details, credentials or perso
 Releases run in GitHub Actions (`.github/workflows/release.yml`) through [Changesets](https://github.com/changesets/changesets) and npm trusted publishing. No npm token is stored.
 
 1. **Snapshots.** Every push to a pull request publishes `0.0.0-snapshot.<short sha>` under the dist-tag `pr_<number>`. A re-run adds the attempt number, such as `.2`, because npm never accepts a version twice. A comment on the pull request names the version. Try it with `npx @tenphi/harnesspm@<version>`.
-2. **Version PR.** A merge to `main` that brings changesets opens or updates the "chore: version packages" pull request. It sets `version` in `package.json` and `package-lock.json` and writes the changesets into `CHANGELOG.md`.
+2. **Version PR.** A merge to `main` that brings changesets opens or updates the "chore: version packages" pull request. It sets `version` in `package.json` and `package-lock.json`, runs `npm run sync` so `harnesspm.lock.json` records the new version of this repository's own harness, and writes the changesets into `CHANGELOG.md`.
 3. **Publish.** Merging the version PR publishes the version to npm, tags it `v<version>` and creates its GitHub Release. npm adds provenance by itself while the repository is public. `prepack` builds `dist/` and runs `harnesspm check` first, so an invalid harness cannot ship.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request: typecheck, tests and `npm run check` on Node 24, and the built CLI on Node 20, the oldest version in `engines`.

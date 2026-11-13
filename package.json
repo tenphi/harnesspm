@@ -45,7 +45,7 @@
     "harnesspm": "node src/cli.ts",
     "prepack": "npm run build && node dist/cli.js check",
     "changeset": "changeset",
-    "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts",
+    "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts && npm run sync",
     "release": "changeset publish"
   },
   "dependencies": {
