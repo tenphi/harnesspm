@@ -14,6 +14,7 @@ import {
   type Scope,
 } from './added.ts';
 import { checkHarness } from './check.ts';
+import { checkLocalFiles, excludeWritable, formatFinding, type Finding } from './doctor.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
 import { heldEntries, trustOf } from './exec-outputs.ts';
@@ -26,7 +27,7 @@ import { alwaysOnText, withClaudeImport } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -320,8 +321,111 @@ export function status(cwd: string, out: Output): number {
   if (telemetry.config) {
     out.log(`📡 telemetry     ${telemetry.send !== undefined ? `${[...telemetry.events].join(', ')} → ${describeSend(telemetry.send)}` : telemetry.off}`);
   }
+  const local = checkLocalFiles(projectDir, telemetryFiles(projectDir));
+  if (local && local.problems.length > 0) out.log(`🩺 local files   ${plural(local.problems.length, 'problem')}. Run \`${syncCommand(projectDir).replace(/ sync$/, ' doctor')}\`.`);
   printWarnings(out, resolved.warnings);
   return 0;
+}
+
+/** The command that runs harnesspm here: the installed one in a project that uses it (spec 10). */
+const syncCommand = (projectDir: string): string => `${isFile(path.join(projectDir, CONFIG_FILE)) ? NPX_LOCAL : NPX_ANY} sync`;
+
+/** A telemetry file inside the project, which harnesspm keeps out of git (spec 14.1). */
+function telemetryFiles(projectDir: string): string[] {
+  const send = readTelemetryState(projectDir).config?.send;
+  if (send === undefined || typeof send === 'string') return [];
+  const rel = relPosix(projectDir, path.resolve(projectDir, send.file));
+  return rel.startsWith('../') || path.isAbsolute(rel) ? [] : [rel];
+}
+
+const linkPointsTo = (link: string, target: string): boolean => {
+  try {
+    return fs.lstatSync(link).isSymbolicLink() && path.resolve(path.dirname(link), fs.readlinkSync(link)) === path.resolve(target);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * `harnesspm doctor`: whether this repository is ready for harnesses, its own and a person's (spec 10.1).
+ * It changes nothing. Exits 1 when a check fails; warnings do not fail.
+ */
+export function doctor(cwd: string, out: Output): number {
+  const projectDir = findProjectDir(cwd);
+  const usesHarnesspm = isFile(path.join(projectDir, CONFIG_FILE));
+  const sync = syncCommand(projectDir);
+  const groups: [string, Finding[]][] = [];
+
+  // Per-machine files never reach a commit.
+  const local = checkLocalFiles(projectDir, telemetryFiles(projectDir), sync);
+  groups.push([
+    '🔒 Local files',
+    local === undefined
+      ? [{ level: 'warn', text: 'Not a git repository: nothing keeps per-machine files out of commits, and harnesses added with --local cannot be used here.' }]
+      : local.problems.length > 0
+        ? local.problems
+        : [{ level: 'ok', text: local.checked > 0 ? `${plural(local.checked, 'per-machine file')}: ignored by git and not tracked` : 'No per-machine files yet' }],
+  ]);
+
+  // A person can add a harness of their own here.
+  const own: Finding[] = [];
+  const exclude = gitExcludeFile(projectDir);
+  if (exclude !== undefined) {
+    const shown = relPosix(projectDir, exclude);
+    own.push(excludeWritable(exclude) ? { level: 'ok', text: `${shown} can be written, so harnesspm keeps per-machine files out of git` } : { level: 'fail', text: `${shown} cannot be written, so harnesspm cannot keep per-machine files out of git. Fix the permissions of that file.` });
+  }
+  const addedWarnings: string[] = [];
+  const added = process.env['CI'] === 'true' ? [] : loadAdded(exclude !== undefined ? projectDir : undefined, addedWarnings);
+  for (const warning of addedWarnings) own.push({ level: 'fail', text: warning });
+  if (added.length > 0) own.push({ level: 'ok', text: `Added: ${added.map(describeAdded).join(' · ')}` });
+  else if (addedWarnings.length === 0) own.push({ level: 'info', text: `No harness added yet. Add one with \`${NPX_ANY} add <source>\`.` });
+  groups.push(['➕ Harnesses of your own', own]);
+
+  // Outputs are in place.
+  const outputs: Finding[] = [];
+  const resolved = resolveAll(projectDir, { withAdded: true });
+  const plan = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full) : undefined;
+  if (!usesHarnesspm) outputs.push({ level: 'info', text: `This repository does not use harnesspm (no ${CONFIG_FILE}), so only added harnesses apply.` });
+  else if (!resolved.team) outputs.push({ level: 'warn', text: `The dependencies are not installed. Install them, then run \`${sync}\`.` });
+  else {
+    const forCheck = resolveAll(projectDir, { withAdded: false });
+    const problems = checkPlan(projectDir, computePlan(forCheck.team, forCheck.full));
+    for (const p of problems) outputs.push({ level: 'fail', text: /Run `/.test(p) ? p : `${p}. Run \`${sync}\` and commit the result.` });
+    if (problems.length === 0) outputs.push({ level: 'ok', text: 'Committed outputs are up to date' });
+  }
+  if (plan) {
+    const total = plan.links.size + plan.generated.size;
+    let stale = 0;
+    for (const [link, target] of plan.links) if (!linkPointsTo(link, target)) stale++;
+    for (const [file, content] of plan.generated) if (readTextIfExists(file) !== content) stale++;
+    if (stale > 0) outputs.push({ level: 'warn', text: `${plural(stale, 'per-machine output')} missing or out of date. Run \`${sync}\`.` });
+    else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
+    if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
+  }
+  if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
+
+  // Trust: pending entries are not errors (spec 10.4).
+  const trust: Finding[] = [];
+  if (plan) {
+    const pending = [...new Set([...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending])];
+    const stateFile = repoStateFile(projectDir);
+    const held = [...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile)];
+    for (const p of pending) trust.push({ level: 'warn', text: `Off until trusted: ${p}. To turn it on, add the package to "trust" in ${CONFIG_FILE}.` });
+    if (held.length > 0) trust.push({ level: 'warn', text: `${plural(held.length, 'entry', 'entries')} that an agent could not grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''}). Run \`${NPX_ANY} sync\` in your own terminal.` });
+  }
+  const telemetry = readTelemetryState(projectDir);
+  if (telemetry.config && telemetry.send === undefined) trust.push({ level: telemetry.off?.startsWith('held') ? 'warn' : 'info', text: `Telemetry ${telemetry.off}` });
+  if (trust.length === 0 && plan) trust.push({ level: 'ok', text: 'Nothing waits for trust' });
+  if (trust.length > 0) groups.push(['🛡️  Trust', trust]);
+
+  for (const [title, findings] of groups) {
+    out.log(title);
+    for (const finding of findings) out.log(formatFinding(finding));
+  }
+  const failed = groups.flatMap(([, findings]) => findings).filter((f) => f.level === 'fail').length;
+  out.log('');
+  out.log(failed > 0 ? `❌ ${plural(failed, 'problem')}. Each line above says how to fix it.` : '✅ Ready. Nothing to fix.');
+  return failed > 0 ? 1 : 0;
 }
 
 export function why(cwd: string, id: string, out: Output): number {

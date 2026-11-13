@@ -23,6 +23,9 @@ function note(message: string): void {
 
 if (event !== '' && command !== '') {
   const result = spawnSync(command, { shell: true, input: `${event}\n`, env, stdio: ['pipe', 'ignore', 'pipe'], timeout: TIMEOUT, encoding: 'utf8' });
-  if (result.error) note(`handler \`${command}\`: ${result.error.message}`);
+  // A handler that exits without reading the event closes stdin early, so writing it fails with EPIPE.
+  // Its exit code still says how it went.
+  const unread = (result.error as NodeJS.ErrnoException | undefined)?.code === 'EPIPE' && result.status !== null;
+  if (result.error && !unread) note(`handler \`${command}\`: ${result.error.message}`);
   else if (result.status !== 0) note(`handler \`${command}\` exited with ${result.status ?? result.signal}: ${result.stderr}`);
 }

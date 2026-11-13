@@ -12,7 +12,7 @@ Package authors do not need this chapter. It defines what implementations write.
 
 1. **Native files only.** No agent has to understand a harnesspm format.
 2. **Commit only what reviewers need.** The managed block in `AGENTS.md` shows rule changes in pull requests. The lock shows every other unit change. All other outputs are per machine.
-3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. harnesspm never edits `.gitignore`.
+3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. harnesspm never edits `.gitignore`. `harnesspm doctor` checks that every per-machine file is ignored and untracked ([10.5](10-cli.md#105-doctor)).
 4. **Units of added harnesses never enter a tracked file.** harnesspm MUST refuse to write one there.
 5. **Outputs are marked.** Each generated file or block says it is generated and names the sources to edit.
 6. **harnesspm edits only its own entries** in files that people or agents also write, and keeps the rest unchanged.

@@ -98,7 +98,7 @@ Both files have one field:
 
 ## 7.6 Keeping the project clean
 
-1. Added units are never written into tracked files. Per-machine files are excluded through `.git/info/exclude`.
+1. Added units are never written into tracked files. Per-machine files are excluded through `.git/info/exclude`. `harnesspm doctor` shows whether a repository is ready for a harness of your own, and finds a per-machine file that a commit could include ([10.5](10-cli.md#105-doctor)).
 2. CI ignores added harnesses.
 3. `harnesspm status` lists every change that an added harness makes to the repository's units, so it stays visible.
 4. In a cloud environment shared by several people, add harnesses in your own environment. See [09-cloud.md](09-cloud.md).

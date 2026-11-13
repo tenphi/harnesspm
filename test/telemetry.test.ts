@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
@@ -128,6 +129,18 @@ test('a command handler gets each event as JSON on stdin, and the command does n
   assert.equal(ran.status, 0);
   assert.equal(ran.stderr, '');
   assert.match(waitFor(path.join(dir, 'node_modules/.harnesspm/telemetry.log')), /handler `exit 7` exited with 7/);
+});
+
+test('a handler that exits without reading the event is logged with its exit code, not EPIPE', () => {
+  // An event larger than a pipe buffer makes the race certain: the shell exits before the event is written.
+  const dir = project();
+  fs.mkdirSync(path.join(dir, 'node_modules', '.harnesspm'), { recursive: true });
+  const deliver = path.join(import.meta.dirname, '..', 'src', 'deliver.ts');
+  const result = spawnSync(process.execPath, [deliver], { cwd: dir, env: { ...process.env, HARNESSPM_EVENT: 'x'.repeat(90_000), HARNESSPM_HANDLER: 'exit 7' }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const log = read(dir, 'node_modules/.harnesspm/telemetry.log');
+  assert.match(log, /handler `exit 7` exited with 7/);
+  assert.doesNotMatch(log, /EPIPE/);
 });
 
 test('events are off by default, with DO_NOT_TRACK=1, and with a local or user opt-out', () => {

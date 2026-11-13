@@ -33,4 +33,4 @@ npx -y @tenphi/harnesspm add <source> --local  # this repository only
 
 The source is `github:<owner>/<repo>`, `git:<url>`, `npm:<package>` or a folder path. Add a team's harness before the user's own, so the user's wins. The command prints the added rules. Follow them from now on in this session.
 
-Outputs of added harnesses never go into the project's repository. Do not commit them.
+Outputs of added harnesses never go into the project's repository. Do not commit them. Then run `npx -y @tenphi/harnesspm doctor`: it finds a per-machine file that git could commit, and names the fix. Ask the user before you untrack a file.

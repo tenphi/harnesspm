@@ -125,6 +125,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S13 | A job reads the harness without an install, such as a review bot | `npx -y @tenphi/harnesspm fetch`. |
 | S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx harnesspm sync`. |
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
+| S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx harnesspm doctor`. |
 
 ## 1.7 What is committed
 
