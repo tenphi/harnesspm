@@ -101,7 +101,9 @@ Add a check to CI, so a missed sync fails the pull request:
 - run: npx harnesspm sync --check
 ```
 
-`--check` writes nothing and ignores harnesses that people added on their machines. When something is out of date, it says what to do:
+`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs indexes, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx harnesspm sync --write` instead.
+
+When something is out of date, `--check` says what to do:
 
 ```text
 $ npx harnesspm sync --check

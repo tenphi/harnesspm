@@ -97,8 +97,13 @@ function resolveAll(projectDir: string, options: { withAdded: boolean }): Resolv
   return { ...(team ? { team } : {}), full, added, mode, warnings: [...warnings, ...(team?.warnings ?? []), ...full.warnings] };
 }
 
-export function sync(cwd: string, out: Output, options: { check?: boolean; quiet?: boolean } = {}): number {
+/**
+ * `check` compares and writes nothing. With `CI=true`, the committed outputs stay as they are unless `write` is set,
+ * so that an install's sync cannot hide a missed sync from a later `sync --check` (spec 6.4, 10.1).
+ */
+export function sync(cwd: string, out: Output, options: { check?: boolean; write?: boolean; quiet?: boolean } = {}): number {
   const projectDir = findProjectDir(cwd);
+  if (options.check && options.write) throw new HarnessError('Use either --check or --write, not both.');
   if (options.check) {
     const { team, full, warnings } = resolveAll(projectDir, { withAdded: false });
     const plan = computePlan(team, full);
@@ -118,10 +123,13 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   const changed: string[] = [];
   const report: UserReport = { pending: [], held: [] };
   const before = readLock(projectDir);
+  const keepCommitted = process.env['CI'] === 'true' && options.write !== true;
+  let keptCommitted = false;
   if (mode !== 'none') {
     const plan = computePlan(resolved.team, full, { widen: caller() !== 'model' });
     warnings.push(...plan.warnings);
-    const applied = applyPlan(projectDir, plan);
+    keptCommitted = keepCommitted && plan.committed !== undefined;
+    const applied = applyPlan(projectDir, plan, { committed: !keepCommitted });
     changed.push(...applied.changed);
     report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
@@ -131,6 +139,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; quiet
   printWarnings(out, warnings);
   printPending(out, report);
   if (options.quiet) return 0;
+  if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(full.rules.length, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
@@ -186,7 +195,7 @@ export function init(projectDir: string, out: Output): number {
   }
   const claudeFile = path.join(projectDir, 'CLAUDE.md');
   if (writeIfChanged(claudeFile, withClaudeImport(readTextIfExists(claudeFile)))) out.log('CLAUDE.md now imports AGENTS.md');
-  return sync(projectDir, out);
+  return sync(projectDir, out, { write: true });
 }
 
 /** Directories of editable added harnesses, which agents may write to (spec 8.5). */
@@ -537,7 +546,7 @@ export function approve(cwd: string, name: string | undefined, out: Output): num
     if (name !== undefined && approved === 0 && resolved.team.config.trust[name] !== 'pin') throw new HarnessError(`${name} is not a "pin" package in ${CONFIG_FILE}`);
     if (approved > 0) writeIfChanged(path.join(projectDir, LOCK_FILE), serializeLock(lock));
   }
-  return sync(projectDir, out);
+  return sync(projectDir, out, { write: true });
 }
 
 export function newUnit(cwd: string, kind: string, name: string, options: { to?: string; entry?: boolean }, out: Output): number {
@@ -556,7 +565,7 @@ export function newUnit(cwd: string, kind: string, name: string, options: { to?:
     for (const file of files) out.log(`  ${show(file)}`);
     out.log('Edit it, then save it the way that harness\'s owner wants (`npx harnesspm why <ID>` names the rules).');
   }
-  sync(projectDir, out, { quiet: true });
+  sync(projectDir, out, { quiet: true, write: true });
   return 0;
 }
 

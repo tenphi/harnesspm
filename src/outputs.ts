@@ -463,8 +463,11 @@ export interface ApplyResult {
   held: string[];
 }
 
-/** Writes the plan. Returns the project-relative paths that changed and the entries held back. */
-export function applyPlan(projectDir: string, plan: Plan): ApplyResult {
+/**
+ * Writes the plan. Returns the project-relative paths that changed and the entries held back.
+ * `committed: false` writes only the per-machine outputs, as a sync with `CI=true` does (spec 6.4).
+ */
+export function applyPlan(projectDir: string, plan: Plan, options: { committed?: boolean } = {}): ApplyResult {
   const changed: string[] = [];
   const held: string[] = [];
   const note = (file: string, did: boolean): void => {
@@ -536,7 +539,7 @@ export function applyPlan(projectDir: string, plan: Plan): ApplyResult {
     writeIfChanged(excludeFile, text);
   }
 
-  if (plan.committed) {
+  if (plan.committed && options.committed !== false) {
     note(path.join(projectDir, 'AGENTS.md'), writeIfChanged(path.join(projectDir, 'AGENTS.md'), plan.committed.agentsMd));
     note(path.join(projectDir, 'CLAUDE.md'), writeIfChanged(path.join(projectDir, 'CLAUDE.md'), plan.committed.claudeMd));
     note(path.join(projectDir, LOCK_FILE), writeIfChanged(path.join(projectDir, LOCK_FILE), plan.committed.lock));

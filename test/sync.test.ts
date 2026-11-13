@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { installPackage, isLink, project, read, run, skill, writeFiles } from './helpers.ts';
+import { installPackage, isLink, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
 
 const TASTY_RULES = {
   'dev.harnesspm/rules/style-values.md': '# Style values\n\nNever put dynamic values into styles. Use tokens.\n',
@@ -78,6 +78,34 @@ test('S5: an upgrade shows up in the committed files, and --check fails until sy
   assert.match(check.stdout, /harnesspm\.lock\.json is out of date/);
   run(dir, 'sync');
   assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+});
+
+test('with CI=true, sync leaves committed outputs to --check and still writes per-machine ones; --write writes them', () => {
+  const dir = chain();
+  run(dir, 'sync');
+  const committed = ['AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json'].map((file) => [file, read(dir, file)] as const);
+  // A pull request upgrades a package and forgets to sync. The install's sync runs in CI.
+  writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\nUse tokens only.\n' });
+  fs.rmSync(path.join(dir, 'node_modules/.harnesspm'), { recursive: true });
+  fs.rmSync(path.join(dir, '.claude'), { recursive: true });
+  const ci = runWith(dir, { CI: 'true' }, 'sync');
+  assert.equal(ci.status, 0, ci.stderr);
+  assert.match(ci.stdout, /^CI: committed outputs left as they are; `npx harnesspm sync --check` compares them, `sync --write` writes them\.$/m);
+  for (const [file, text] of committed) assert.equal(read(dir, file), text, `${file} is left as it is`);
+  assert.ok(isLink(dir, 'node_modules/.harnesspm/pkgs/@tenphi/tasty'), 'stable package paths');
+  assert.ok(fs.existsSync(path.join(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt')), 'docs indexes');
+  assert.ok(isLink(dir, '.claude/skills/uikit-review'), 'skill links');
+  const check = runWith(dir, { CI: 'true' }, 'sync', '--check');
+  assert.equal(check.status, 1, 'the missed sync still fails the check');
+  assert.match(check.stdout, /AGENTS\.md: the harnesspm block is out of date/);
+
+  // A job that commits the result, such as a release, writes them.
+  const write = runWith(dir, { CI: 'true' }, 'sync', '--write');
+  assert.equal(write.status, 0, write.stderr);
+  assert.doesNotMatch(write.stdout, /^CI:/m);
+  assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+  assert.equal(runWith(dir, { CI: 'true' }, 'sync', '--check').status, 0);
+  assert.match(run(dir, 'sync', '--check', '--write').stderr, /Use either --check or --write/);
 });
 
 test('text outside the block never changes', () => {

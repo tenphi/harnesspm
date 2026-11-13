@@ -21,7 +21,9 @@ const HELP = `harnesspm — the harness package manager
 
 Projects
   harnesspm init                 set up harnesspm in this project
-  harnesspm sync [--check]       write the agent files (--check: compare only, for CI)
+  harnesspm sync [--check | --write]
+                                 write the agent files (--check: compare only, for CI;
+                                 --write: committed files too when CI=true)
   harnesspm status               layers, packages and always-on size
   harnesspm doctor               check that local files stay out of git and the outputs are in place
   harnesspm why <ID>             where a unit comes from and how to change it
@@ -80,8 +82,8 @@ function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mc
       unknown([]);
       return init(cwd, out);
     case 'sync':
-      unknown(['--check']);
-      return sync(cwd, out, { check: flags.has('--check') });
+      unknown(['--check', '--write']);
+      return sync(cwd, out, { check: flags.has('--check'), write: flags.has('--write') });
     case 'status':
       unknown([]);
       return status(cwd, out);

@@ -17,8 +17,9 @@ The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. 
 | Command | What it does |
 | --- | --- |
 | `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to `postinstall` in a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `sync`. |
-| `harnesspm sync` | Resolves the layers and writes every output. Every full install runs it. In a repository without `harnesspm.json`, or without installed dependencies, it writes only the per-machine outputs of added harnesses. |
+| `harnesspm sync` | Resolves the layers and writes every output. Every full install runs it. In a repository without `harnesspm.json`, or without installed dependencies, it writes only the per-machine outputs of added harnesses. With `CI=true`, it writes only per-machine outputs and leaves the committed files to `sync --check`. |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses. Fails when the block or the lock is out of date, or when a `"pin"` package has an unapproved version. For CI. |
+| `harnesspm sync --write` | Writes the committed files with `CI=true` too, for a job that commits them. |
 | `harnesspm status` | Layers, packages, versions, pending trust, changes from added harnesses, always-on size per agent, and whether telemetry is on. |
 | `harnesspm doctor` | Checks that per-machine files stay out of git and that the outputs are in place. Changes nothing. Each problem names its fix. |
 | `harnesspm why <ID>` | A unit's owner, source, repository and whether it is editable. For a script, also its command and trust. |

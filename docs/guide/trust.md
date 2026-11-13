@@ -73,7 +73,7 @@ The agents keep their own gates too. Codex loads project `.codex/` files only in
 
 `harnesspm.lock.json` is committed. It records every harness package with its version and integrity, and every unit with its hash. A pull request that changes a script, a skill or a hook changes the lock, even when the block stays the same.
 
-In CI, `npx harnesspm sync --check` fails when the block or the lock is out of date, or when a `"pin"` package has a version nobody approved. It ignores harnesses that people added on their machines.
+In CI, `npx harnesspm sync --check` fails when the block or the lock is out of date, or when a `"pin"` package has a version nobody approved. It ignores harnesses that people added on their machines. The `sync` that the install runs in CI leaves the committed files as they are, so the check still sees a missed sync.
 
 ## What this does not cover
 

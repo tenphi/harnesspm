@@ -49,7 +49,7 @@
     "docs:check": "cookbook check-build --out site-dist",
     "prepack": "npm run build && node dist/cli.js check",
     "changeset": "changeset",
-    "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts && npm run sync",
+    "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts && node src/cli.ts sync --write",
     "release": "changeset publish"
   },
   "dependencies": {
