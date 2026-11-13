@@ -44,25 +44,25 @@ test('remote keys are the same for SSH and HTTPS', () => {
 
 test('S9: add with user scope writes user-level outputs, the hook and write access', () => {
   const dir = appWithTeamHarness();
-  const mine = harness('alex', {
+  const mine = harness('andrew', {
     'dev.harnesspm/rules/workflow.md': '# Workflow\n\nUse conventional commits.\n',
     'dev.harnesspm/rules/notes.md': '---\ndescription: Notes about my projects\n---\n\n# Notes\n\nText.\n',
-    'skills/alex-release/SKILL.md': skill('alex-release'),
+    'skills/andrew-release/SKILL.md': skill('andrew-release'),
   });
   const result = run(dir, 'add', mine);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Added alex \(.*\) with user scope/);
-  assert.match(result.stdout, /Rules from .*, to follow from now on in this session:[\s\S]*### Workflow \(alex:rules\/workflow\)\n\nUse conventional commits\./);
+  assert.match(result.stdout, /Added andrew \(.*\) with user scope/);
+  assert.match(result.stdout, /Rules from .*, to follow from now on in this session:[\s\S]*### Workflow \(andrew:rules\/workflow\)\n\nUse conventional commits\./);
 
   assert.deepEqual(JSON.parse(fs.readFileSync(home(dir, '.harnesspm/config.json'), 'utf8')).harnesses, [mine]);
   for (const file of ['.claude/CLAUDE.md', '.codex/AGENTS.md']) {
     const text = fs.readFileSync(home(dir, file), 'utf8');
-    assert.match(text, /## alex \(.*, user scope\)\n\n### Workflow \(alex:rules\/workflow\)/);
-    assert.match(text, new RegExp(`- Notes about my projects: read ${mine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/harness/dev\\.harnesspm/rules/notes\\.md \\(alex:rules/notes\\)`));
+    assert.match(text, /## andrew \(.*, user scope\)\n\n### Workflow \(andrew:rules\/workflow\)/);
+    assert.match(text, new RegExp(`- Notes about my projects: read ${mine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/harness/dev\\.harnesspm/rules/notes\\.md \\(andrew:rules/notes\\)`));
   }
-  assert.ok(isLink(homeOf(dir), '.claude/skills/alex-release'));
-  assert.equal(fs.realpathSync(home(dir, '.claude/skills/alex-release')), fs.realpathSync(path.join(mine, 'harness/skills/alex-release')));
-  assert.ok(fs.existsSync(home(dir, '.agents/skills/alex-release/SKILL.md')));
+  assert.ok(isLink(homeOf(dir), '.claude/skills/andrew-release'));
+  assert.equal(fs.realpathSync(home(dir, '.claude/skills/andrew-release')), fs.realpathSync(path.join(mine, 'harness/skills/andrew-release')));
+  assert.ok(fs.existsSync(home(dir, '.agents/skills/andrew-release/SKILL.md')));
 
   const settings = JSON.parse(fs.readFileSync(home(dir, '.claude/settings.json'), 'utf8'));
   assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm sync');
@@ -71,18 +71,18 @@ test('S9: add with user scope writes user-level outputs, the hook and write acce
 
   // Nothing of the added harness enters the repository: its own units are user-level.
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.local.md')));
-  assert.doesNotMatch(read(dir, 'AGENTS.md'), /alex/);
+  assert.doesNotMatch(read(dir, 'AGENTS.md'), /andrew/);
 });
 
 test('stacked harnesses apply in order, and a later one wins on a skill name', () => {
   const dir = appWithTeamHarness();
   const team = harness('frontend', { 'dev.harnesspm/rules/reviews.md': '# Reviews\n\nTwo approvals.\n', 'skills/shared-deploy/SKILL.md': skill('shared-deploy', 'Team version. Use when deploying.') });
-  const mine = harness('alex', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n', 'skills/shared-deploy/SKILL.md': skill('shared-deploy', 'My version. Use when deploying.') });
+  const mine = harness('andrew', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n', 'skills/shared-deploy/SKILL.md': skill('shared-deploy', 'My version. Use when deploying.') });
   run(dir, 'add', team);
   const result = run(dir, 'add', mine);
   assert.match(result.stderr, /skill "shared-deploy" comes from .* and .*; using/);
   const text = fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8');
-  assert.ok(text.indexOf('## frontend') < text.indexOf('## alex'), 'the team harness comes first');
+  assert.ok(text.indexOf('## frontend') < text.indexOf('## andrew'), 'the team harness comes first');
   assert.match(fs.readFileSync(home(dir, '.claude/skills/shared-deploy/SKILL.md'), 'utf8'), /My version/);
 });
 
@@ -90,23 +90,23 @@ test('S10: a project entry applies in its repository, over SSH or HTTPS remotes'
   for (const remote of ['git@github.com:acme/app.git', 'https://github.com/acme/app.git']) {
     const dir = appWithTeamHarness(remote);
     const mine = harness(
-      'alex',
+      'andrew',
       {
         'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n',
         'projects/app/dev.harnesspm/rules/local-setup.md': '# Local setup\n\nStaging is at https://staging.example.com.\n',
-        'projects/app/skills/alex-app-seed/SKILL.md': skill('alex-app-seed'),
+        'projects/app/skills/andrew-app-seed/SKILL.md': skill('andrew-app-seed'),
       },
       { projects: { 'github.com/acme/app': './projects/app' } },
     );
     run(dir, 'add', mine);
     const local = read(dir, 'CLAUDE.local.md');
-    assert.match(local, /## alex: entry for this repository \(.*\)\n\n### Local setup \(alex:rules\/local-setup\)\n\nStaging is at/);
+    assert.match(local, /## andrew: entry for this repository \(.*\)\n\n### Local setup \(andrew:rules\/local-setup\)\n\nStaging is at/);
     assert.doesNotMatch(local, /Small commits/, 'the harness itself stays user-level');
-    assert.match(read(dir, '.codex/config.toml'), /^# Generated by `harnesspm sync`[^\n]*\ndeveloper_instructions = """\n## alex: entry for this repository/);
-    assert.ok(isLink(dir, '.claude/skills/alex-app-seed'));
+    assert.match(read(dir, '.codex/config.toml'), /^# Generated by `harnesspm sync`[^\n]*\ndeveloper_instructions = """\n## andrew: entry for this repository/);
+    assert.ok(isLink(dir, '.claude/skills/andrew-app-seed'));
     const exclude = read(dir, '.git/info/exclude');
-    for (const entry of ['/CLAUDE.local.md', '/.codex/config.toml', '/.claude/skills/alex-app-seed']) assert.ok(exclude.includes(`${entry}\n`), entry);
-    assert.match(run(dir, 'why', 'alex:rules/local-setup').stdout, /owner +added .* \(user scope, entry for this repository\)/);
+    for (const entry of ['/CLAUDE.local.md', '/.codex/config.toml', '/.claude/skills/andrew-app-seed']) assert.ok(exclude.includes(`${entry}\n`), entry);
+    assert.match(run(dir, 'why', 'andrew:rules/local-setup').stdout, /owner +added .* \(user scope, entry for this repository\)/);
   }
 });
 
@@ -115,9 +115,9 @@ test('an entry changes team units on this machine only; committed files stay the
   run(dir, 'sync');
   const before = { agents: read(dir, 'AGENTS.md'), lock: read(dir, 'harnesspm.lock.json') };
   const mine = harness(
-    'alex',
+    'andrew',
     {
-      'projects/app/plugin.json': JSON.stringify({ name: 'alex', extensions: { 'dev.harnesspm': { exclude: ['kit:rules/legacy', 'kit:skills/kit-review'], patch: { 'kit:rules/forms': './forms.patch.md' } } } }),
+      'projects/app/plugin.json': JSON.stringify({ name: 'andrew', extensions: { 'dev.harnesspm': { exclude: ['kit:rules/legacy', 'kit:skills/kit-review'], patch: { 'kit:rules/forms': './forms.patch.md' } } } }),
       'projects/app/forms.patch.md': '## Errors\n\nShow them in a toast.\n',
     },
     { projects: { 'github.com/acme/app': './projects/app' } },
@@ -153,11 +153,11 @@ test('a repository without harnesspm gets only the outputs of added harnesses', 
   spawnSync('git', ['init', '-q'], { cwd: dir });
   spawnSync('git', ['remote', 'add', 'origin', 'https://github.com/acme/tool.git'], { cwd: dir });
   writeFiles(dir, { 'AGENTS.md': '# Tool\n\nUse make.\n' });
-  const mine = harness('alex', { 'projects/tool/dev.harnesspm/rules/tool.md': '# Tool notes\n\nRun make test.\n' }, { projects: { 'github.com/acme/tool': './projects/tool' } });
+  const mine = harness('andrew', { 'projects/tool/dev.harnesspm/rules/tool.md': '# Tool notes\n\nRun make test.\n' }, { projects: { 'github.com/acme/tool': './projects/tool' } });
   run(dir, 'add', mine);
   const local = read(dir, 'CLAUDE.local.md');
   assert.ok(local.startsWith('@AGENTS.md\n'), 'keeps Claude Code reading AGENTS.md');
-  assert.match(local, /### Tool notes \(alex:rules\/tool\)/);
+  assert.match(local, /### Tool notes \(andrew:rules\/tool\)/);
   assert.equal(read(dir, 'AGENTS.md'), '# Tool\n\nUse make.\n');
   for (const file of ['CLAUDE.md', 'harnesspm.lock.json', 'node_modules']) assert.ok(!fs.existsSync(path.join(dir, file)), file);
   assert.match(run(path.join(dir), 'sync').stdout, /Added harnesses only/);
@@ -168,16 +168,16 @@ test('before the dependencies are installed, sync leaves the committed block alo
   run(dir, 'sync');
   const agents = read(dir, 'AGENTS.md');
   fs.rmSync(path.join(dir, 'node_modules'), { recursive: true, force: true });
-  const mine = harness('alex', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });
+  const mine = harness('andrew', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });
   const result = run(dir, 'add', mine);
   assert.match(result.stderr, /the dependencies are not installed, so the committed outputs are left as they are/);
   assert.equal(read(dir, 'AGENTS.md'), agents);
-  assert.match(read(dir, 'CLAUDE.local.md'), /### X \(alex:rules\/x\)/);
+  assert.match(read(dir, 'CLAUDE.local.md'), /### X \(andrew:rules\/x\)/);
 });
 
 test('rule 4: when the model runs add, the hook and write access stay pending', () => {
   const dir = appWithTeamHarness();
-  const mine = harness('alex', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n' });
+  const mine = harness('andrew', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n' });
   const result = runWith(dir, { AI_AGENT: 'claude-code_2-1-322_agent', CLAUDECODE: '1' }, 'add', mine);
   assert.match(result.stdout, /are pending: an agent cannot grant them/);
   assert.ok(!fs.existsSync(home(dir, '.claude/settings.json')));
@@ -192,14 +192,14 @@ test('rule 4: when the model runs add, the hook and write access stay pending', 
 test('remove takes the harness, its outputs, the hook and write access away', () => {
   const dir = appWithTeamHarness();
   writeFiles(homeOf(dir), { '.claude/CLAUDE.md': '# My own notes\n', '.claude/settings.json': JSON.stringify({ permissions: { allow: ['Bash(ls)'], additionalDirectories: ['/opt/mine'] } }) });
-  const mine = harness('alex', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n', 'skills/alex-release/SKILL.md': skill('alex-release') }, { projects: { 'github.com/acme/app': './projects/app' } });
+  const mine = harness('andrew', { 'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n', 'skills/andrew-release/SKILL.md': skill('andrew-release') }, { projects: { 'github.com/acme/app': './projects/app' } });
   writeFiles(mine, { 'harness/projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' });
   run(dir, 'add', mine);
   assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.local.md')));
   const result = run(dir, 'remove', mine);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8'), '# My own notes\n');
-  assert.ok(!fs.existsSync(home(dir, '.claude/skills/alex-release')));
+  assert.ok(!fs.existsSync(home(dir, '.claude/skills/andrew-release')));
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.local.md')));
   assert.ok(!fs.existsSync(path.join(dir, '.codex/config.toml')));
   const settings = JSON.parse(fs.readFileSync(home(dir, '.claude/settings.json'), 'utf8'));
@@ -240,7 +240,7 @@ test('git sources: add clones, update pulls, and a working copy with local work 
 
 test('CI ignores added harnesses', () => {
   const dir = appWithTeamHarness();
-  const mine = harness('alex', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });
+  const mine = harness('andrew', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });
   run(dir, 'add', mine);
   fs.rmSync(path.join(dir, 'CLAUDE.local.md'));
   runWith(dir, { CI: 'true' }, 'sync');
