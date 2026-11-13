@@ -410,7 +410,8 @@ export function doctor(cwd: string, out: Output): number {
     const pending = [...new Set([...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending])];
     const stateFile = repoStateFile(projectDir);
     const held = [...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile)];
-    for (const p of pending) trust.push({ level: 'warn', text: `Off until trusted: ${p}. To turn it on, add the package to "trust" in ${CONFIG_FILE}.` });
+    // Each entry already says how to turn it on: trust the package, or approve a pinned version.
+    for (const p of pending) trust.push({ level: 'warn', text: `Off: ${p}` });
     if (held.length > 0) trust.push({ level: 'warn', text: `${plural(held.length, 'entry', 'entries')} that an agent could not grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''}). Run \`${NPX_ANY} sync\` in your own terminal.` });
   }
   const telemetry = readTelemetryState(projectDir);

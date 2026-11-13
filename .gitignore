@@ -1,2 +1,6 @@
 node_modules/
 dist/
+
+# Docs site (astro.config.ts)
+site-dist/
+.astro/

@@ -1,6 +1,8 @@
 # harnesspm — the harness package manager
 
-> **Status: 0.1.0, a working proof of concept of the [specification](docs/spec/README.md) (0.7 draft).** It covers every scenario. Expect changes before 1.0.
+> **Status: a working proof of concept of the [specification](docs/spec/README.md) (0.7 draft).** It covers every scenario. Expect changes before 1.0.
+
+The docs site is **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**: getting started, guides, a reference and the specification.
 
 harnesspm moves an **AI harness** between projects through npm packages. A harness is everything an AI coding agent needs to work well with a codebase: rules, docs, skills, sub-agents, scripts, hooks, MCP servers and permissions.
 

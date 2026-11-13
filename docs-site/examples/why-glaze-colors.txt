@@ -1,0 +1,6 @@
+owner       dependency @tenphi/glaze 3.1.0 (via @cube-dev/ui-kit)
+source      node_modules/.harnesspm/pkgs/@tenphi/glaze/harness/dev.harnesspm/rules/colors.md
+patch       node_modules/@cube-dev/ui-kit/harness/dev.harnesspm/patches/glaze-colors.patch.md (from @cube-dev/ui-kit)
+patch       harnesspm/patches/glaze-colors.patch.md (from harnesspm.json)
+repository  https://github.com/tenphi/glaze
+editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.

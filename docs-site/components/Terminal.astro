@@ -1,0 +1,39 @@
+---
+/**
+ * A command and its real output. The command sits in the bar, and the
+ * output's lines wrap, so a phone shows every line without scrolling.
+ *
+ *   import whyGlaze from './examples/why-glaze-colors.txt?raw';
+ *   <Terminal command="npx harnesspm why glaze:rules/colors" output={whyGlaze} fields />
+ *
+ * `fields` shows each line as a label column and a value that wraps under
+ * itself, for `why`, whose lines are a 12-character label and a value.
+ * Styles are in ./file-view.ts.
+ */
+import { breakable } from './breakable.ts';
+import { FileView } from './file-view.ts';
+
+interface Props {
+  /** The command, without the `$` prompt. */
+  command: string;
+  /** Its output, as printed. */
+  output: string;
+  /** Lines are a 12-character label and a value. */
+  fields?: boolean;
+}
+
+const { command, output, fields = false } = Astro.props;
+const lines = output
+  .replace(/\n+$/, '')
+  .split('\n')
+  .map((line: string) => ({ label: fields ? line.slice(0, 12).trim() : '', value: fields ? line.slice(12) : line }));
+---
+
+<FileView data-not-content="">
+  <figcaption data-element="Bar">
+    <span data-element="Title">$ {command}</span>
+  </figcaption>
+  <pre data-element="Body"><code>{lines.map((line) => fields
+    ? <span data-element="Field"><span data-element="Label">{line.label}</span><span set:html={breakable(line.value)} /></span>
+    : <span data-element="Text" set:html={breakable(line.value)} />)}</code></pre>
+</FileView>
