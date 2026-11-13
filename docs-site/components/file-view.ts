@@ -90,6 +90,7 @@ export const FileView = defineComponent('FileView', {
       padding: '0 0.75x',
       radius: '1r',
       fill: '#accent-surface-subtle',
+      border: '1bw solid #accent-text',
       color: '#accent-text',
       preset: 'small',
       fontWeight: 600,
