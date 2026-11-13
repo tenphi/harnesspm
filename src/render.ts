@@ -86,8 +86,9 @@ export function sectionsFor(res: Resolution, packages: ResolvedPackage[], paths:
   });
 }
 
+/** A blank line after BEGIN and before END keeps Markdown formatters such as Prettier from changing the block (spec 4.6). */
 export function wrapBlock(content: string): string {
-  return `${BLOCK_BEGIN}\n${content}\n${BLOCK_END}`;
+  return `${BLOCK_BEGIN}\n\n${content}\n\n${BLOCK_END}`;
 }
 
 /** The committed block: the dependency and project layers. */
@@ -115,11 +116,19 @@ export function removeBlock(existing: string | undefined, leftover: RegExp = /^\
   return `${rest.replace(/\s+$/, '')}\n`;
 }
 
+/**
+ * The block in `text`, for comparison. Blank lines next to the markers are dropped, so a block that harnesspm 0.3
+ * wrote without them, or one that a formatter changed, compares equal to the current form.
+ */
 export function extractBlock(text: string | undefined): string | undefined {
   if (text === undefined) return undefined;
   const start = text.indexOf(BEGIN_PREFIX);
   const end = text.indexOf(BLOCK_END, start);
-  return start >= 0 && end > start ? text.slice(start, end + BLOCK_END.length) : undefined;
+  if (start < 0 || end <= start) return undefined;
+  return text
+    .slice(start, end + BLOCK_END.length)
+    .replace(/^([^\n]*-->)\n(?:[ \t]*\n)+/, '$1\n')
+    .replace(/\n(?:[ \t]*\n)+(<!-- END:harnesspm -->)$/, '\n$1');
 }
 
 export const CLAUDE_IMPORT = '@AGENTS.md';

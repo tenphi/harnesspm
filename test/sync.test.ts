@@ -145,6 +145,31 @@ test('a nested AGENTS.md that git tracks gets a CLAUDE.md that imports it, since
   assert.match(run(dir, 'sync').stdout, /Nothing changed/);
 });
 
+test('the block has a blank line after BEGIN and before END, so Prettier leaves it alone; the old form still passes --check', () => {
+  const dir = chain();
+  writeFiles(dir, { 'AGENTS.md': '# Team\n' });
+  run(dir, 'sync');
+  const agents = read(dir, 'AGENTS.md');
+  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\n## @tenphi\/tasty/);
+  assert.match(agents, /\(uikit:docs\)\n\n<!-- END:harnesspm -->\n/);
+
+  // A block that harnesspm 0.3 wrote, without the blank lines, is up to date until the next sync rewrites it once.
+  const old = agents.replace(/(<!-- BEGIN:harnesspm[^\n]*-->)\n\n/, '$1\n').replace(/\n\n(<!-- END:harnesspm -->)/, '\n$1');
+  writeFiles(dir, { 'AGENTS.md': old });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'no false failure on the old form');
+  assert.match(run(dir, 'sync').stdout, /Updated 1 file/);
+  assert.equal(read(dir, 'AGENTS.md'), agents);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+
+  // A block that a person wrapped in prettier-ignore comments keeps them.
+  const wrapped = `# Team\n\n<!-- prettier-ignore-start -->\n${old.slice(old.indexOf('<!-- BEGIN'))}<!-- prettier-ignore-end -->\n`;
+  writeFiles(dir, { 'AGENTS.md': wrapped });
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  run(dir, 'sync');
+  assert.match(read(dir, 'AGENTS.md'), /^# Team\n\n<!-- prettier-ignore-start -->\n<!-- BEGIN:harnesspm[^\n]*-->\n\n[^]*\n\n<!-- END:harnesspm -->\n<!-- prettier-ignore-end -->\n$/);
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+});
+
 test('text outside the block never changes', () => {
   const dir = chain();
   writeFiles(dir, { 'AGENTS.md': '# Team rules\n\nBe kind.\n', 'CLAUDE.md': 'Claude notes.\n' });
