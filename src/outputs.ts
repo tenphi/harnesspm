@@ -406,6 +406,13 @@ function readSection(text: string | undefined, marks: readonly [string, string])
   return range ? lines.slice(range[0] + 1, range[1]).filter((l) => l.startsWith('/')) : [];
 }
 
+/** The per-machine paths that harnesspm's last sync listed in .git/info/exclude, such as `/CLAUDE.local.md`. */
+export function excludedBySync(projectDir: string): string[] {
+  const file = gitExcludeFile(projectDir);
+  const text = file !== undefined ? readTextIfExists(file) : undefined;
+  return [...readSection(text, TEAM_SECTION), ...readSection(text, ADDED_SECTION)];
+}
+
 function writeSection(text: string | undefined, marks: readonly [string, string], entries: string[]): string {
   const lines = (text ?? '').split('\n');
   const range = sectionRange(lines, marks);

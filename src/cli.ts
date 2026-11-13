@@ -23,6 +23,7 @@ Projects
   harnesspm init                 set up harnesspm in this project
   harnesspm sync [--check]       write the agent files (--check: compare only, for CI)
   harnesspm status               layers, packages and always-on size
+  harnesspm doctor               check that local files stay out of git and the outputs are in place
   harnesspm why <ID>             where a unit comes from and how to change it
   harnesspm run <plugin>:<script> [-- args]
                                  run a script of a trusted package
@@ -48,7 +49,7 @@ const out: Output = {
   warn: (line) => console.error(line),
 };
 
-function dispatch(argv: string[], { add, approve, check, fetch, init, mcp, newUnit, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number {
+function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number {
   const [command, ...rest] = argv;
   if (command !== 'run' && command !== 'mcp' && (rest.includes('--help') || rest.includes('-h'))) {
     console.log(HELP);
@@ -84,6 +85,9 @@ function dispatch(argv: string[], { add, approve, check, fetch, init, mcp, newUn
     case 'status':
       unknown([]);
       return status(cwd, out);
+    case 'doctor':
+      unknown([]);
+      return doctor(cwd, out);
     case 'why':
       unknown([]);
       if (args[0] === undefined) throw new HarnessError('Usage: harnesspm why <ID>');
