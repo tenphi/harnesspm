@@ -24,7 +24,7 @@
     "type": "git",
     "url": "git+https://github.com/tenphi/harnesspm.git"
   },
-  "homepage": "https://github.com/tenphi/harnesspm#readme",
+  "homepage": "https://harnesspm.tenphi.me",
   "keywords": [
     "agents",
     "harness",
@@ -43,6 +43,10 @@
     "sync": "node src/cli.ts sync",
     "check": "node src/cli.ts check && node src/cli.ts sync --check",
     "harnesspm": "node src/cli.ts",
+    "docs": "astro dev",
+    "build:docs": "astro build",
+    "docs:doctor": "cookbook doctor",
+    "docs:check": "cookbook check-build --out site-dist",
     "prepack": "npm run build && node dist/cli.js check",
     "changeset": "changeset",
     "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts && npm run sync",
@@ -54,7 +58,9 @@
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
+    "@tenphi/cookbook": "^0.33.1",
     "@types/node": "^22.20.5",
+    "astro": "^7.4.11",
     "typescript": "^7.0.2"
   }
 }

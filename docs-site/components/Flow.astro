@@ -1,0 +1,61 @@
+---
+/**
+ * How a library's harness reaches the agents: harness/ in the npm package →
+ * an install runs `harnesspm sync` → the native files agents read.
+ *
+ *   <Flow />
+ *
+ * Styles and the names of every part are in ./flow.ts.
+ */
+import { HarnessFlow } from './flow.ts';
+
+const arrow =
+  '<svg data-element="Arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>';
+---
+
+<HarnessFlow data-not-content="" aria-label="How a library's harness reaches your agents">
+  <div data-element="Step">
+    <span data-element="Eyebrow">1 · In the library</span>
+    <p data-element="Title"><code data-element="Code">harness/</code> in the npm package</p>
+    <ul data-element="List">
+      <li data-element="Item">Rules and docs</li>
+      <li data-element="Item">Skills and sub-agents</li>
+      <li data-element="Item">Scripts, hooks and MCP servers</li>
+      <li data-element="Item"><span><code data-element="Code">extends</code> for the packages it builds on</span></li>
+    </ul>
+  </div>
+
+  <div data-element="Link">
+    <Fragment set:html={arrow} />
+    <span data-element="LinkLabel">npm install</span>
+  </div>
+
+  <div data-element="Step">
+    <span data-element="Eyebrow">2 · On every install</span>
+    <p data-element="Title"><code data-element="Code">harnesspm sync</code></p>
+    <ul data-element="List">
+      <li data-element="Item">Finds the harness of each installed version</li>
+      <li data-element="Item"><span>Follows <code data-element="Code">extends</code> chains</span></li>
+      <li data-element="Item">Applies your patches and exclusions</li>
+      <li data-element="Item">Turns on tools only for trusted packages</li>
+    </ul>
+  </div>
+
+  <div data-element="Link">
+    <Fragment set:html={arrow} />
+    <span data-element="LinkLabel">writes</span>
+  </div>
+
+  <div data-element="Step">
+    <span data-element="Eyebrow">3 · Where agents look</span>
+    <p data-element="Title">Native files</p>
+    <ul data-element="List">
+      <li data-element="Item"><code data-element="Code">AGENTS.md</code> <span data-element="Note">block · committed</span></li>
+      <li data-element="Item"><code data-element="Code">harnesspm.lock.json</code> <span data-element="Note">committed</span></li>
+      <li data-element="Item"><code data-element="Code">.claude/</code> <span data-element="Note">Claude Code · per machine</span></li>
+      <li data-element="Item"><code data-element="Code">.codex/</code> <code data-element="Code">.agents/</code> <span data-element="Note">Codex · per machine</span></li>
+    </ul>
+  </div>
+
+  <figcaption data-element="Caption">Only the block and the lock are committed, so a pull request shows every change. The rest stays on each machine, out of git.</figcaption>
+</HarnessFlow>

@@ -1,0 +1,158 @@
+---
+title: Getting started
+description: Set up harnesspm in a project, commit what it writes, turn on a package's tools and check the setup in CI.
+---
+
+import { CodeGroup } from '@tenphi/cookbook/components';
+
+**In short**
+
+- Install `@tenphi/harnesspm` as a dev dependency and run `npx harnesspm init` once.
+- Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json` and `package.json`.
+- Trust the packages whose tools you want to run, and add `npx harnesspm sync --check` to CI.
+
+You need Node.js 20 or later, and npm, pnpm, Yarn 1 or Yarn 4 with the `node-modules` linker. harnesspm writes files for Claude Code and Codex.
+
+## 1. Install
+
+<CodeGroup
+  label="Install harnesspm"
+  items={[
+    { label: 'npm', language: 'shell', code: 'npm i -D @tenphi/harnesspm' },
+    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @tenphi/harnesspm' },
+    { label: 'yarn', language: 'shell', code: 'yarn add -D @tenphi/harnesspm' },
+  ]}
+/>
+
+The package is `@tenphi/harnesspm`. The command it installs is `harnesspm`, so `npx harnesspm …` works in the project from now on.
+
+## 2. Run `init`
+
+This is the real output in an app that depends on `@tenphi/glaze` and `@tenphi/tasty`. Both ship a harness:
+
+```text
+$ npx harnesspm init
+Created harnesspm.json
+Added `harnesspm sync` to the "postinstall" script
+CLAUDE.md now imports AGENTS.md
+⏳ pending: @tenphi/glaze: 3 scripts (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
+harnesspm: 4 rules, 4 skills, 3 docs from 3 packages. Updated 14 files.
+```
+
+`init` does four things:
+
+1. It creates `harnesspm.json`, the project's configuration. Every field is optional.
+2. It adds `harnesspm sync` to `postinstall` in a private package, or to `prepare` in a published one. Every full install now runs it.
+3. It makes `CLAUDE.md` import `AGENTS.md` with an `@AGENTS.md` line, so Claude Code reads the same rules as Codex.
+4. It runs `harnesspm sync`, which finds the harness of every dependency and writes each agent's files.
+
+The three packages are Glaze, Tasty and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
+
+The pending lines are normal. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)).
+
+## 3. Commit what it wrote
+
+| File | What it holds | Commit |
+| --- | --- | --- |
+| `AGENTS.md` | The managed block: always-on rules, a docs index and scripts for each package | Yes |
+| `CLAUDE.md` | `@AGENTS.md`, so Claude Code reads the block | Yes |
+| `harnesspm.json` | Your configuration: trust, patches, exclusions | Yes |
+| `harnesspm.lock.json` | Every harness package and every unit's hash | Yes |
+| `package.json` | The `postinstall` or `prepare` script | Yes |
+| `.claude/`, `.agents/`, `.codex/`, `node_modules/.harnesspm/` | Links and settings for each agent | No. harnesspm lists them in `.git/info/exclude`. |
+
+```shell
+git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json
+git commit -m "chore: set up harnesspm"
+```
+
+harnesspm never edits `.gitignore`. Text outside the managed block in `AGENTS.md` stays yours. See [what is committed](../spec/01-overview.md#17-what-is-committed).
+
+## 4. Turn on a package's tools
+
+A package can ship scripts, hooks and MCP servers. They run only when your project trusts the package. Add it to `trust` in `harnesspm.json`:
+
+```json
+{
+  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
+  "trust": { "@tenphi/glaze": true }
+}
+```
+
+Then run `npx harnesspm sync`. Glaze's scripts now appear in the block:
+
+```markdown
+- Script: `npx harnesspm run glaze:inspect` — Resolve a theme or palette in light, dark and high contrast, and check every contrast floor (filter with --color, --theme) (glaze:scripts/inspect)
+```
+
+Glaze asks for its scripts to run without a prompt, so harnesspm also writes allow rules for them into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. Trust is a person's decision. When an agent runs `sync`, new tools stay pending. See [Trust and safety](./trust.md).
+
+## 5. Keep it current
+
+- A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `sync` for you.
+- After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx harnesspm sync` yourself.
+- After you edit `harnesspm.json`, run `npx harnesspm sync`.
+
+Add a check to CI, so a missed sync fails the pull request:
+
+```yaml
+- run: npm ci
+- run: npx harnesspm sync --check
+```
+
+`--check` writes nothing and ignores harnesses that people added on their machines. When something is out of date, it says what to do:
+
+```text
+$ npx harnesspm sync --check
+❌ harnesspm.lock.json is out of date
+Run `npx harnesspm sync` and commit the result.
+```
+
+## 6. Check the setup
+
+`status` lists the layers, the packages and the always-on size for each agent:
+
+```text
+$ npx harnesspm status
+📦 dependencies  @tenphi/glaze 3.1.0 · @tenphi/tasty 3.19.1
+🏢 project       harnesspm.json: no changes
+➕ added         none
+⏳ pending: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
+📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
+```
+
+`doctor` checks that per-machine files stay out of git and that the outputs are in place. Each problem names the command that fixes it:
+
+```text
+$ npx harnesspm doctor
+🔒 Local files
+  ✅ 12 per-machine files: ignored by git and not tracked
+➕ Harnesses of your own
+  ✅ .git/info/exclude can be written, so harnesspm keeps per-machine files out of git
+  ℹ️  No harness added yet. Add one with `npx -y @tenphi/harnesspm add <source>`.
+📦 Outputs
+  ✅ Committed outputs are up to date
+  ✅ 14 per-machine outputs in place
+🛡️  Trust
+  ⚠️  Off: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
+
+✅ Ready. Nothing to fix.
+```
+
+`why` names the source of any unit, and how to change it:
+
+```text
+$ npx harnesspm why glaze:rules/colors
+owner       dependency @tenphi/glaze 3.1.0
+source      node_modules/.harnesspm/pkgs/@tenphi/glaze/harness/dev.harnesspm/rules/colors.md
+repository  https://github.com/tenphi/glaze
+editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
+```
+
+## Next
+
+- [Use a package's harness](./use.md): what your agents get, and upgrades.
+- [Change upstream units](./change-upstream.md): patch, replace or exclude a rule.
+- [Share a harness from your library](./share.md).
+- [Add your own or your team's harness](./add-your-own.md).
