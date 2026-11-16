@@ -52,7 +52,7 @@ npx harnesspm add github:<owner>/<repo>
 
 To see how agents use the harness, a team can turn on telemetry in `harnesspm.json`. It is off by default, sends events only to the team's own handler (a command or a file), and never sends arguments or file contents. See [chapter 14](docs/spec/14-telemetry.md).
 
-`npx harnesspm help` lists every command. [CHANGELOG.md](CHANGELOG.md) lists the changes.
+`npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one. [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## Requirements
 

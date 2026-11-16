@@ -33,10 +33,12 @@ $ npx harnesspm init
 Created harnesspm.json
 Added `harnesspm sync` to the "postinstall" script
 CLAUDE.md now imports AGENTS.md
-⏳ pending: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
-⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
-⏳ pending: @acme/ui: 1 script (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/colors: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; a person turns it on in "trust" in harnesspm.json)
+⏳ pending: @acme/ui: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)
 harnesspm: 6 rules, 5 skills, 4 docs from 4 packages. Updated 18 files.
+To commit: AGENTS.md, CLAUDE.md, harnesspm.json, harnesspm.lock.json, package.json, package-lock.json
+Links and settings for this machine stay out of git: .git/info/exclude lists them.
 ```
 
 `init` does four things:
@@ -48,7 +50,7 @@ harnesspm: 6 rules, 5 skills, 4 docs from 4 packages. Updated 18 files.
 
 The four packages are the three `@acme` packages and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
 
-The pending lines are normal. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx harnesspm run` refuses it until then.
+The pending lines are normal. They name who turns the tools on: a person, never the agent. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx harnesspm run` refuses it until then.
 
 A pending line gives only a count. To learn what each tool does, read the package's manifest, `node_modules/.harnesspm/pkgs/<package>/harness/plugin.json`:
 
@@ -146,8 +148,8 @@ $ npx harnesspm status
 📦 dependencies  @acme/ui 4.2.0 → @acme/colors 2.1.0, @acme/styles 3.4.1
 🏢 project       harnesspm.json: no changes
 ➕ added         none
-⏳ pending: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
-⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/colors: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; a person turns it on in "trust" in harnesspm.json)
 📏 always-on     Codex 2.5 KiB of 32 KiB · Claude Code 61 lines
 ```
 
@@ -164,8 +166,8 @@ $ npx harnesspm doctor
   ✅ Committed outputs are up to date
   ✅ 20 per-machine outputs in place
 🛡️  Trust
-  ⚠️  Off: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
-  ⚠️  Off: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
+  ⚠️  Off: @acme/colors: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)
+  ⚠️  Off: @acme/styles: 1 script, 1 hook (not trusted; a person turns it on in "trust" in harnesspm.json)
 
 ✅ Ready. Nothing to fix.
 ```

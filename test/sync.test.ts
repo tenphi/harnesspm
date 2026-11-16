@@ -452,8 +452,11 @@ function fakeCommand(dir: string): void {
 
 test('init sets up a project and is safe to run twice', () => {
   const dir = withHarnesspm(chain(false));
+  writeFiles(dir, { 'package-lock.json': '{}\n' });
   const first = run(dir, 'init');
   assert.equal(first.status, 0, first.stderr);
+  // The files that belong in git, and a word on the rest, so nobody works it out from `git status`.
+  assert.match(first.stdout, /\nTo commit: AGENTS\.md, CLAUDE\.md, harnesspm\.json, harnesspm\.lock\.json, package\.json, package-lock\.json\nLinks and settings for this machine stay out of git: \.git\/info\/exclude lists them\.\n$/);
   const pkg = JSON.parse(read(dir, 'package.json'));
   assert.equal(pkg.scripts.prepare, HOOK);
   assert.equal(JSON.parse(read(dir, 'harnesspm.json')).$schema, 'https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json');

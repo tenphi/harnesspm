@@ -66,7 +66,7 @@ test('S8 untrusted: only restrictions are written; scripts, hooks and MCP server
   const dir = app();
   const result = run(dir, 'sync');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /⏳ pending: @acme\/kit: 3 scripts, 2 hooks, 2 MCP servers \(not trusted; add it to "trust" in harnesspm\.json\)/);
+  assert.match(result.stdout, /⏳ pending: @acme\/kit: 3 scripts, 2 hooks, 2 MCP servers \(not trusted; a person turns it on in "trust" in harnesspm\.json\)/);
   const settings = json(path.join(dir, '.claude/settings.local.json'));
   assert.deepEqual(settings, { permissions: { deny: ['Bash(git push --force *)'], ask: ['Bash(npm publish *)'] } });
   assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["git","push","--force"\], decision = "forbidden"\)/);
@@ -151,7 +151,7 @@ test('"pin": a new version stays off until a person approves it', () => {
 
   installPackage(dir, '@acme/kit', kitFiles('1.1.0'));
   const synced = run(dir, 'sync');
-  assert.match(synced.stdout, /pending: @acme\/kit: .*version 1\.1\.0 is not approved \(approved: 1\.0\.0\)/);
+  assert.match(synced.stdout, /pending: @acme\/kit: .*version 1\.1\.0 is not approved \(approved: 1\.0\.0\); a person approves it with `npx harnesspm approve @acme\/kit`/);
   assert.equal(json(path.join(dir, '.claude/settings.local.json')).hooks, undefined);
   const check = run(dir, 'sync', '--check');
   assert.equal(check.status, 1);
@@ -291,7 +291,7 @@ test('why explains scripts, hooks, MCP servers, sub-agents and permissions, with
   assert.match(script, /owner +dependency @acme\/kit 1\.0\.0/);
   assert.match(script, /source +node_modules\/\.harnesspm\/pkgs\/@acme\/kit\/harness\/dev\.harnesspm\/scripts\/probe\.mjs/);
   assert.match(script, /run +npx harnesspm run kit:probe/);
-  assert.match(script, /trust +no: it stays off\. Add "@acme\/kit": true to "trust" in harnesspm\.json/);
+  assert.match(script, /trust +no: it stays off\. A person turns it on with "@acme\/kit": true in "trust" in harnesspm\.json\./);
   assert.match(why('kit:hooks/check-styles'), /source +.*\/harness\/dev\.harnesspm\/hooks\.json/);
   assert.match(why('kit:mcp/docs'), /source +.*\/harness\/mcp\.json/);
   assert.match(why('kit:agents/kit-reviewer'), /source +.*\/harness\/dev\.harnesspm\/agents\/kit-reviewer\.md/);

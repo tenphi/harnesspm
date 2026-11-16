@@ -20,6 +20,8 @@ export interface Target {
   manifest: string;
   entry: boolean;
   label: string;
+  /** Files that choosing the target wrote: a new harness/plugin.json, or an added harness's manifest that now lists the entry. */
+  written: string[];
 }
 
 const MCP_TEMPLATE = `// A minimal MCP server over stdio. Replace the tool with your own.
@@ -80,23 +82,26 @@ export function resolveTarget(projectDir: string, options: { to?: string; entry?
     const dir = path.join(projectDir, 'harness');
     const manifest = path.join(dir, 'plugin.json');
     let plugin = pluginNameFor(projectDir);
+    const written: string[] = [];
     if (isFile(manifest)) {
       const raw = readJson(manifest);
       if (isRecord(raw) && typeof raw['name'] === 'string') plugin = raw['name'];
     } else {
       writeNew(manifest, `${JSON.stringify({ $schema: PLUGIN_SCHEMA, name: plugin }, null, 2)}\n`);
+      written.push(manifest);
     }
-    return { dir, plugin, manifest, entry: false, label: `the project harness (${relPosix(projectDir, dir)})` };
+    return { dir, plugin, manifest, entry: false, label: `the project's own harness (${relPosix(projectDir, dir)}/)`, written };
   }
   const warnings: string[] = [];
   const harness = loadAdded(projectDir, warnings).find((h) => h.pkg.plugin === options.to);
   if (!harness) throw new HarnessError(`No added harness with the plugin name "${options.to}". See \`npx harnesspm status\`.`);
   if (!harness.source.editable) throw new HarnessError(`${harness.source.spec} comes from npm and cannot be edited here. Change it in its own repository.`);
   const manifest = path.join(harness.pkg.harnessDir, 'plugin.json');
-  if (!options.entry) return { dir: harness.pkg.harnessDir, plugin: harness.pkg.plugin, manifest, entry: false, label: `${harness.pkg.plugin} (${harness.source.dir})` };
+  if (!options.entry) return { dir: harness.pkg.harnessDir, plugin: harness.pkg.plugin, manifest, entry: false, label: `${harness.pkg.plugin} (${harness.source.dir})`, written: [] };
   const key = remoteKey(projectDir);
   if (key === undefined) throw new HarnessError('--entry needs a repository with an "origin" remote');
   let rel = harness.pkg.ext.projects[key];
+  const written: string[] = [];
   if (rel === undefined) {
     rel = `./projects/${key.split('/').pop()}`;
     editManifest(manifest, (ext) => {
@@ -104,10 +109,11 @@ export function resolveTarget(projectDir: string, options: { to?: string; entry?
       projects[key] = rel;
       ext['projects'] = projects;
     }, harness.pkg.plugin);
+    written.push(manifest);
   }
   const dir = path.resolve(harness.pkg.harnessDir, rel);
   ensureDir(dir);
-  return { dir, plugin: harness.pkg.plugin, manifest: path.join(dir, 'plugin.json'), entry: true, label: `the entry of ${harness.pkg.plugin} for ${key} (${dir})` };
+  return { dir, plugin: harness.pkg.plugin, manifest: path.join(dir, 'plugin.json'), entry: true, label: `the entry of ${harness.pkg.plugin} for ${key} (${dir})`, written };
 }
 
 /** Creates a unit. Returns the files it wrote. */
