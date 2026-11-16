@@ -20,13 +20,16 @@ A project that uses harnesspm already gives you this:
 | The skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve` | The steps for using, sharing and improving a harness. |
 | `node_modules/.harnesspm/docs/harnesspm/llms.txt` | The specification, at the installed version. |
 
-No block in `AGENTS.md` means the project does not use harnesspm yet. Start with [Set up a project](./setup.md).
+No block in `AGENTS.md` means the project does not use harnesspm yet:
+
+- To use the harness of its dependencies, start with [Set up a project](./setup.md).
+- To share a harness from a library, start with [Share a harness from your library](./share.md). It needs only the dev dependency. The skills are then files in `node_modules/@tenphi/harnesspm/harness/skills/`.
 
 ## Rules that always apply
 
 1. **Never edit an output.** The managed block, `CLAUDE.local.md`, and the files and links in `.claude/`, `.codex/` and `.agents/skills/` are generated. Change the source that `npx harnesspm why <ID>` names.
 2. **Sync after a change.** After you change `harnesspm.json` or a harness file, and after `npm install <pkg>` or `pnpm add <pkg>`, run `npx harnesspm sync`.
-3. **Ask before you trust.** Do not add a package to `trust` in `harnesspm.json` without the person's agreement. Say what each pending tool does.
+3. **Ask before you trust.** Do not add a package to `trust` in `harnesspm.json` without the person's agreement. Say what each pending tool does: `harness/plugin.json` of its package has each script's `description`, and `"allow": true` when it asks to run without a prompt.
 4. **Do not grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the person to run `npx harnesspm approve` in their own terminal. Do not edit agent settings files to work around it.
 5. **Save a change the owner's way.** Read `AGENTS.md` and `CONTRIBUTING.md` of the repository that owns the unit. When they say nothing, show the change, ask, and use a branch and a pull request.
 6. **Keep added harnesses out of the project.** Their outputs are per machine. Never commit them.

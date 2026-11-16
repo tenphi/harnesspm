@@ -1,15 +1,17 @@
 ---
-title: Getting started
-description: Ask your agent to set up harnesspm, or run two commands. Then review what it wrote and decide which packages may run tools.
+title: Use a harness
+description: Give your agent the harness of your dependencies. Ask your agent to set up harnesspm, or run two commands, then review what it wrote and decide which packages may run tools.
 ---
 
 import { CodeGroup } from '@tenphi/cookbook/components';
 
 **In short**
 
-- Ask your agent to set up harnesspm, or run two commands yourself.
+- Ask your agent to set up harnesspm, or run two commands yourself. Your agent then gets the harness of your dependencies.
 - Review and commit what it wrote. After that, every install keeps it current.
 - Two things stay with you: which packages may run tools, and turning those tools on in your own terminal.
+
+This page is for a project that uses libraries. To ship a harness with your own library, see [Share a harness](./share-a-harness.mdx).
 
 ## 1. Set it up
 
@@ -22,8 +24,8 @@ Set up harnesspm in this project:
 install @tenphi/harnesspm as a dev dependency
 and run `npx harnesspm init`.
 
-Then tell me what it wrote, and which packages
-have tools that wait for my trust.
+Then tell me what it wrote, which packages have
+tools that wait for my trust, and what each tool does.
 Do not change "trust" yourself.
 
 Details: https://harnesspm.tenphi.me/guides/setup
@@ -53,11 +55,11 @@ You need Node.js 20 or later, and npm, pnpm, Yarn 1 or Yarn 4 with the `node-mod
 The block in `AGENTS.md` is instructions to your agent. Read it once, like code.
 
 ```shell
-git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json
+git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json package-lock.json
 git commit -m "chore: set up harnesspm"
 ```
 
-Everything else that harnesspm wrote stays on your machine, out of git. [Set up a project](./setup.md#3-commit-what-it-wrote) lists every file.
+With pnpm or Yarn, add their lockfile instead of `package-lock.json`. Everything else that harnesspm wrote stays on your machine, out of git. [Set up a project](./setup.md#3-commit-what-it-wrote) lists every file.
 
 ## 3. Decide what may run
 
@@ -78,6 +80,7 @@ Your agent cannot do step 3. harnesspm never lets an agent give itself permissio
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `harnesspm sync` for you.
 - After `npm install <pkg>` or `pnpm add <pkg>`, no script runs. harnesspm's own rule tells your agent to run `npx harnesspm sync`. When you install by hand, run it yourself.
 - A check in CI catches a missed sync. Ask for it: "Add `npx harnesspm sync --check` to our CI, after the install."
+- Does a deploy install without dev dependencies, such as `npm ci --omit=dev`? That install fails at the new `postinstall` script until you change one thing. See [Keep it current](./setup.md#5-keep-it-current).
 
 Upgrades then show up in pull requests, as changes to the block in `AGENTS.md` and to the lock.
 
@@ -90,5 +93,6 @@ A package cannot set this up by itself, and that is on purpose.
 
 ## Next
 
+- [Share a harness](./share-a-harness.mdx): the other way to start, for a library's author.
 - [Ask your agent](./ask-your-agent.mdx): prompts for the common tasks, and what stays with you.
 - [For AI agents](./agents.mdx): every step in detail. Read it when you want to know exactly what happens.

@@ -19,6 +19,7 @@ What follows for harnesspm:
 - No script runs after `npm install <pkg>` or `pnpm add <pkg>`. After them, a person or an agent runs `npx harnesspm sync`. `harnesspm sync --check` in CI catches a missed one.
 - `postinstall` of a published package also runs when others install it, so it is safe only in a private package. `prepare` does not run when a package is installed from a registry.
 - So `init` uses `postinstall` in a private package, which covers Yarn 4, and `prepare` otherwise. A published package that uses Yarn 4 runs `yarn harnesspm sync` after installs.
+- 🔍 An install without dev dependencies still runs the project's `postinstall`. In a private app that `init` set up, `npm ci --omit=dev` failed with `sh: 1: harnesspm: not found` and npm error code 127 (npm 10.9.9, Nov 2026). The same happens when `init` runs in a project that never installed harnesspm.
 
 ## Install scripts of dependencies
 
