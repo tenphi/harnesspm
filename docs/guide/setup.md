@@ -7,7 +7,7 @@ description: Every step of setting up harnesspm in a project - install, init, wh
 **In short**
 
 - Install `@tenphi/harnesspm` as a dev dependency and run `npx harnesspm init` once.
-- Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json` and `package.json`.
+- Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json`, `package.json` and the package manager's lockfile.
 - Trust is the person's decision. An agent asks first, and the person turns the tools on in their own terminal.
 - Add `npx harnesspm sync --check` to CI.
 
@@ -21,6 +21,8 @@ npm i -D @tenphi/harnesspm      # or: pnpm add -D @tenphi/harnesspm
 ```
 
 The package is `@tenphi/harnesspm`. The command it installs is `harnesspm`, so `npx harnesspm …` works in the project from now on.
+
+Do not skip this step. `init` adds a script that calls the `harnesspm` command, so it stops when the project does not list the package as a dependency.
 
 ## 2. Run `init`
 
@@ -46,7 +48,12 @@ harnesspm: 6 rules, 5 skills, 4 docs from 4 packages. Updated 18 files.
 
 The four packages are the three `@acme` packages and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
 
-The pending lines are normal. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)).
+The pending lines are normal. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx harnesspm run` refuses it until then.
+
+A pending line gives only a count. To learn what each tool does, read the package's manifest, `node_modules/.harnesspm/pkgs/<package>/harness/plugin.json`:
+
+- `scripts` has each script's `description`. `"allow": true` means that the script asks to run without a prompt.
+- Hooks are in `harness/dev.harnesspm/hooks.json`, and MCP servers in `harness/mcp.json`.
 
 ## 3. Commit what it wrote
 
@@ -56,11 +63,12 @@ The pending lines are normal. Rules, docs and skills work at once. Scripts, hook
 | `CLAUDE.md` | `@AGENTS.md`, so Claude Code reads the block. A folder with its own `AGENTS.md` that git tracks gets one too. | Yes |
 | `harnesspm.json` | Your configuration: trust, patches, exclusions | Yes |
 | `harnesspm.lock.json` | Every harness package and every unit's hash | Yes |
-| `package.json` | The `postinstall` or `prepare` script | Yes |
+| `package.json` | The dev dependency, and the `postinstall` or `prepare` script | Yes |
+| `package-lock.json`, `pnpm-lock.yaml` or `yarn.lock` | The dev dependency, as your package manager locked it | Yes |
 | `.claude/`, `.agents/`, `.codex/`, `node_modules/.harnesspm/` | Links and settings for each agent | No. harnesspm lists them in `.git/info/exclude`. |
 
 ```shell
-git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json
+git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json package-lock.json
 git commit -m "chore: set up harnesspm"
 ```
 
@@ -70,7 +78,14 @@ harnesspm never edits `.gitignore`. Text outside the managed block in `AGENTS.md
 
 ## 4. Turn on a package's tools
 
-A package can ship scripts, hooks and MCP servers. They run only when your project trusts the package. Add it to `trust` in `harnesspm.json`:
+A package can ship scripts, hooks and MCP servers. They run only when your project trusts the package.
+
+Trust is the person's decision, in two steps:
+
+1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself.
+2. The person runs `npx harnesspm approve` in their own terminal. It writes the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending, and `approve` refuses an agent.
+
+Step 1 looks like this:
 
 ```json
 {
@@ -79,21 +94,20 @@ A package can ship scripts, hooks and MCP servers. They run only when your proje
 }
 ```
 
-Then run `npx harnesspm sync`. The script of `@acme/ui` now appears in the block:
+After step 2, the script of `@acme/ui` appears in the block:
 
 ```markdown
 - Script: `npx harnesspm run acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
-`@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. Trust is a person's decision. When an agent runs `sync`, new tools stay pending. See [Trust and safety](./trust.md).
-
-An agent asks the person before it adds a package to `trust`, and then asks them to run `npx harnesspm approve` in their own terminal.
+`@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).
 
 ## 5. Keep it current
 
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `sync` for you.
 - After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx harnesspm sync` yourself.
 - After you edit `harnesspm.json`, run `npx harnesspm sync`.
+- An install without dev dependencies, such as `npm ci --omit=dev`, fails at the `postinstall` script: the `harnesspm` command is not installed then. harnesspm does not handle this by itself yet. For such an install, add `--ignore-scripts`, or change the script to `harnesspm sync || true`.
 
 Add a check to CI, so a missed sync fails the pull request:
 

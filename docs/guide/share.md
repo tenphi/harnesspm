@@ -6,11 +6,20 @@ description: Ship rules, docs, skills and tools for agents in your library's npm
 
 **In short**
 
-- Add a `harness/` folder with a `plugin.json` and one Markdown rule. Your users' agents get it on their next install.
+- Install `@tenphi/harnesspm` as a dev dependency. Then add a `harness/` folder with a `plugin.json` and one Markdown rule.
 - List `harness` in the `files` field of `package.json`, and run `harnesspm check` at `prepack`.
 - Use `extends` to pass on the harness of the libraries you build on, and `patch` to adapt their rules for your users.
+- Say in the README that the package ships a harness. Users' agents get it on the next install, once their project uses harnesspm.
 
-Your users install harnesspm in their project. Your library adds it as a dev dependency for the `prepack` check, and needs no runtime dependency on it.
+## Install harnesspm
+
+```shell
+npm i -D @tenphi/harnesspm
+```
+
+Your library needs harnesspm only to write and check its harness, so it is a dev dependency. Your users install harnesspm in their own project.
+
+The steps also ship in the package, as the `harnesspm-export` skill: `node_modules/@tenphi/harnesspm/harness/skills/harnesspm-export/SKILL.md`.
 
 ## The smallest harness
 
@@ -51,6 +60,31 @@ $ npx harnesspm check
 ✅ harness is valid
 ```
 
+## Tell your users
+
+A project that uses harnesspm gets your harness on its next install. Other projects get nothing by themselves, because no package can set itself up on install ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#install-scripts-of-dependencies)). So add a note to your README:
+
+````markdown
+## Coding agents
+
+This package ships a harness for coding agents: rules, docs and tools that match the version you install. To give it to Claude Code and Codex, set up [harnesspm](https://harnesspm.tenphi.me) in your project:
+
+```shell
+npm i -D @tenphi/harnesspm
+npx harnesspm init
+```
+````
+
+Change "rules, docs and tools" to what your harness has.
+
+## See what your users get
+
+Sharing needs no `npx harnesspm init` in the library's repository. Run it when you want to see the harness as your users' agents will:
+
+- Your own harness then shows in the block in your `AGENTS.md`, under `(this project)`, and your agents read it.
+- `npx harnesspm why <ID>` and `npx harnesspm status` work in the repository. Without `init`, `why` finds no unit there.
+- `init` adds `harnesspm sync` to the `prepare` script, and writes files to commit. [Set up a project](./setup.md) has the list.
+
 ## Rules
 
 A rule is one Markdown file about one topic, in `harness/dev.harnesspm/rules/`. Its frontmatter decides when the agent sees it:
@@ -62,7 +96,7 @@ A rule is one Markdown file about one topic, in `harness/dev.harnesspm/rules/`. 
 | `description` only | On demand. The block lists it with its description. |
 
 - Keep always-on rules short. They cost context in every session. Move details into on-demand rules, docs or skills.
-- Split a rule into small sections with `##` headings. A user can then patch one section and keep the rest.
+- When a rule has more than a few lines, split it into small sections with `##` headings. A user can then patch one section and keep the rest.
 - When a skill must run in a situation, also name it in an always-on rule: "To check a theme, use the `my-lib-theme` skill."
 
 ## Docs

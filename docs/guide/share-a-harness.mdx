@@ -1,0 +1,80 @@
+---
+title: Share a harness
+description: Ask your agent to add a harness to your library with harnesspm, decide what goes into it, publish it and tell your users.
+---
+
+**In short**
+
+- Ask your agent to add a harness to your library with harnesspm. It is a `harness/` folder in your npm package.
+- You decide what every user's agent must always know. Keep that short.
+- Publish as usual, and say in your README that the package ships a harness.
+
+This page is for a library's author. To use the harness of your dependencies, see [Use a harness](./getting-started.mdx).
+
+## 1. Ask your agent
+
+Paste this into Claude Code or Codex, in your library's repository:
+
+```text
+Use harnesspm to share a harness from this package,
+so that the agents of its users know how to use it.
+
+1. Install @tenphi/harnesspm as a dev dependency.
+2. Follow https://harnesspm.tenphi.me/guides/share.
+   The installed package has the steps too, in its
+   harnesspm-export skill.
+3. Draft one short rule about the mistakes agents
+   make with this package, from our docs and source.
+   I will correct it.
+4. Set the harness's `docs` field to our docs folder.
+5. Show me the harness before you commit.
+```
+
+Your agent knows nothing about harnesspm in this repository yet. So the prompt names harnesspm, and says where the steps are. Keep both when you write your own.
+
+Your agent then does this:
+
+- It adds harnesspm as a dev dependency. Your library gets no runtime dependency.
+- It creates `harness/` with a manifest and one rule. The rule is a draft: you know which mistakes agents really make with your library.
+- It points the harness at your docs folder, so that your users' agents get an index of your docs, for the version they installed.
+- It makes the package publish `harness/`, and adds `harnesspm check` to `prepack`, so that a broken harness cannot ship.
+
+[Share a harness from your library](./share.md) has every step.
+
+## 2. Decide what goes in
+
+A harness costs your users context, so the choice is yours:
+
+- **Always-on rules** are in every session of every user. Keep them to the few things agents get wrong with your library.
+- **Docs and skills** load only when an agent needs them. Put the details there.
+- **Tools**, such as scripts, hooks and MCP servers, run only in projects that trust your package.
+
+Then ask for what you need, and name harnesspm each time:
+
+```text
+Add a skill to our harnesspm harness that walks
+an agent through a migration to version 3.
+```
+
+Does your library build on another one that ships a harness? Ask: "Pass on the harness of `@acme/colors` in our harnesspm harness." Your users then get both, in the version you use.
+
+## 3. Try it as your users will
+
+```text
+Set up harnesspm in this repository too:
+run `npx harnesspm init`.
+```
+
+Sharing does not need this step. It is the way to see your harness as your users' agents will: it then shows in your own `AGENTS.md`, and your agent reads it. Work with it for a while, and fix what misleads it.
+
+## 4. Publish and tell your users
+
+Publish as usual. A project that uses harnesspm gets your harness on its next install.
+
+A project that does not use harnesspm yet gets nothing by itself: [no package can set itself up on install](./getting-started.mdx#why-one-step). So your README has to say it. Ask your agent to add the [note for your users](./share.md#tell-your-users).
+
+## Next
+
+- [Ask your agent](./ask-your-agent.mdx): prompts for the tasks after setup.
+- [Package format](./reference/package-format.md): every kind of unit, as lookup tables.
+- [Projects that ship a harness](/#in-real-projects), as working examples.

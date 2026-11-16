@@ -398,8 +398,19 @@ test('an override of a unit that does not exist is a warning', () => {
   assert.match(run(dir, 'sync').stderr, /exclude names tasty:rules\/renamed, which does not exist/);
 });
 
+/** Lists and installs harnesspm in the project, as `npm i -D @tenphi/harnesspm` does. */
+function withHarnesspm(dir: string, field = 'devDependencies'): string {
+  const pkg = JSON.parse(read(dir, 'package.json'));
+  pkg[field] = { ...pkg[field], '@tenphi/harnesspm': '^1.0.0' };
+  writeFiles(dir, {
+    'package.json': `${JSON.stringify(pkg, null, 2)}\n`,
+    'node_modules/@tenphi/harnesspm/package.json': JSON.stringify({ name: '@tenphi/harnesspm', version: '1.0.0' }),
+  });
+  return dir;
+}
+
 test('init sets up a project and is safe to run twice', () => {
-  const dir = chain(false);
+  const dir = withHarnesspm(chain(false));
   const first = run(dir, 'init');
   assert.equal(first.status, 0, first.stderr);
   const pkg = JSON.parse(read(dir, 'package.json'));
@@ -411,10 +422,30 @@ test('init sets up a project and is safe to run twice', () => {
 });
 
 test('init uses postinstall in a private package, and keeps an existing script', () => {
-  const dir = project({}, { private: true, scripts: { postinstall: 'patch-package' } }, false);
+  const dir = withHarnesspm(project({}, { private: true, scripts: { postinstall: 'patch-package' } }, false));
   run(dir, 'init');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, 'patch-package && harnesspm sync');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, undefined);
+});
+
+test('init stops when harnesspm is not a dependency of the project, and changes nothing', () => {
+  // The script that init adds calls the `harnesspm` command: without the dependency, the next install would fail.
+  const dir = project({}, { private: true }, false);
+  const before = read(dir, 'package.json');
+  const result = run(dir, 'init');
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /@tenphi\/harnesspm is not a dependency of this project/);
+  assert.match(result.stderr, /Run `npm i -D @tenphi\/harnesspm` first, then `npx harnesspm init`\./);
+  assert.equal(read(dir, 'package.json'), before, 'no install script is added');
+  for (const file of ['harnesspm.json', 'AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json']) assert.ok(!fs.existsSync(path.join(dir, file)), `${file} is not written`);
+
+  // Listed in any of the fields that an install reads, it passes.
+  assert.equal(run(withHarnesspm(project({}, { private: true }, false), 'dependencies'), 'init').status, 0);
+  assert.equal(run(withHarnesspm(project({}, { private: true }, false), 'optionalDependencies'), 'init').status, 0);
+  // harnesspm's own repository is the package, so it has no such dependency.
+  const own = project({}, {}, false);
+  writeFiles(own, { 'package.json': JSON.stringify({ name: '@tenphi/harnesspm', version: '1.0.0' }) });
+  assert.equal(run(own, 'init').status, 0);
 });
 
 test('status names the layers and the always-on size', () => {
