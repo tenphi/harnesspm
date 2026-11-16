@@ -9,8 +9,8 @@ hero:
     - text: Get started
       link: /getting-started
       variant: primary
-    - text: For AI agents
-      link: /agents
+    - text: Share from your library
+      link: /share
       variant: secondary
 ---
 
@@ -29,7 +29,7 @@ import whyColorsUsage from './examples/why-colors-usage.txt?raw';
     {
       label: 'Ask your agent',
       language: 'text',
-      code: 'Set up harnesspm in this project:\ninstall @tenphi/harnesspm as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, and which packages\nhave tools that wait for my trust.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
+      code: 'Set up harnesspm in this project:\ninstall @tenphi/harnesspm as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
     },
   ]}
 />
@@ -165,7 +165,7 @@ It applies in every repository on your machine, and one line in a setup script b
   <Card title="Use" href="/getting-started">
     Your project gets the harness of its dependencies. One prompt or two commands, then every install keeps it current.
   </Card>
-  <Card title="Share" href="/ask-your-agent#share-a-harness-from-your-library">
+  <Card title="Share" href="/share">
     Your library ships rules, docs, skills and tools in its npm package, and passes on the harness of the libraries it builds on.
   </Card>
   <Card title="Add your own" href="/ask-your-agent#bring-your-own-harness-to-every-repository">

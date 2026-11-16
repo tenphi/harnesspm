@@ -5,11 +5,11 @@ description: Prompts for the common harnesspm tasks, what your agent does with e
 
 **In short**
 
-- After [setup](./getting-started.mdx), your agent has three skills for harnesspm. You say what you want, and it does the steps.
+- These prompts work in a repository where `npx harnesspm init` has run: after [Use a harness](./getting-started.mdx), or after step 3 of [Share a harness](./share-a-harness.mdx). Your agent then has three skills for harnesspm.
 - Each task below has a prompt, what your agent does, and what you decide.
 - The [For AI agents](./agents.mdx) part has every step in detail.
 
-The prompts are examples. Use your own words, and your own package names in place of `@acme/ui`.
+The prompts are examples. Use your own words, and your own package names in place of `@acme/ui`. Keep the word harnesspm in each prompt: it tells your agent which tool and which skill to use.
 
 ## See what you got
 
@@ -35,7 +35,8 @@ Trust @acme/ui in harnesspm.
 
 ```text
 The contrast rule from @acme/colors is too weak for us:
-we target WCAG AAA. Change it for this project.
+we target WCAG AAA. Change it for this project
+with harnesspm.
 ```
 
 - **Your agent** finds the rule's source with `npx harnesspm why`, and adds a patch that changes one section and keeps the rest.
@@ -45,25 +46,12 @@ we target WCAG AAA. Change it for this project.
 ## Remember something
 
 ```text
-Remember: we use Conventional Commits in this repository.
+Remember this in our harnesspm harness:
+we use Conventional Commits in this repository.
 ```
 
-- **Your agent** writes a rule into the project's harness. When the note is about how you work everywhere, it goes into your own harness.
+- **Your agent** writes a rule into the project's harness. When the note is about how you work everywhere, it goes into your own harness. Without the word harnesspm, an agent may keep the note in its own memory, where your team never sees it.
 - **You decide** where it belongs, when your agent asks. A project rule reaches the whole team, so it comes as a normal change to review.
-
-## Share a harness from your library
-
-```text
-Add a harness to this package, so that the agents
-of its users know how to use it.
-
-Start with one short rule about the mistakes agents
-make with it, and point at our docs.
-```
-
-- **Your agent** creates the `harness/` folder, checks it with `npx harnesspm check`, and makes sure the package publishes it.
-- **You decide** what every user's agent must always know. Keep that short: it costs context in every session. Details belong in docs and skills.
-- Then publish as usual. Your users get the harness on their next install. See [Share a harness from your library](./share.md).
 
 ## Bring your own harness to every repository
 

@@ -6,7 +6,7 @@ A **harness** is everything a coding agent needs to use a library well: rules, d
 
 > 🧪 harnesspm is an experimental tool. Its formats and commands can still change.
 
-📚 Docs: **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**. Getting started, guides and a reference.
+📚 Docs: **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**. Short pages for people, and every step for AI agents.
 
 ## How it works
 
@@ -34,16 +34,17 @@ npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
-`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Getting started](https://harnesspm.tenphi.me/getting-started/) has the prompt.
+`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Use a harness](https://harnesspm.tenphi.me/getting-started/) has the prompt.
 
 In a library, to share its harness:
 
 ```bash
+npm i -D @tenphi/harnesspm
 npx harnesspm new rule usage
 npx harnesspm check
 ```
 
-Add `"harness"` to the `files` field of `package.json`. To add your own or your team's harness on top of every repository on your machine:
+Add `"harness"` to the `files` field of `package.json`. [Share a harness](https://harnesspm.tenphi.me/share/) has the prompt for your agent. To add your own or your team's harness on top of every repository on your machine:
 
 ```bash
 npx harnesspm add github:<owner>/<repo>
@@ -61,7 +62,7 @@ To see how agents use the harness, a team can turn on telemetry in `harnesspm.js
 
 ## Learn more
 
-- 📚 [The docs site](https://harnesspm.tenphi.me): getting started, guides and a reference.
+- 📚 [The docs site](https://harnesspm.tenphi.me): the two ways to start, prompts for your agent, guides and a reference.
 - 📐 [The specification](docs/spec/README.md): every format, rule and command. Each chapter opens with a short summary. It ships in the npm package, so agents read the version you installed.
 - 🔬 [The research notes](docs/research/): the sources behind every statement about the agents.
 - 🧩 [Projects that ship a harness](https://harnesspm.tenphi.me/#in-real-projects), as working examples.
