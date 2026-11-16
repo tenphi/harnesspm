@@ -20,6 +20,25 @@ What follows for harnesspm:
 - `postinstall` of a published package also runs when others install it, so it is safe only in a private package. `prepare` does not run when a package is installed from a registry.
 - So `init` uses `postinstall` in a private package, which covers Yarn 4, and `prepare` otherwise. A published package that uses Yarn 4 runs `yarn harnesspm sync` after installs.
 
+## Install scripts of dependencies
+
+Can a package set up its own harness when a project installs it? Only an install script of the package could do that, and package managers no longer run those by default.
+
+| Package manager | A dependency's `postinstall` | | Source |
+| --- | --- | --- | --- |
+| npm 10.9.9 | Runs. | 🔍 | Observed, Nov 2026 |
+| npm 12.2.2 | Blocked, with a warning: "1 package had install scripts blocked because they are not covered by allowScripts". `npm install-scripts approve <pkg>` allows it. | 🔍 | Observed, Nov 2026 |
+| pnpm | Blocked. "Packages not listed in `allowBuilds` are disallowed by default", and `strictDepBuilds` is `true` by default, so an install with unreviewed build scripts exits with an error. | ✅ | [build settings](https://pnpm.io/settings/build) |
+| Bun | Blocked. "Bun does not execute arbitrary lifecycle scripts by default", only for packages in `trustedDependencies`. | ✅ | [lifecycle scripts](https://bun.com/docs/pm/lifecycle) |
+
+🔍 The npm rows used a project with its own `postinstall` and `prepare`, and one dependency with a `postinstall`. With npm 12.2.2, `npm install` and `npm ci` ran both of the project's own scripts, and `npm install <pkg>` ran neither, as with npm 10.
+
+What follows for harnesspm:
+
+- A package cannot deliver its harness by itself. A project, or a person, takes one step first: `npx harnesspm init`, or `npx harnesspm add`. After that step, installs keep the harness current.
+- The hook that `init` adds is the project's own script, so it still runs with npm 12.
+- An install script in a harness package would not help. npm and Bun skip it, and with pnpm's defaults it fails the install of every project that uses the package.
+
 Also observed: pnpm's `node_modules/.pnpm` layout needs no special case. Resolving `extends` from each package's real folder finds the dependencies pnpm links next to it.
 
 ## Lockfiles

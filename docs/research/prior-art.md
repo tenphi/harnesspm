@@ -23,6 +23,7 @@ Tools and conventions for sharing agent harness, checked in November 2026. The q
 - **APM** resolves a full dependency tree for several agents, but only from git, so its versions can drift from the npm versions a project installed.
 - **Next.js 16.3** ships its docs inside the package and writes a managed block into `AGENTS.md` that points at them. It retired its "knowledge" skills in favor of that block. ([blog](https://nextjs.org/blog/next-16-3-ai-improvements))
 - **Vercel's agent evaluation** found that a short docs index in `AGENTS.md` beat skills that agents had to choose to load. ([blog](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals))
+- **pnpm 12.11** looks for skills in `skills/<name>/SKILL.md` at the root of each direct dependency during `pnpm install`. It links nothing until a person approves the package with `pnpm approve`, then links the skills into the agent folders that exist, such as `.claude/skills` and `.agents/skills`. It covers skills only, and no dependency chains. ([docs](https://pnpm.io/agent-skills)) A harness keeps its skills in `harness/skills/`, so pnpm does not see them.
 - **Earlier `package.json` field proposals** for agent assets were closed. harnesspm therefore uses a folder, not a field.
 
 ## Conclusion
