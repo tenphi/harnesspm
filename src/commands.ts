@@ -27,7 +27,7 @@ import { alwaysOnText } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -172,14 +172,23 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
 export function init(projectDir: string, out: Output): number {
   const pkgFile = path.join(projectDir, 'package.json');
   if (!isFile(pkgFile)) throw new HarnessError('No package.json here. Run `npm init` first.');
+  const raw = readTextIfExists(pkgFile)!;
+  const pkg = readJson(pkgFile);
+  if (!isRecord(pkg)) throw new HarnessError('package.json must be a JSON object');
+  // The script that `init` adds calls the `harnesspm` command. Without the dependency, the next install fails with
+  // "harnesspm: not found" (research/package-managers.md). So stop before anything changes.
+  const lists = (field: string): boolean => {
+    const dependencies = pkg[field];
+    return isRecord(dependencies) && PACKAGE_NAME in dependencies;
+  };
+  if (pkg['name'] !== PACKAGE_NAME && !['dependencies', 'devDependencies', 'optionalDependencies'].some(lists)) {
+    throw new HarnessError(`${PACKAGE_NAME} is not a dependency of this project, so the install script that \`init\` adds would fail. Run \`npm i -D ${PACKAGE_NAME}\` first, then \`${NPX_LOCAL} init\`.`);
+  }
   const configFile = path.join(projectDir, CONFIG_FILE);
   if (!isFile(configFile)) {
     writeIfChanged(configFile, `${JSON.stringify({ $schema: CONFIG_SCHEMA }, null, 2)}\n`);
     out.log(`Created ${CONFIG_FILE}`);
   }
-  const raw = readTextIfExists(pkgFile)!;
-  const pkg = readJson(pkgFile);
-  if (!isRecord(pkg)) throw new HarnessError('package.json must be a JSON object');
   // A private package is never installed by others, so `postinstall` is safe there, and Yarn 2+ runs only
   // `postinstall`. A published package uses `prepare`, which does not run when others install it.
   const scripts = isRecord(pkg['scripts']) ? pkg['scripts'] : {};

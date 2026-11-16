@@ -22,6 +22,8 @@ npm i -D @tenphi/harnesspm      # or: pnpm add -D @tenphi/harnesspm
 
 The package is `@tenphi/harnesspm`. The command it installs is `harnesspm`, so `npx harnesspm …` works in the project from now on.
 
+Do not skip this step. `init` adds a script that calls the `harnesspm` command, so it stops when the project does not list the package as a dependency.
+
 ## 2. Run `init`
 
 The examples on this site use one app. It depends on `@acme/ui`, a design system that passes on the harness of `@acme/colors` and `@acme/styles`. The packages are made up, and the output is real:
