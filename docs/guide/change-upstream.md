@@ -12,41 +12,44 @@ description: Patch, replace or exclude any unit from a dependency, find where a 
 
 ## Find the source
 
-Every line in the managed block ends with a unit ID, such as `glaze:rules/colors`. Ask harnesspm about it:
+Every line in the managed block ends with a unit ID, such as `acme-colors:rules/usage`. Ask harnesspm about it:
 
 ```text
-$ npx harnesspm why glaze:rules/colors
-owner       dependency @tenphi/glaze 3.1.0
-source      node_modules/.harnesspm/pkgs/@tenphi/glaze/harness/dev.harnesspm/rules/colors.md
-repository  https://github.com/tenphi/glaze
+$ npx harnesspm why acme-colors:rules/usage
+owner       dependency @acme/colors 2.1.0 (via @acme/ui)
+source      node_modules/.harnesspm/pkgs/@acme/colors/harness/dev.harnesspm/rules/usage.md
+patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
+repository  https://github.com/acme/colors
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 ```
 
-A unit ID is `<plugin name>:<kind>/<name>`. Every unit has one: `glaze:skills/glaze-theme`, `glaze:scripts/inspect`, `glaze:docs`. For a script, `why` also prints the command that runs it and whether its package is trusted.
+This is the site's example app: it depends on `@acme/ui`, which passes on the harness of `@acme/colors` and already patches this rule. The packages are made up, and the output is real.
+
+A unit ID is `<plugin name>:<kind>/<name>`. Every unit has one: `acme-colors:skills/acme-colors-theme`, `acme-colors:scripts/contrast`, `acme-colors:docs`. For a script, `why` also prints the command that runs it and whether its package is trusted.
 
 ## Patch a few sections of a rule
 
 A patch replaces, adds or removes sections of a rule and keeps the rest. `new patch` writes one with a copy of the rule's sections and registers it:
 
 ```text
-$ npx harnesspm new patch glaze:rules/colors
-Wrote harnesspm/patches/glaze-colors.patch.md, registered in harnesspm.json.
+$ npx harnesspm new patch acme-colors:rules/usage
+Wrote harnesspm/patches/acme-colors-usage.patch.md, registered in harnesspm.json.
 Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.
 ```
 
 Keep the sections you change and delete the others:
 
 ```markdown
-## Where colors come from
+## Contrast
 
-- Our theme lives in `src/theme.ts`. Change it there, never in the exported CSS.
-- Do not write dark or high-contrast values by hand. Glaze derives them from the light definition.
+- Body text needs a contrast ratio of at least 7 against its background. This app targets WCAG AAA.
 ```
 
-Run `npx harnesspm sync`. The block now has your section in place of Glaze's, and `why` lists the patch:
+Run `npx harnesspm sync`. The block now has your section in place of the package's, and `why` lists your patch after the one from `@acme/ui`:
 
 ```text
-patch       harnesspm/patches/glaze-colors.patch.md (from harnesspm.json)
+patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
+patch       harnesspm/patches/acme-colors-usage.patch.md (from harnesspm.json)
 ```
 
 How sections match:
@@ -62,13 +65,13 @@ When an upgrade changes a section that your patch replaces or removes, `sync` wa
 
 ```json
 {
-  "replace": { "tasty:rules/usage": "./harnesspm/tasty-usage.md" },
-  "exclude": ["glaze:skills/glaze-theme", "@tenphi/eslint-plugin-tasty"]
+  "replace": { "acme-styles:rules/usage": "./harnesspm/styles-usage.md" },
+  "exclude": ["acme-colors:skills/acme-colors-theme", "acme-styles:hooks/check-edit"]
 }
 ```
 
 - `replace` puts your file in the unit's place. The unit keeps its ID.
-- `exclude` drops a unit by ID, or a whole package by name, with everything only it extends.
+- `exclude` drops a unit by ID, or a whole package by name, such as `"@acme/styles"`, with everything only it extends.
 - An override that names a unit that does not exist gives a warning. It usually means the upstream unit was renamed.
 
 Run `npx harnesspm sync` after each change, and commit `harnesspm.json`, your files, `AGENTS.md` and the lock.

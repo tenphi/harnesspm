@@ -18,16 +18,18 @@ The specification's chapters on the [package format](https://github.com/tenphi/h
 harness/
 ├── plugin.json              Agent Plugins manifest (required)
 ├── skills/
-│   └── uikit-review/
+│   └── acme-ui-review/
 │       └── SKILL.md         Agent Skills
 ├── mcp.json                 Agent Plugins MCP configuration
 └── dev.harnesspm/           harnesspm extension folder
     ├── rules/
-    │   └── forms.md
+    │   └── usage.md
+    ├── patches/
+    │   └── acme-colors-usage.patch.md
     ├── agents/
-    │   └── uikit-reviewer.md
+    │   └── acme-ui-reviewer.md
     ├── scripts/
-    │   └── probe.mjs
+    │   └── tokens.mjs
     ├── hooks.json
     └── permissions.json
 ```
@@ -37,21 +39,22 @@ harness/
 ```json
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "uikit",
-  "description": "Rules, docs and tools for building UIs with @cube-dev/ui-kit",
+  "name": "acme-ui",
+  "description": "Rules, docs and tools for building UIs with @acme/ui",
   "extensions": {
     "dev.harnesspm": {
-      "extends": ["@tenphi/tasty", "@tenphi/glaze"],
-      "docs": "../docs/components",
+      "extends": ["@acme/colors", "@acme/styles"],
+      "docs": "../docs",
       "scripts": {
-        "probe": {
-          "file": "./dev.harnesspm/scripts/probe.mjs",
-          "description": "Capture a story's DOM and computed CSS",
+        "tokens": {
+          "file": "./dev.harnesspm/scripts/tokens.mjs",
+          "description": "Find a color token by a part of its name, with its light and dark values",
           "allow": true
         }
       },
-      "exclude": ["tasty:rules/legacy-tokens"],
-      "replace": { "tasty:rules/lint-comments": "./dev.harnesspm/rules/lint-comments.md" }
+      "exclude": ["acme-styles:hooks/check-edit"],
+      "replace": { "acme-styles:rules/components": "./dev.harnesspm/rules/components.md" },
+      "patch": { "acme-colors:rules/usage": "./dev.harnesspm/patches/acme-colors-usage.patch.md" }
     }
   }
 }
@@ -82,16 +85,16 @@ harness/
 
 | Kind | Location | ID |
 | --- | --- | --- |
-| Rule | `dev.harnesspm/rules/<name>.md` | `uikit:rules/<name>` |
-| Skill | `skills/<name>/SKILL.md` | `uikit:skills/<name>` |
-| Sub-agent | `dev.harnesspm/agents/<name>.md` | `uikit:agents/<name>` |
-| Docs | The folder in `docs` | `uikit:docs` |
-| Script | `scripts` in `plugin.json` | `uikit:scripts/<name>` |
-| Hook | `dev.harnesspm/hooks.json`, by `id` | `uikit:hooks/<id>` |
-| MCP server | `mcp.json`, by server name | `uikit:mcp/<name>` |
-| Permissions | `dev.harnesspm/permissions.json` | `uikit:permissions` |
+| Rule | `dev.harnesspm/rules/<name>.md` | `acme-ui:rules/<name>` |
+| Skill | `skills/<name>/SKILL.md` | `acme-ui:skills/<name>` |
+| Sub-agent | `dev.harnesspm/agents/<name>.md` | `acme-ui:agents/<name>` |
+| Docs | The folder in `docs` | `acme-ui:docs` |
+| Script | `scripts` in `plugin.json` | `acme-ui:scripts/<name>` |
+| Hook | `dev.harnesspm/hooks.json`, by `id` | `acme-ui:hooks/<id>` |
+| MCP server | `mcp.json`, by server name | `acme-ui:mcp/<name>` |
+| Permissions | `dev.harnesspm/permissions.json` | `acme-ui:permissions` |
 
-Commands name scripts and MCP servers as `<plugin>:<name>`: `npx harnesspm run uikit:probe`. Agents see an MCP server as `<plugin>-<server>`, such as `uikit-docs`.
+Commands name scripts and MCP servers as `<plugin>:<name>`: `npx harnesspm run acme-ui:tokens`. Agents see an MCP server as `<plugin>-<server>`, such as `acme-ui-docs`.
 
 ## Rules
 
@@ -107,12 +110,12 @@ Commands name scripts and MCP servers as `<plugin>:<name>`: `npx harnesspm run u
 
 ```markdown
 ---
-remove: ["Legacy tokens"]
+remove: ["Contrast"]
 ---
 
-## Disable comments
+## Where colors come from
 
-Use `oxlint-disable-next-line`. `eslint-disable` comments are ignored in this project.
+- In an app on Acme UI, colors are Acme UI tokens: follow the Acme UI rule.
 ```
 
 A section is a heading and everything up to the next heading of the same or a higher level. A section in the patch replaces the one with the same heading and level, or is added at the end. `remove` lists sections to remove.
@@ -121,8 +124,8 @@ A section is a heading and everything up to the next heading of the same or a hi
 
 ```markdown
 ---
-name: uikit-reviewer
-description: Reviews UI changes against UI Kit rules. Use for UI pull requests.
+name: acme-ui-reviewer
+description: Reviews UI changes against the Acme UI rules. Use for UI pull requests.
 claude: { tools: "Read, Grep, Glob", model: "sonnet" }
 codex: { model_reasoning_effort: "medium" }
 ---

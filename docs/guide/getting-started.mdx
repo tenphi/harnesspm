@@ -28,16 +28,17 @@ The package is `@tenphi/harnesspm`. The command it installs is `harnesspm`, so `
 
 ## 2. Run `init`
 
-This is the real output in an app that depends on `@tenphi/glaze` and `@tenphi/tasty`. Both ship a harness:
+The examples on this site use one app. It depends on `@acme/ui`, a design system that passes on the harness of `@acme/colors` and `@acme/styles`. The packages are made up, and the output is real:
 
 ```text
 $ npx harnesspm init
 Created harnesspm.json
 Added `harnesspm sync` to the "postinstall" script
 CLAUDE.md now imports AGENTS.md
-⏳ pending: @tenphi/glaze: 3 scripts (not trusted; add it to "trust" in harnesspm.json)
-⏳ pending: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
-harnesspm: 4 rules, 4 skills, 3 docs from 3 packages. Updated 14 files.
+⏳ pending: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/ui: 1 script (not trusted; add it to "trust" in harnesspm.json)
+harnesspm: 6 rules, 5 skills, 4 docs from 4 packages. Updated 18 files.
 ```
 
 `init` does four things:
@@ -47,7 +48,7 @@ harnesspm: 4 rules, 4 skills, 3 docs from 3 packages. Updated 14 files.
 3. It makes `CLAUDE.md` import `AGENTS.md` with an `@AGENTS.md` line, so Claude Code reads the same rules as Codex.
 4. It runs `harnesspm sync`, which finds the harness of every dependency and writes each agent's files.
 
-The three packages are Glaze, Tasty and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
+The four packages are the three `@acme` packages and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
 
 The pending lines are normal. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)).
 
@@ -78,17 +79,17 @@ A package can ship scripts, hooks and MCP servers. They run only when your proje
 ```json
 {
   "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
-  "trust": { "@tenphi/glaze": true }
+  "trust": { "@acme/ui": true }
 }
 ```
 
-Then run `npx harnesspm sync`. Glaze's scripts now appear in the block:
+Then run `npx harnesspm sync`. The script of `@acme/ui` now appears in the block:
 
 ```markdown
-- Script: `npx harnesspm run glaze:inspect` — Resolve a theme or palette in light, dark and high contrast, and check every contrast floor (filter with --color, --theme) (glaze:scripts/inspect)
+- Script: `npx harnesspm run acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
-Glaze asks for its scripts to run without a prompt, so harnesspm also writes allow rules for them into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. Trust is a person's decision. When an agent runs `sync`, new tools stay pending. See [Trust and safety](./trust.md).
+`@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. Trust is a person's decision. When an agent runs `sync`, new tools stay pending. See [Trust and safety](./trust.md).
 
 ## 5. Keep it current
 
@@ -109,6 +110,7 @@ When something is out of date, `--check` says what to do:
 
 ```text
 $ npx harnesspm sync --check
+❌ AGENTS.md: the harnesspm block is out of date
 ❌ harnesspm.lock.json is out of date
 Run `npx harnesspm sync` and commit the result.
 ```
@@ -119,11 +121,12 @@ Run `npx harnesspm sync` and commit the result.
 
 ```text
 $ npx harnesspm status
-📦 dependencies  @tenphi/glaze 3.1.0 · @tenphi/tasty 3.19.1
+📦 dependencies  @acme/ui 4.2.0 → @acme/colors 2.1.0, @acme/styles 3.4.1
 🏢 project       harnesspm.json: no changes
 ➕ added         none
-⏳ pending: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
-📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
+⏳ pending: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
+📏 always-on     Codex 2.5 KiB of 32 KiB · Claude Code 61 lines
 ```
 
 `doctor` checks that per-machine files stay out of git and that the outputs are in place. Each problem names the command that fixes it:
@@ -131,26 +134,28 @@ $ npx harnesspm status
 ```text
 $ npx harnesspm doctor
 🔒 Local files
-  ✅ 12 per-machine files: ignored by git and not tracked
+  ✅ 15 per-machine files: ignored by git and not tracked
 ➕ Harnesses of your own
   ✅ .git/info/exclude can be written, so harnesspm keeps per-machine files out of git
   ℹ️  No harness added yet. Add one with `npx -y @tenphi/harnesspm add <source>`.
 📦 Outputs
   ✅ Committed outputs are up to date
-  ✅ 14 per-machine outputs in place
+  ✅ 20 per-machine outputs in place
 🛡️  Trust
-  ⚠️  Off: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
+  ⚠️  Off: @acme/colors: 1 script (not trusted; add it to "trust" in harnesspm.json)
+  ⚠️  Off: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
 
 ✅ Ready. Nothing to fix.
 ```
 
-`why` names the source of any unit, and how to change it:
+`why` names the source of any unit, every change made to it, and how to change it yourself:
 
 ```text
-$ npx harnesspm why glaze:rules/colors
-owner       dependency @tenphi/glaze 3.1.0
-source      node_modules/.harnesspm/pkgs/@tenphi/glaze/harness/dev.harnesspm/rules/colors.md
-repository  https://github.com/tenphi/glaze
+$ npx harnesspm why acme-colors:rules/usage
+owner       dependency @acme/colors 2.1.0 (via @acme/ui)
+source      node_modules/.harnesspm/pkgs/@acme/colors/harness/dev.harnesspm/rules/usage.md
+patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
+repository  https://github.com/acme/colors
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 ```
 
