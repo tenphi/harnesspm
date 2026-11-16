@@ -42,7 +42,7 @@ harnesspm: 6 rules, 5 skills, 4 docs from 4 packages. Updated 18 files.
 `init` does four things:
 
 1. It creates `harnesspm.json`, the project's configuration. Every field is optional.
-2. It adds `harnesspm sync` to `postinstall` in a private package, or to `prepare` in a published one. Every full install now runs it.
+2. It adds `harnesspm sync` to `postinstall` in a private package, or to `prepare` in a published one. Every full install now runs it, and an install without dev dependencies skips it ([step 5](#5-keep-it-current)).
 3. It makes `CLAUDE.md` import `AGENTS.md` with an `@AGENTS.md` line, so Claude Code reads the same rules as Codex.
 4. It runs `harnesspm sync`, which finds the harness of every dependency and writes each agent's files.
 
@@ -107,7 +107,17 @@ After step 2, the script of `@acme/ui` appears in the block:
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `sync` for you.
 - After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx harnesspm sync` yourself.
 - After you edit `harnesspm.json`, run `npx harnesspm sync`.
-- An install without dev dependencies, such as `npm ci --omit=dev`, fails at the `postinstall` script: the `harnesspm` command is not installed then. harnesspm does not handle this by itself yet. For such an install, add `--ignore-scripts`, or change the script to `harnesspm sync || true`.
+- An install without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync, and the install goes on.
+
+The script that `init` adds checks first that harnesspm is installed:
+
+```json
+"scripts": {
+  "postinstall": "node -e \"try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}\" || harnesspm sync"
+}
+```
+
+Leave it as it is. A plain `harnesspm sync` fails every install without dev dependencies, because the `harnesspm` command is not installed then. A project that an older harnesspm set up has that plain form: run `npx harnesspm init` again to update it. `npx harnesspm doctor` warns until you do. The [install hook](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#the-install-hook) in the specification explains each part.
 
 Add a check to CI, so a missed sync fails the pull request:
 

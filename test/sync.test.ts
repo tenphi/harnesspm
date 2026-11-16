@@ -435,23 +435,80 @@ function withHarnesspm(dir: string, field = 'devDependencies'): string {
   return dir;
 }
 
+/** The install hook that init writes (spec 10.1). */
+const HOOK = `node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}" || harnesspm sync`;
+
+/** Runs a package.json script as npm does on Linux: with sh, from the project root, with node_modules/.bin on PATH. */
+function runScript(dir: string, script: string): number {
+  const env = { ...process.env, PATH: `${path.join(dir, 'node_modules', '.bin')}${path.delimiter}${process.env['PATH'] ?? ''}` };
+  return spawnSync('sh', ['-c', script], { cwd: dir, env, encoding: 'utf8' }).status ?? -1;
+}
+
+/** A stand-in for the `harnesspm` command: it records each run in ran.txt and fails with code 3. */
+function fakeCommand(dir: string): void {
+  writeFiles(dir, { 'node_modules/.bin/harnesspm': '#!/bin/sh\necho "$@" >> ran.txt\nexit 3\n' });
+  fs.chmodSync(path.join(dir, 'node_modules/.bin/harnesspm'), 0o755);
+}
+
 test('init sets up a project and is safe to run twice', () => {
   const dir = withHarnesspm(chain(false));
   const first = run(dir, 'init');
   assert.equal(first.status, 0, first.stderr);
   const pkg = JSON.parse(read(dir, 'package.json'));
-  assert.equal(pkg.scripts.prepare, 'harnesspm sync');
+  assert.equal(pkg.scripts.prepare, HOOK);
   assert.equal(JSON.parse(read(dir, 'harnesspm.json')).$schema, 'https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json');
   assert.match(read(dir, 'AGENTS.md'), /BEGIN:harnesspm/);
   run(dir, 'init');
-  assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, 'harnesspm sync');
+  assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, HOOK);
 });
 
 test('init uses postinstall in a private package, and keeps an existing script', () => {
   const dir = withHarnesspm(project({}, { private: true, scripts: { postinstall: 'patch-package' } }, false));
   run(dir, 'init');
-  assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, 'patch-package && harnesspm sync');
+  assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, `patch-package && (${HOOK})`);
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, undefined);
+});
+
+test('the install hook runs the sync when harnesspm is installed, and skips it without dev dependencies', () => {
+  const dir = withHarnesspm(project({}, { private: true }, false));
+  assert.equal(run(dir, 'init').status, 0);
+  const hook = JSON.parse(read(dir, 'package.json')).scripts.postinstall;
+  fakeCommand(dir);
+  assert.equal(runScript(dir, hook), 3, 'a failing sync still fails the install');
+  assert.equal(read(dir, 'ran.txt'), 'sync\n');
+  // `npm ci --omit=dev` installs no dev dependency, so the package is missing.
+  fs.rmSync(path.join(dir, 'node_modules/@tenphi'), { recursive: true });
+  assert.equal(runScript(dir, hook), 0, 'the install goes on');
+  assert.equal(read(dir, 'ran.txt'), 'sync\n', 'the sync did not run again');
+});
+
+test("next to an existing script, the install hook keeps that script's failure", () => {
+  // Without parentheses, `a && b || c` runs c when a fails, and c's success hides a's failure.
+  const dir = withHarnesspm(project({}, { private: true, scripts: { postinstall: 'node -e "process.exit(5)"' } }, false));
+  run(dir, 'init');
+  const hook = JSON.parse(read(dir, 'package.json')).scripts.postinstall;
+  assert.equal(hook, `node -e "process.exit(5)" && (${HOOK})`);
+  fakeCommand(dir);
+  assert.equal(runScript(dir, hook), 5);
+  fs.rmSync(path.join(dir, 'node_modules/@tenphi'), { recursive: true });
+  assert.equal(runScript(dir, hook), 5);
+  assert.ok(!fs.existsSync(path.join(dir, 'ran.txt')), 'the sync never ran');
+});
+
+test('init updates the install hook that it wrote before, and leaves a hand-written one', () => {
+  const dir = withHarnesspm(project({}, { private: true, scripts: { prepare: 'harnesspm sync', postinstall: 'patch-package && harnesspm sync' } }, false));
+  const result = run(dir, 'init');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Updated the "prepare" script: it now skips `harnesspm sync` when harnesspm is not installed, as in `npm ci --omit=dev`/);
+  assert.match(result.stdout, /Updated the "postinstall" script/);
+  const scripts = JSON.parse(read(dir, 'package.json')).scripts;
+  assert.equal(scripts.prepare, HOOK);
+  assert.equal(scripts.postinstall, `patch-package && (${HOOK})`);
+  assert.doesNotMatch(run(dir, 'init').stdout, /Updated/, 'a second run changes nothing');
+
+  const own = withHarnesspm(project({}, { private: true, scripts: { postinstall: 'npx harnesspm sync' } }, false));
+  run(own, 'init');
+  assert.equal(JSON.parse(read(own, 'package.json')).scripts.postinstall, 'npx harnesspm sync');
 });
 
 test('init stops when harnesspm is not a dependency of the project, and changes nothing', () => {

@@ -169,6 +169,25 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
   });
 }
 
+/**
+ * The install hook that `init` writes (spec 10.1). harnesspm is a dev dependency, so an install without dev
+ * dependencies, such as `npm ci --omit=dev`, has no `harnesspm` command. The `node -e` part ends with success
+ * exactly then, and `||` skips the sync. When harnesspm is installed, it fails, so the sync runs and a failing
+ * sync still fails the install. `node -e` and `||` work in sh, Windows cmd and Yarn's shell; `|| true` does not.
+ */
+const INSTALL_HOOK = `node -e "try{require.resolve('${PACKAGE_NAME}/package.json');process.exit(1)}catch{}" || harnesspm sync`;
+const HOOK_SCRIPTS = ['prepare', 'postinstall'] as const;
+const OLD_HOOK = 'harnesspm sync';
+
+/** The script with the guarded hook in place of the form that `init` wrote before, or undefined when it has none. */
+function upgradedHook(script: unknown): string | undefined {
+  if (typeof script !== 'string') return undefined;
+  if (script === OLD_HOOK) return INSTALL_HOOK;
+  // The parentheses keep a failure of the existing script visible: `a && b || c` runs c when a fails.
+  if (script.endsWith(` && ${OLD_HOOK}`)) return `${script.slice(0, -OLD_HOOK.length)}(${INSTALL_HOOK})`;
+  return undefined;
+}
+
 export function init(projectDir: string, out: Output): number {
   const pkgFile = path.join(projectDir, 'package.json');
   if (!isFile(pkgFile)) throw new HarnessError('No package.json here. Run `npm init` first.');
@@ -193,14 +212,26 @@ export function init(projectDir: string, out: Output): number {
   // `postinstall`. A published package uses `prepare`, which does not run when others install it.
   const scripts = isRecord(pkg['scripts']) ? pkg['scripts'] : {};
   const hookName = pkg['private'] === true ? 'postinstall' : 'prepare';
-  const has = (name: string): boolean => typeof scripts[name] === 'string' && (scripts[name] as string).includes('harnesspm sync');
-  if (!has('prepare') && !has('postinstall')) {
+  const has = (name: string): boolean => typeof scripts[name] === 'string' && (scripts[name] as string).includes(OLD_HOOK);
+  let changed = false;
+  if (!HOOK_SCRIPTS.some(has)) {
     const current = typeof scripts[hookName] === 'string' ? (scripts[hookName] as string) : undefined;
-    scripts[hookName] = current === undefined ? 'harnesspm sync' : `${current} && harnesspm sync`;
+    scripts[hookName] = current === undefined ? INSTALL_HOOK : `${current} && (${INSTALL_HOOK})`;
+    changed = true;
+    out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
+  } else {
+    for (const name of HOOK_SCRIPTS) {
+      const next = upgradedHook(scripts[name]);
+      if (next === undefined) continue;
+      scripts[name] = next;
+      changed = true;
+      out.log(`Updated the "${name}" script: it now skips \`harnesspm sync\` when harnesspm is not installed, as in \`npm ci --omit=dev\``);
+    }
+  }
+  if (changed) {
     pkg['scripts'] = scripts;
     const indent = /^\{\r?\n(\s+)/.exec(raw)?.[1] ?? '  ';
     writeIfChanged(pkgFile, `${JSON.stringify(pkg, null, indent)}\n`);
-    out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
   }
   const claude = claudeImport(projectDir);
   if (writeIfChanged(claude.file, claude.text)) out.log(`${relPosix(projectDir, claude.file)} now imports AGENTS.md`);
@@ -424,6 +455,11 @@ export function doctor(cwd: string, out: Output): number {
     if (stale > 0) outputs.push({ level: 'warn', text: `${plural(stale, 'per-machine output')} missing or out of date. Run \`${sync}\`.` });
     else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
     if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
+    const pkgJson = readJsonIfExists(path.join(projectDir, 'package.json'));
+    for (const name of HOOK_SCRIPTS) {
+      const script = isRecord(pkgJson) && isRecord(pkgJson['scripts']) ? pkgJson['scripts'][name] : undefined;
+      if (upgradedHook(script) !== undefined) outputs.push({ level: 'warn', text: `The "${name}" script runs \`harnesspm sync\` also when harnesspm is not installed, so an install without dev dependencies, such as \`npm ci --omit=dev\`, fails. Run \`${NPX_LOCAL} init\` to update it.` });
+    }
     const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
     if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${(bytes / 1024).toFixed(1)} KiB, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
   }

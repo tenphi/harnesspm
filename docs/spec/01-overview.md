@@ -96,6 +96,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Project entry** | A folder in an added harness with units for one repository, matched by its git remote. |
 | **Output** | A file or block harnesspm writes for an agent. Never edited by hand. |
 | **Managed block** | The part of a Markdown file that harnesspm writes, between `BEGIN:harnesspm` and `END:harnesspm` markers. |
+| **Install hook** | The command that `init` adds to the project's `postinstall` or `prepare` script. It runs `harnesspm sync` on every full install, and skips it when harnesspm is not installed. |
 | **Lock** | `harnesspm.lock.json`: the committed record of harness packages and unit hashes. |
 | **Executable unit** | A script, hook, MCP server or allow permission. Needs trust. |
 | **Trust** | A project's consent, in `harnesspm.json`, for a package's executable units to run. |

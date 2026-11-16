@@ -80,7 +80,7 @@ Your agent cannot do step 3. harnesspm never lets an agent give itself permissio
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `harnesspm sync` for you.
 - After `npm install <pkg>` or `pnpm add <pkg>`, no script runs. harnesspm's own rule tells your agent to run `npx harnesspm sync`. When you install by hand, run it yourself.
 - A check in CI catches a missed sync. Ask for it: "Add `npx harnesspm sync --check` to our CI, after the install."
-- Does a deploy install without dev dependencies, such as `npm ci --omit=dev`? That install fails at the new `postinstall` script until you change one thing. See [Keep it current](./setup.md#5-keep-it-current).
+- A deploy that installs without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync and goes on.
 
 Upgrades then show up in pull requests, as changes to the block in `AGENTS.md` and to the lock.
 

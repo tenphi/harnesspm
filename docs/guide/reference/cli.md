@@ -16,7 +16,7 @@ The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. 
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to `postinstall` in a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `sync`. Stops and changes nothing when `@tenphi/harnesspm` is not a dependency of the project. |
+| `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to `postinstall` in a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `sync`. The script skips the sync when harnesspm is not installed, as in `npm ci --omit=dev`. Run again, `init` updates a script from an older version. Stops and changes nothing when `@tenphi/harnesspm` is not a dependency of the project. |
 | `harnesspm sync` | Resolves the layers and writes every output. Every full install runs it. In a repository without `harnesspm.json`, or without installed dependencies, it writes only the per-machine outputs of added harnesses. With `CI=true`, it writes only per-machine outputs and leaves the committed files to `sync --check`. |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses. Fails when the block or the lock is out of date, or when a `"pin"` package has an unapproved version. For CI. |
 | `harnesspm sync --write` | Writes the committed files with `CI=true` too, for a job that commits them. |
