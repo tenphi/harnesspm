@@ -24,6 +24,20 @@ export function parseFrontmatter(text: string, file = 'file'): Parsed {
   return { data, body: text.slice(match[0].length), hasFrontmatter: true };
 }
 
+/**
+ * For a file that harnesspm only lists, such as a docs page: invalid frontmatter gives no data and an `error`,
+ * so one bad page in a dependency cannot fail a sync.
+ */
+export function tryFrontmatter(text: string, file = 'file'): Parsed & { error?: string } {
+  try {
+    return parseFrontmatter(text, file);
+  } catch (error) {
+    // The first line says what is wrong and where. The rest is a copy of the YAML.
+    const message = (error as Error).message.split('\n')[0]!.replace(/:$/, '');
+    return { data: {}, body: text.replace(FRONTMATTER, ''), hasFrontmatter: true, error: message };
+  }
+}
+
 export function withFrontmatter(data: Record<string, unknown>, body: string): string {
   if (Object.keys(data).length === 0) return body;
   return `---\n${stringify(data).trimEnd()}\n---\n\n${body.replace(/^\n+/, '')}`;

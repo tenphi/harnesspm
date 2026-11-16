@@ -73,7 +73,7 @@ Point `docs` at your docs folder, relative to `harness/`:
 "extensions": { "dev.harnesspm": { "docs": "../docs" } }
 ```
 
-The block gets one line that points at an index of these pages, at the installed version. harnesspm uses your `llms.txt` as the index when the folder has one. Otherwise it lists every `.md` and `.mdx` page with its title and `description`. Add `docs` to `files` too.
+The block gets one line that points at an index of these pages, at the installed version. harnesspm uses your `llms.txt` as the index when the folder has one. Otherwise it lists every `.md` and `.mdx` page with its title and `description`. `check` fails on a page whose frontmatter is not valid YAML. Add `docs` to `files` too.
 
 ## Skills and sub-agents
 

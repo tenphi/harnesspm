@@ -107,6 +107,17 @@ export function checkHarness(target: string): CheckResult {
       errors.push((error as Error).message);
     }
   }
+  // Docs pages in a generated index (spec 2.7): the index takes their title and description from the frontmatter.
+  if (units.docs && !isFile(path.join(units.docs.dir, 'llms.txt'))) {
+    for (const file of walkFiles(units.docs.dir)) {
+      if (!/\.mdx?$/.test(file)) continue;
+      try {
+        parseFrontmatter(readText(file), show(file));
+      } catch (error) {
+        errors.push((error as Error).message);
+      }
+    }
+  }
   let jsonOk = true;
   for (const json of ['mcp.json', path.join(NS, 'hooks.json'), path.join(NS, 'permissions.json')]) {
     const file = path.join(pkg.harnessDir, json);

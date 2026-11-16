@@ -71,7 +71,7 @@ export function writeUserOutputs(added: AddedHarness[], warnings: string[], repo
   warnings.push(...res.warnings);
   const generatedRoot = path.join(home, 'generated', 'user');
   const generated = new Map<string, string>();
-  const tools = pathTools(res, () => generatedRoot, generated);
+  const tools = pathTools(res, () => generatedRoot, generated, warnings);
   for (const rule of res.rules) if (rule.activation !== 'always' && rule.patches.length > 0) generated.set(tools.generatedRule(rule), rule.text);
   const content = renderSections(sectionsFor(res, res.packages, tools.paths, () => NPX_ANY), tools.paths);
 

@@ -252,6 +252,27 @@ test('a package excluded by a middle package is dropped with what only it extend
   assert.doesNotMatch(read(dir, 'AGENTS.md'), /@tenphi\/tasty/);
 });
 
+test('a docs page with invalid frontmatter does not fail sync: it is listed without it, with a warning', () => {
+  const dir = project({ '@acme/ui': '^1.0.0' });
+  installPackage(dir, '@acme/ui', {
+    plugin: 'acme-ui',
+    ext: { docs: '../docs' },
+    files: {
+      // An unquoted colon in a value is not valid YAML.
+      'docs/button.md': '---\ndescription: The Button component: types and sizes\n---\n\n# Button\n\nText.\n',
+      'docs/tokens.md': '---\ndescription: Every color token\n---\n\n# Tokens\n\nText.\n',
+    },
+  });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /⚠️ {2}Invalid frontmatter in node_modules\/\.harnesspm\/pkgs\/@acme\/ui\/docs\/button\.md: .+\. The docs index lists the page by its heading or file name\./);
+  assert.equal(result.stderr.match(/Invalid frontmatter/g)?.length, 1, 'one warning for the page');
+  const index = read(dir, 'node_modules/.harnesspm/docs/acme-ui/llms.txt');
+  assert.match(index, /^- \[Button\]\(node_modules\/\.harnesspm\/pkgs\/@acme\/ui\/docs\/button\.md\)$/m);
+  assert.match(index, /- \[Tokens\]\(node_modules\/\.harnesspm\/pkgs\/@acme\/ui\/docs\/tokens\.md\): Every color token/);
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+});
+
 test('one version per package: a direct dependency wins over a nested copy', () => {
   const dir = chain();
   const pkg = JSON.parse(read(dir, 'package.json'));
