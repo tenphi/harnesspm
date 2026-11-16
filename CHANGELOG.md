@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.2
+
+### Patch Changes
+
+- [#15](https://github.com/tenphi/harnesspm/pull/15) [`1c6d5b4`](https://github.com/tenphi/harnesspm/commit/1c6d5b4e3c26a44699fc57b1ab97e59831729048) Thanks [@tenphi](https://github.com/tenphi)! - A docs unit's hash in `harnesspm.lock.json` now covers only its `llms.txt` and its `.md` and `.mdx` pages. A package that points `docs` at its source folder, with pages next to the code, no longer gets a stale lock from every change to a source or test file. The next `sync` rewrites the hash of a docs folder that holds other files.
+
+- [#13](https://github.com/tenphi/harnesspm/pull/13) [`8acfdf3`](https://github.com/tenphi/harnesspm/commit/8acfdf372af46d908710ba1401786e646b776e3c) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm init` stops when `@tenphi/harnesspm` is not a dependency of the project, changes nothing, and names the command that installs it. Before, it added an install script that failed the next install with "harnesspm: not found".
+
+- [#13](https://github.com/tenphi/harnesspm/pull/13) [`71e2aab`](https://github.com/tenphi/harnesspm/commit/71e2aabc193953fc3c5c3f9440594d1426a75579) Thanks [@tenphi](https://github.com/tenphi)! - The `harnesspm-import` and `harnesspm-export` skills name every file to commit, say where to find what a pending tool does, show the `docs` field in full, and add a README note for the package's users.
+
 ## 0.4.1
 
 ### Patch Changes
