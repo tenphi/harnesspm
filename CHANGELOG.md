@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3
+
+### Patch Changes
+
+- [#18](https://github.com/tenphi/harnesspm/pull/18) [`16ec137`](https://github.com/tenphi/harnesspm/commit/16ec1374e9eb1b01591b98bef57ca34f85582c96) Thanks [@tenphi](https://github.com/tenphi)! - Clearer CLI messages. A pending tool's reason now says that a person turns it on, so agents do not take it as their next step. `init` ends with the files to commit. `new` lists every file it wrote, `plugin.json` included, and a next step that works where it wrote. `harnesspm <command> --help` shows that command's usage and options.
+
+- [#16](https://github.com/tenphi/harnesspm/pull/16) [`08c0f45`](https://github.com/tenphi/harnesspm/commit/08c0f452244c1bd124e2c11ce167990dc99a6e13) Thanks [@tenphi](https://github.com/tenphi)! - The install script that `harnesspm init` writes skips `harnesspm sync` when harnesspm is not installed, so an install without dev dependencies, such as `npm ci --omit=dev`, no longer fails with "harnesspm: not found". In a project that is already set up, run `npx harnesspm init` again to update the script; `harnesspm doctor` warns until you do.
+
 ## 0.4.2
 
 ### Patch Changes
