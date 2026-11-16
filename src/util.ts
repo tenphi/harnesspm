@@ -139,6 +139,21 @@ export function gitExcludeFile(projectDir: string): string | undefined {
   return path.isAbsolute(p) ? p : path.join(projectDir, p);
 }
 
+/**
+ * Which files below `dir` a docs unit counts, by their posix path relative to `dir` (spec 2.7): every file but
+ * the ones git ignores. An ignored file never reaches another clone, so counting it would make this machine's
+ * lock, index and check differ from everyone else's. Every file counts when git is missing, `dir` is outside a
+ * work tree, or git ignores `dir` itself, as it ignores an installed package in node_modules.
+ */
+export function gitKeeps(dir: string): (rel: string) => boolean {
+  // Exit 1: git ignores nothing here. 0 means it ignores the folder itself, 128 that there is no work tree.
+  if (spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status !== 1) return () => true;
+  const listed = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: dir, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  if (listed.status !== 0) return () => true;
+  const kept = new Set(listed.stdout.split('\0'));
+  return (rel) => kept.has(rel);
+}
+
 export function listDir(dir: string): string[] {
   try {
     return fs.readdirSync(dir).sort();

@@ -389,6 +389,31 @@ test('a docs hash covers llms.txt and the pages, so other files in the folder le
   assert.notEqual(read(dir, 'harnesspm.lock.json'), pages);
 });
 
+test('docs leave out the pages git ignores, so a local plan file changes neither the lock nor the index', () => {
+  // A dependency in the ignored node_modules still counts whole.
+  const dir = project({ '@acme/colors': '^1.0.0' }, { name: '@acme/ui', version: '1.0.0' });
+  installPackage(dir, '@acme/colors', { plugin: 'colors', ext: { docs: '../docs' }, files: { 'docs/red.md': '# Red\n' } });
+  writeFiles(dir, {
+    '.gitignore': 'node_modules\n*.plan.md\n',
+    'harness/plugin.json': JSON.stringify({ $schema: PLUGIN_SCHEMA, name: 'ui', extensions: { 'dev.harnesspm': { docs: '../src' } } }),
+    'src/Button/Button.docs.mdx': '# Button\n\nText.\n',
+  });
+  run(dir, 'sync');
+  const lock = read(dir, 'harnesspm.lock.json');
+
+  writeFiles(dir, { 'src/Button/Button.plan.md': '---\ndescription: a: b\n---\n\n# Plan\n' });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'an ignored page is not in the lock');
+  run(dir, 'sync');
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+  assert.doesNotMatch(read(dir, 'node_modules/.harnesspm/docs/ui/llms.txt'), /Plan/, 'nor in the index');
+  assert.match(read(dir, 'node_modules/.harnesspm/docs/ui/llms.txt'), /\[Button\]/);
+  assert.match(read(dir, 'node_modules/.harnesspm/docs/colors/llms.txt'), /\[Red\]/);
+  assert.equal(run(dir, 'check').status, 0, 'and check skips its invalid frontmatter');
+
+  writeFiles(dir, { 'src/Button/Button.notes.md': '# Notes\n' });
+  assert.match(run(dir, 'sync', '--check').stdout, /harnesspm\.lock\.json is out of date/, 'a new page counts before git add');
+});
+
 test('one skills folder linked to the other gets each skill once', () => {
   const dir = chain();
   fs.mkdirSync(path.join(dir, '.claude/skills'), { recursive: true });

@@ -31,6 +31,7 @@ import {
   ensureDir,
   exists,
   gitExcludeFile,
+  gitKeeps,
   isDir,
   isFile,
   isSymlink,
@@ -127,11 +128,12 @@ function nestedAgentsDirs(projectDir: string): string[] {
 /** The generated docs index (spec 2.7). A page with invalid frontmatter is listed without it, with a warning. */
 function docsIndexText(dir: string, display: (file: string) => string, warnings: string[]): string {
   const lines = ['# Docs', ''];
+  const keeps = gitKeeps(dir);
   const walk = (current: string): void => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (/\.mdx?$/.test(entry.name)) {
+      else if (/\.mdx?$/.test(entry.name) && keeps(relPosix(dir, full))) {
         const { data, body, error } = tryFrontmatter(readText(full), display(full));
         if (error !== undefined) {
           const warning = `${error}. The docs index lists the page by its heading or file name.`;

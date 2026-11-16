@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { parseFrontmatter, stringList } from './frontmatter.ts';
 import { discoverExecUnits } from './exec-units.ts';
 import { discoverUnits, loadHarnessPackage, NS, ruleMeta } from './manifest.ts';
-import { HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
+import { gitKeeps, HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
 
 export interface CheckResult {
   errors: string[];
@@ -37,6 +37,12 @@ function walkFiles(dir: string): string[] {
   };
   if (isDir(dir)) walk(dir);
   return files.sort();
+}
+
+/** A docs folder's files without the ones git ignores, as the lock and the index count them (spec 2.7). */
+function docsFiles(dir: string): string[] {
+  const keeps = gitKeeps(dir);
+  return walkFiles(dir).filter((file) => keeps(relPosix(dir, file)));
 }
 
 /** `target` is a package root, or a harness/ folder, or an added harness folder. */
@@ -108,8 +114,9 @@ export function checkHarness(target: string): CheckResult {
     }
   }
   // Docs pages in a generated index (spec 2.7): the index takes their title and description from the frontmatter.
+  const docs = units.docs ? docsFiles(units.docs.dir) : [];
   if (units.docs && !isFile(path.join(units.docs.dir, 'llms.txt'))) {
-    for (const file of walkFiles(units.docs.dir)) {
+    for (const file of docs) {
       if (!/\.mdx?$/.test(file)) continue;
       try {
         parseFrontmatter(readText(file), show(file));
@@ -139,7 +146,7 @@ export function checkHarness(target: string): CheckResult {
   }
 
   // Links in Markdown and secrets in any file.
-  const scanned = [...walkFiles(pkg.harnessDir), ...(units.docs ? walkFiles(units.docs.dir) : [])];
+  const scanned = [...walkFiles(pkg.harnessDir), ...docs];
   for (const file of [...new Set(scanned)]) {
     const text = fs.readFileSync(file, 'utf8');
     for (const [pattern, what] of SECRET_PATTERNS) if (pattern.test(text)) warnings.push(`${show(file)} looks like it contains ${what}`);
