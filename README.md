@@ -34,7 +34,7 @@ npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
-`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`.
+`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Getting started](https://harnesspm.tenphi.me/getting-started/) has the prompt.
 
 In a library, to share its harness:
 

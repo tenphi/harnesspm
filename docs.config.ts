@@ -2,8 +2,11 @@ import { defineDocsConfig } from '@tenphi/cookbook/config';
 import harnesspmPackage from './package.json' with { type: 'json' };
 
 /*
-  The site holds Home, Getting started, the guides and the reference. The
-  specification (docs/spec/) and the research notes (docs/research/) stay on
+  The site has two tabs. "For humans" is short: Home, Getting started and Ask
+  your agent, with prompts and the decisions that stay with a person. "For AI
+  agents" has every step: a start page, the guides and the reference.
+
+  The specification (docs/spec/) and the research notes (docs/research/) stay on
   GitHub, and site pages link to them there: docs/spec/ is also the docs index
   that harnesspm's own harness gives to agents, and it ships in the npm package.
 */
@@ -34,34 +37,49 @@ export default defineDocsConfig({
   content: {
     sources: [
       { id: 'home', file: 'docs-site/index.mdx', route: '/' },
+      // Pages with a route of their own are .mdx files, named one by one.
       { id: 'start', file: 'docs/guide/getting-started.mdx', route: '/getting-started' },
+      { id: 'ask', file: 'docs/guide/ask-your-agent.mdx', route: '/ask-your-agent' },
+      { id: 'agents', file: 'docs/guide/agents.mdx', route: '/agents' },
+      // Every .md file in docs/guide/ is a guide.
       { id: 'guides', glob: 'docs/guide/*.md', base: 'docs/guide', routeBase: '/guides' },
       { id: 'reference', glob: 'docs/guide/reference/*.md', base: 'docs/guide/reference', routeBase: '/reference' },
     ],
   },
   navigation: {
-    items: [
-      { label: 'Home', link: '/' },
-      '/getting-started',
+    tabs: [
       {
-        label: 'Guides',
-        items: [
-          { label: 'Use a package’s harness', link: '/guides/use' },
-          { label: 'Share from a library', link: '/guides/share' },
-          { label: 'Add your own', link: '/guides/add-your-own' },
-          { label: 'Change upstream units', link: '/guides/change-upstream' },
-          { label: 'Trust and safety', link: '/guides/trust' },
-          { label: 'Monorepos', link: '/guides/monorepos' },
-          { label: 'Cloud sessions', link: '/guides/cloud' },
-          { label: 'Telemetry', link: '/guides/telemetry' },
-        ],
+        label: 'For humans',
+        link: '/',
+        items: [{ label: 'Home', link: '/' }, '/getting-started', '/ask-your-agent'],
       },
       {
-        label: 'Reference',
+        label: 'For AI agents',
+        link: '/agents',
         items: [
-          { label: 'CLI', link: '/reference/cli' },
-          { label: 'harnesspm.json', link: '/reference/config' },
-          { label: 'Package format', link: '/reference/package-format' },
+          { label: 'Start here', link: '/agents' },
+          {
+            label: 'Guides',
+            items: [
+              { label: 'Set up a project', link: '/guides/setup' },
+              { label: 'Use a package’s harness', link: '/guides/use' },
+              { label: 'Share from a library', link: '/guides/share' },
+              { label: 'Add your own', link: '/guides/add-your-own' },
+              { label: 'Change upstream units', link: '/guides/change-upstream' },
+              { label: 'Trust and safety', link: '/guides/trust' },
+              { label: 'Monorepos', link: '/guides/monorepos' },
+              { label: 'Cloud sessions', link: '/guides/cloud' },
+              { label: 'Telemetry', link: '/guides/telemetry' },
+            ],
+          },
+          {
+            label: 'Reference',
+            items: [
+              { label: 'CLI', link: '/reference/cli' },
+              { label: 'harnesspm.json', link: '/reference/config' },
+              { label: 'Package format', link: '/reference/package-format' },
+            ],
+          },
         ],
       },
     ],

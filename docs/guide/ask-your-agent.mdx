@@ -1,0 +1,86 @@
+---
+title: Ask your agent
+description: Prompts for the common harnesspm tasks, what your agent does with each, and the decisions that stay with you.
+---
+
+**In short**
+
+- After [setup](./getting-started.mdx), your agent has three skills for harnesspm. You say what you want, and it does the steps.
+- Each task below has a prompt, what your agent does, and what you decide.
+- The [For AI agents](./agents.mdx) part has every step in detail.
+
+The prompts are examples. Use your own words, and your own package names in place of `@acme/ui`.
+
+## See what you got
+
+```text
+What did harnesspm give you from our dependencies?
+Show me `npx harnesspm status`.
+```
+
+- **Your agent** lists the packages with a harness, the tools that wait for trust, and the size of the always-on text.
+- **You** learn what your agent now knows. Each rule in `AGENTS.md` ends with an ID that names its source.
+
+## Turn on a package's tools
+
+```text
+Trust @acme/ui in harnesspm.
+```
+
+- **Your agent** adds the package to `trust` in `harnesspm.json` and runs `npx harnesspm sync`.
+- **You** run `npx harnesspm approve` in your own terminal. Until then, new hooks, MCP servers and allow rules wait.
+- **You decide** how far the trust goes: `true` follows upgrades, and `"pin"` asks again for each new version. Use `"pin"` for packages your team does not control. See [Trust and safety](./trust.md).
+
+## Fix a rule that does not fit
+
+```text
+The contrast rule from @acme/colors is too weak for us:
+we target WCAG AAA. Change it for this project.
+```
+
+- **Your agent** finds the rule's source with `npx harnesspm why`, and adds a patch that changes one section and keeps the rest.
+- **You** review the change to `AGENTS.md` in the pull request.
+- When a rule is wrong for everyone, also ask: "Propose this change to the package." See [Change upstream units](./change-upstream.md).
+
+## Remember something
+
+```text
+Remember: we use Conventional Commits in this repository.
+```
+
+- **Your agent** writes a rule into the project's harness. When the note is about how you work everywhere, it goes into your own harness.
+- **You decide** where it belongs, when your agent asks. A project rule reaches the whole team, so it comes as a normal change to review.
+
+## Share a harness from your library
+
+```text
+Add a harness to this package, so that the agents
+of its users know how to use it.
+
+Start with one short rule about the mistakes agents
+make with it, and point at our docs.
+```
+
+- **Your agent** creates the `harness/` folder, checks it with `npx harnesspm check`, and makes sure the package publishes it.
+- **You decide** what every user's agent must always know. Keep that short: it costs context in every session. Details belong in docs and skills.
+- Then publish as usual. Your users get the harness on their next install. See [Share a harness from your library](./share.md).
+
+## Bring your own harness to every repository
+
+Your own rules, notes and skills can live in a repository of yours, and apply on top of any project. Add it once per machine, in your own terminal:
+
+```shell
+npx -y @tenphi/harnesspm add github:<owner>/<repo>
+```
+
+- **You** run this command, because adding a harness is your trust decision. When an agent runs it, your rules and skills apply, and your hooks and MCP servers wait.
+- Nothing from it is ever committed to a project. See [Add your own or your team's harness](./add-your-own.md).
+
+## Check the setup
+
+```text
+Run `npx harnesspm doctor` and tell me what it reports.
+```
+
+- **Your agent** runs the checks. `doctor` changes nothing, and each problem names the command that fixes it.
+- **You decide** on any fix that changes what git tracks.
