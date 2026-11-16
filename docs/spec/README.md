@@ -1,7 +1,7 @@
 # harnesspm specification
 
 **Version:** 0.7 draft
-**Status:** Under discussion. Everything here can change before the first release.
+**Status:** Experimental. Formats and commands can still change.
 
 ## Reading order
 
@@ -31,4 +31,4 @@ Statements about how an agent behaves are marked in [research/agent-capabilities
 | --- | --- |
 | ✅ | Documented by the agent's vendor |
 | 🔍 | Observed in a real session |
-| ❓ | Not confirmed. The proof of concept must test it |
+| ❓ | Not confirmed. Test it before building on it |

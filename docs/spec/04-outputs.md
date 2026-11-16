@@ -81,19 +81,34 @@ A managed block is the only part of a Markdown file harnesspm owns. Text outside
 
 ## @tenphi/tasty 3.17.1 (via @cube-dev/ui-kit)
 
-- Never put dynamic values into styles. Use tokens. (tasty:rules/style-values)
-- When editing `**/*.tsx`, read node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md (tasty:rules/state-maps)
-- Docs: node_modules/.harnesspm/pkgs/@tenphi/tasty/docs/llms.txt
+### Style values (tasty:rules/style-values)
+
+Never put dynamic values into styles. Use tokens.
+
+- When editing `**/*.tsx`, read node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md — How to write state maps in Tasty styles (tasty:rules/state-maps)
+- Docs: node_modules/.harnesspm/pkgs/@tenphi/tasty/docs/llms.txt (tasty:docs)
 
 ## @cube-dev/ui-kit 0.206.1
 
-- …
-- Scripts: `npx harnesspm run uikit:probe <story>` — capture a story's DOM and computed CSS
+### Forms (uikit:rules/forms)
+
+Use Form.useController.
+
+- Script: `npx harnesspm run uikit:probe` — Capture a story's DOM and computed CSS (uikit:scripts/probe)
 
 <!-- END:harnesspm -->
 ```
 
-Every line carries its unit ID, so an agent can find the source with `harnesspm why`.
+| Unit | In the block |
+| --- | --- |
+| Package | A `##` heading with its name and version, and `(via <package>)` when it comes through `extends`. Upstream packages come first. |
+| Always-on rule | A `###` heading with the rule's title and ID, then its text. Headings inside the rule move down two levels. |
+| File-scoped rule | `- When editing <globs>, read <file> — <description> (<ID>)` |
+| On-demand rule | `- <description>: read <file> (<ID>)` |
+| Docs | `- Docs: <index> (<ID>)`. The index is the package's own `llms.txt`, or the one harnesspm generates in `node_modules/.harnesspm/docs/<plugin name>/`. |
+| Script with a `description`, from the project or a trusted package | ``- Script: `npx harnesspm run <plugin name>:<script>` — <description> (<ID>)`` |
+
+Every heading and line of a unit carries its ID, so an agent can find the source with `harnesspm why`.
 
 A blank line follows the BEGIN marker and comes before the END marker, so Markdown formatters such as Prettier leave the block as it is. A block written without them, as harnesspm 0.3 did, still counts as up to date, and the next `sync` rewrites it once.
 

@@ -4,7 +4,7 @@ Instructions for agents and people who work on this repository.
 
 ## What this repository is
 
-The specification of **harnesspm**, the harness package manager, and its proof of concept. The spec lives in `docs/spec/`, background research in `docs/research/`, the code in `src/` and its tests in `test/`.
+The specification of **harnesspm**, the harness package manager, and its implementation. The spec lives in `docs/spec/`, background research in `docs/research/`, the code in `src/` and its tests in `test/`.
 
 ## Developing
 
