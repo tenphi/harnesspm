@@ -201,6 +201,7 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
 3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. A page with invalid frontmatter is listed without it, and `sync` warns: it MUST NOT fail, because a project cannot fix a dependency's page. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
+5. A file that git ignores is not part of the docs: the index, the lock and `check` leave it out. Such a file, like an agent's local plan next to the pages, never reaches another clone, so counting it would make one machine's lock differ from CI's. This applies when the docs folder is in a git work tree and git does not ignore the folder itself. An installed package in `node_modules` counts whole.
 
 ## 2.8 Unit IDs
 
