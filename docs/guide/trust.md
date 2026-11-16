@@ -24,7 +24,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 Until you trust a package, its executable units are **pending**. `sync` lists them and does not fail:
 
 ```text
-⏳ pending: @tenphi/tasty: 1 script (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
 ```
 
 ## Trust a package
@@ -32,8 +32,8 @@ Until you trust a package, its executable units are **pending**. `sync` lists th
 ```json
 {
   "trust": {
-    "@cube-dev/ui-kit": true,
-    "@tenphi/glaze": "pin"
+    "@acme/ui": true,
+    "@acme/colors": "pin"
   }
 }
 ```
@@ -44,7 +44,7 @@ Until you trust a package, its executable units are **pending**. `sync` lists th
 | `"pin"` | Active only in the version approved in the lock. A new version stays off until `npx harnesspm approve`. | Packages your team does not control |
 | missing | Off. The units stay pending. | Everything else |
 
-Then run `npx harnesspm sync`. Trust never passes through `extends`: trusting UI Kit does not trust Tasty, even when UI Kit passes Tasty's harness on. Adding a harness with `npx harnesspm add` is your trust decision for that harness, so added harnesses need no entry.
+Then run `npx harnesspm sync`. Trust never passes through `extends`: trusting `@acme/ui` does not trust `@acme/colors`, even when `@acme/ui` passes its harness on. Adding a harness with `npx harnesspm add` is your trust decision for that harness, so added harnesses need no entry.
 
 ## What harnesspm allows
 

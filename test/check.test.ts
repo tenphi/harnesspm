@@ -31,6 +31,22 @@ test('files may list entries inside the docs folder, to leave some of it out', (
   assert.match(run(dir, 'check').stdout, /"files" must include the docs folder "docs", or entries inside it/);
 });
 
+test('check reports a docs page with invalid frontmatter, unless the package has its own llms.txt', () => {
+  const dir = library(
+    { docs: '../docs' },
+    // An unquoted colon in a value is not valid YAML.
+    { 'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nText.\n', 'docs/button.md': '---\ndescription: The Button component: types and sizes\n---\n\n# Button\n' },
+    { files: ['harness', 'docs'] },
+  );
+  const result = run(dir, 'check');
+  assert.equal(result.status, 1);
+  assert.match(result.stdout + result.stderr, /Invalid frontmatter in docs\/button\.md/);
+  // With its own index, harnesspm never reads the pages.
+  writeFiles(dir, { 'docs/llms.txt': '# Docs\n\n- [Button](button.md)\n' });
+  const own = run(dir, 'check');
+  assert.equal(own.status, 0, own.stdout + own.stderr);
+});
+
 test('check reports the problems that would ship', () => {
   const dir = library(
     { extend: ['typo'], docs: '../docs' },

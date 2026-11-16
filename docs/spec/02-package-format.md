@@ -49,7 +49,7 @@ harness/
 
 Every file is optional except `plugin.json`. A package that has only one rule is valid.
 
-The extension folder name is the harnesspm namespace, `dev.harnesspm`, based on the domain `harnesspm.dev`. See [13-open-questions.md](13-open-questions.md#133-extension-namespace).
+The extension folder name is the harnesspm namespace, `dev.harnesspm`. See [13-open-questions.md](13-open-questions.md#133-extension-namespace).
 
 ## 2.3 Manifest
 
@@ -199,7 +199,7 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 
 1. The path is relative to `harness/`. It MAY point outside `harness/` but MUST stay inside the package.
 2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
-3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. To leave pages out, write an `llms.txt`.
+3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. A page with invalid frontmatter is listed without it, and `sync` warns: it MUST NOT fail, because a project cannot fix a dependency's page. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
 
 ## 2.8 Unit IDs
@@ -237,4 +237,5 @@ Commands name scripts and MCP servers in a short form, `<plugin name>:<name>`: `
 - a skill breaks the Agent Skills format;
 - a harnesspm extension field is unknown or has the wrong type;
 - a path points outside the package, or at a file the npm tarball would not include;
-- a link in a rule, skill or doc points at a file that will not be published.
+- a link in a rule, skill or doc points at a file that will not be published;
+- a docs page in a generated index ([2.7](#27-docs)) has invalid frontmatter.

@@ -73,7 +73,7 @@ An added harness can hold units for one repository. `projects` in its `plugin.js
     "dev.harnesspm": {
       "docs": "./notes",
       "projects": {
-        "github.com/cube-js/cube-ui-kit": "./projects/cube-ui-kit"
+        "github.com/acme/app": "./projects/app"
       }
     }
   }

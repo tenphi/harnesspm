@@ -3,7 +3,7 @@
 **In short**
 
 - 13.1 to 13.8 are **decided**. They stay here as a record of why. A cloud probe settled 13.8.
-- 13.9 to 13.11 wait for the **proof of concept**. Each names the test or signal that settles it.
+- 13.9 to 13.11 are **open**. Each names the test or signal that settles it.
 - 13.12 lists options that were removed and may come back.
 
 ## Decided
@@ -22,9 +22,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.3 Extension namespace
 
-**Decision:** `dev.harnesspm`, based on the domain `harnesspm.dev`. Agent Plugins requires the namespace to be based on a domain the client controls.
-
-**Before the first public release:** register `harnesspm.dev`. It was not registered when checked through RDAP in November 2026. The namespace cannot change after release, because every published harness uses it as a folder name.
+**Decision:** `dev.harnesspm`. The namespace cannot change, because every published harness uses it as a folder name.
 
 ### 13.4 Sub-agents for Codex
 
@@ -47,7 +45,7 @@ A team cannot mark a rule as one a person cannot exclude. Nothing could enforce 
 
 Not needed. A cloud probe in November 2026 showed that a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. Team hooks and permissions stay in that per-machine file.
 
-## Waiting for the proof of concept
+## Open
 
 ### 13.9 Upgrade report
 
@@ -55,11 +53,11 @@ After an upgrade, the diff of the managed block and the lock shows what changed.
 
 ### 13.10 Structured project relations
 
-A person's notes describe how repositories relate, such as "UI Kit builds on Tasty". v1 keeps them as plain notes. **Signal:** a task in the proof of concept needs harnesspm itself to act on relations, such as finding local clones of related repositories.
+A person's notes describe how repositories relate, such as "UI Kit builds on Tasty". v1 keeps them as plain notes. **Signal:** a real task needs harnesspm itself to act on relations, such as finding local clones of related repositories.
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled by the proof of concept:
+Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled so far:
 
 - Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
 - Codex marks commands its model runs with `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, so rule 4 in [6.2](06-trust.md#62-trusting-a-package) covers Codex too.

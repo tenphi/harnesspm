@@ -1,0 +1,6 @@
+owner       dependency @acme/colors 2.1.0 (via @acme/ui)
+source      node_modules/.harnesspm/pkgs/@acme/colors/harness/dev.harnesspm/rules/usage.md
+patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
+patch       harnesspm/patches/acme-colors-usage.patch.md (from harnesspm.json)
+repository  https://github.com/acme/colors
+editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.

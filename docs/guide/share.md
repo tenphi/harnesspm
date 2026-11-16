@@ -73,7 +73,7 @@ Point `docs` at your docs folder, relative to `harness/`:
 "extensions": { "dev.harnesspm": { "docs": "../docs" } }
 ```
 
-The block gets one line that points at an index of these pages, at the installed version. harnesspm uses your `llms.txt` as the index when the folder has one. Otherwise it lists every `.md` and `.mdx` page with its title and `description`. Add `docs` to `files` too.
+The block gets one line that points at an index of these pages, at the installed version. harnesspm uses your `llms.txt` as the index when the folder has one. Otherwise it lists every `.md` and `.mdx` page with its title and `description`. `check` fails on a page whose frontmatter is not valid YAML. Add `docs` to `files` too.
 
 ## Skills and sub-agents
 
@@ -117,7 +117,7 @@ When your library builds on another library that ships a harness, list it in `ex
 ```json
 "extensions": {
   "dev.harnesspm": {
-    "extends": ["@tenphi/glaze", "@tenphi/tasty"]
+    "extends": ["@acme/colors", "@acme/styles"]
   }
 }
 ```
@@ -131,12 +131,12 @@ When your library builds on another library that ships a harness, list it in `ex
 You can change an upstream unit for all your users, with the same fields a project uses: `exclude`, `replace` and `patch`. To patch a rule, use harnesspm in your library's own repository too (`npx harnesspm init`), then:
 
 ```text
-$ npx harnesspm new patch glaze:rules/colors
-Wrote harness/dev.harnesspm/patches/glaze-colors.patch.md, registered in harness/plugin.json.
+$ npx harnesspm new patch acme-colors:rules/usage
+Wrote harness/dev.harnesspm/patches/acme-colors-usage.patch.md, registered in harness/plugin.json.
 Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.
 ```
 
-Because the rule reaches your repository through your own harness's `extends`, `new patch` registers the patch in `harness/plugin.json`, so your users get the change too. UI Kit does this: it patches Glaze's colors rule so that apps on UI Kit use UI Kit's palette tokens.
+Because the rule reaches your repository through your own harness's `extends`, `new patch` registers the patch in `harness/plugin.json`, so your users get the change too. In the site's example, `@acme/ui` patches the colors rule of `@acme/colors`, so that apps on `@acme/ui` use its tokens.
 
 With harnesspm in your repository, your own agents also read your harness, in the project layer. Contributors see what users see.
 
@@ -144,4 +144,4 @@ With harnesspm in your repository, your own agents also read your harness, in th
 
 - [Package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md) in the specification: every unit kind, manifest field and validation rule.
 - [Package format reference](./reference/package-format.md): the same, as lookup tables.
-- harnesspm's own harness is a small example: [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness).
+- harnesspm's own harness is a small example: [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness). The home page lists [more projects that ship one](/#in-real-projects).

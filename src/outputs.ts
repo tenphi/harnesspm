@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { caller, harnesspmHome } from './added.ts';
 import { applyEntries, desiredEntries, tomlTables, trustOf, type ExecEntries, type HookEntry, type Targets } from './exec-outputs.ts';
 import { claudeJsonFile } from './homes.ts';
-import { parseFrontmatter } from './frontmatter.ts';
+import { tryFrontmatter } from './frontmatter.ts';
 import { buildLock, LOCK_FILE, patchDrift, readLock, sameLock, serializeLock, type Lock } from './lock.ts';
 import {
   alwaysOnText,
@@ -124,14 +124,19 @@ function nestedAgentsDirs(projectDir: string): string[] {
     .sort();
 }
 
-function docsIndexText(dir: string, display: (file: string) => string): string {
+/** The generated docs index (spec 2.7). A page with invalid frontmatter is listed without it, with a warning. */
+function docsIndexText(dir: string, display: (file: string) => string, warnings: string[]): string {
   const lines = ['# Docs', ''];
   const walk = (current: string): void => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (/\.mdx?$/.test(entry.name)) {
-        const { data, body } = parseFrontmatter(readText(full), full);
+        const { data, body, error } = tryFrontmatter(readText(full), display(full));
+        if (error !== undefined) {
+          const warning = `${error}. The docs index lists the page by its heading or file name.`;
+          if (!warnings.includes(warning)) warnings.push(warning);
+        }
         const first = headings(body.split('\n')).find((h) => h.level === 1);
         const title = typeof data['title'] === 'string' ? data['title'] : (first?.text ?? entry.name.replace(/\.mdx?$/, ''));
         const description = typeof data['description'] === 'string' ? `: ${data['description']}` : '';
@@ -150,7 +155,7 @@ export const isUserLevel = (pkg: ResolvedPackage): boolean => pkg.layer === 'add
  * Paths that outputs show: stable package paths for dependencies, project-relative paths inside the
  * project, absolute paths elsewhere. Generated docs indexes are added to `generated`.
  */
-export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage) => string, generated: Map<string, string>) {
+export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage) => string, generated: Map<string, string>, warnings: string[]) {
   const projectDir = res.projectDir;
   const show = (abs: string): string => (abs.startsWith(projectDir + path.sep) ? relPosix(projectDir, abs) : abs);
   const display = (file: string): string => {
@@ -171,7 +176,7 @@ export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage)
       const llms = path.join(docs.dir, 'llms.txt');
       if (isFile(llms)) return display(llms);
       const file = path.join(generatedRoot(pkg), 'docs', pkg.plugin, 'llms.txt');
-      generated.set(file, docsIndexText(docs.dir, display));
+      generated.set(file, docsIndexText(docs.dir, display, warnings));
       return show(file);
     },
   };
@@ -213,7 +218,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   const addedExcludes = new Set<string>();
   const teamGen = path.join(projectDir, STATE_DIR);
   const addedGen = path.join(harnesspmHome(), 'generated', repoSlug(projectDir));
-  const tools = pathTools(full, (pkg) => (pkg.layer === 'added' ? addedGen : teamGen), generated);
+  const tools = pathTools(full, (pkg) => (pkg.layer === 'added' ? addedGen : teamGen), generated, warnings);
 
   if (team) for (const pkg of full.packages) if (pkg.layer === 'dependencies') links.set(path.join(projectDir, STATE_DIR, 'pkgs', pkg.name), pkg.dir);
 
@@ -276,7 +281,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     warnings.push(...patchDrift(previous, lock));
     const teamGenerated = new Map<string, string>();
     const teamLock = lock;
-    const teamTools = pathTools(team, () => teamGen, teamGenerated);
+    const teamTools = pathTools(team, () => teamGen, teamGenerated, warnings);
     const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? NPX_LOCAL : undefined);
     // The root block holds what the root reaches and what every workspace shares (spec 3.6, 4.5).
     const keys = team.workspaces.map((ws) => ws.key);

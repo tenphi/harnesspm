@@ -1,15 +1,16 @@
 ---
 /**
  * A managed block from AGENTS.md, as a file view: long lines wrap, headings
- * stand out and every unit ID, such as `(glaze:rules/colors)`, is highlighted.
+ * stand out and every unit ID, such as `(acme-colors:rules/usage)`, is highlighted.
  *
- *   <ManagedBlock marks={{ '#### Where colors come from': 'patched by uikit' }} />
+ *   <ManagedBlock marks={{ '#### Where colors come from': 'patched by acme-ui' }} />
  *
- * The text is a real excerpt in ../examples/uikit-app-agents.md. Edit it
- * there; a line that is only `…` marks a cut. `marks` puts a note after the
- * line with exactly that text. Styles are in ./file-view.ts.
+ * The text is a real excerpt in ../examples/app-agents.md, from the example
+ * app that ../examples/acme.mjs writes. A line that is only `…` marks a cut.
+ * `marks` puts a note after the line with exactly that text. Styles are in
+ * ./file-view.ts.
  */
-import excerpt from '../examples/uikit-app-agents.md?raw';
+import excerpt from '../examples/app-agents.md?raw';
 import { breakable } from './breakable.ts';
 import { FileView } from './file-view.ts';
 

@@ -15,10 +15,10 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 ```json
 {
   "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
-  "exclude": ["@tenphi/eslint-plugin-tasty", "glaze:skills/glaze-theme"],
-  "replace": { "tasty:rules/usage": "./harnesspm/tasty-usage.md" },
-  "patch": { "glaze:rules/colors": "./harnesspm/patches/glaze-colors.patch.md" },
-  "trust": { "@cube-dev/ui-kit": true, "@tenphi/glaze": "pin" },
+  "exclude": ["acme-colors:skills/acme-colors-theme", "acme-styles:hooks/check-edit"],
+  "replace": { "acme-styles:rules/usage": "./harnesspm/styles-usage.md" },
+  "patch": { "acme-colors:rules/usage": "./harnesspm/patches/acme-colors-usage.patch.md" },
+  "trust": { "@acme/ui": true, "@acme/colors": "pin" },
   "telemetry": { "events": "all", "send": { "file": ".harnesspm/events.jsonl" } }
 }
 ```
@@ -26,7 +26,7 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `$schema` | string | — | The JSON schema, for editors. |
-| `exclude` | string[] | `[]` | Packages or unit IDs to drop, with everything only they extend. |
+| `exclude` | string[] | `[]` | Unit IDs or package names, such as `"@acme/styles"`, to drop, with everything only they extend. |
 | `replace` | object | `{}` | Unit ID → path of a project file that takes its place. |
 | `patch` | object | `{}` | Rule ID → path of a patch that changes some of its sections. |
 | `trust` | object | `{}` | Package name → `true` (follows upgrades) or `"pin"` (each new version needs `harnesspm approve`). Lets the package's scripts, hooks, MCP servers and allow rules run. |

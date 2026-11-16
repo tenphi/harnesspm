@@ -31,7 +31,7 @@ harnesspm only reads files. It never runs code from a package to find its harnes
 | Script | A line in the block with the command that runs it, once the package is trusted. |
 | Hook, MCP server, permission | Entries in each agent's settings, once the package is trusted. |
 
-Every line in the block ends with the unit's ID, such as `glaze:rules/colors`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
+Every line in the block ends with the unit's ID, such as `acme-colors:rules/usage`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
 
 ## Stable paths
 
@@ -48,8 +48,8 @@ A job that does not install dependencies, such as a review bot, runs `npx -y @te
 The pull request shows the change. The block names each package's version, and the lock records every unit's hash:
 
 ```diff
--## @tenphi/tasty 3.19.0
-+## @tenphi/tasty 3.19.1
+-## @acme/ui 4.2.0
++## @acme/ui 4.3.0
 ```
 
 When an upgrade changes a section that your patch replaces or removes, `sync` warns and names the section, because your patch may be out of date.
@@ -63,7 +63,7 @@ The block points at one path per package, so harnesspm uses one version of each 
 Always-on text is in every session. `npx harnesspm status` reports its size for each agent:
 
 ```text
-📏 always-on     Codex 3.1 KiB of 32 KiB · Claude Code 51 lines
+📏 always-on     Codex 2.5 KiB of 32 KiB · Claude Code 61 lines
 ```
 
 Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
