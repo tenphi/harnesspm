@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { installPackage, isLink, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
+import { installPackage, isLink, PLUGIN_SCHEMA, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
 
 const TASTY_RULES = {
   'dev.harnesspm/rules/style-values.md': '# Style values\n\nNever put dynamic values into styles. Use tokens.\n',
@@ -361,6 +361,32 @@ test("the lock leaves out the project's own version, so a release changes nothin
   assert.equal(run(dir, 'sync', '--check').status, 0, 'no false failure on the old form');
   assert.match(run(dir, 'sync').stdout, /Updated 1 file/);
   assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+});
+
+test('a docs hash covers llms.txt and the pages, so other files in the folder leave the lock as it is', () => {
+  // A component library keeps its pages next to its source and points `docs` at that folder.
+  const dir = project({}, { name: '@acme/ui', version: '1.0.0' });
+  writeFiles(dir, {
+    'harness/plugin.json': JSON.stringify({ $schema: PLUGIN_SCHEMA, name: 'ui', extensions: { 'dev.harnesspm': { docs: '../src' } } }),
+    'src/Button/Button.docs.mdx': '# Button\n\nText.\n',
+    'src/Button/Button.tsx': 'export const Button = 1;\n',
+  });
+  run(dir, 'sync');
+  const lock = read(dir, 'harnesspm.lock.json');
+
+  writeFiles(dir, { 'src/Button/Button.tsx': 'export const Button = 2;\n', 'src/Button/Button.test.tsx': 'test();\n' });
+  assert.equal(run(dir, 'sync', '--check').status, 0, 'a source or test file is not a docs page');
+  assert.equal(read(dir, 'harnesspm.lock.json'), lock);
+
+  writeFiles(dir, { 'src/Button/Button.docs.mdx': '# Button\n\nNew text.\n' });
+  assert.match(run(dir, 'sync', '--check').stdout, /harnesspm\.lock\.json is out of date/, 'a page is');
+  run(dir, 'sync');
+  const pages = read(dir, 'harnesspm.lock.json');
+
+  writeFiles(dir, { 'src/llms.txt': '# UI\n\n- [Button](Button/Button.docs.mdx)\n' });
+  assert.match(run(dir, 'sync', '--check').stdout, /harnesspm\.lock\.json is out of date/, 'and so is llms.txt');
+  run(dir, 'sync');
+  assert.notEqual(read(dir, 'harnesspm.lock.json'), pages);
 });
 
 test('one skills folder linked to the other gets each skill once', () => {
