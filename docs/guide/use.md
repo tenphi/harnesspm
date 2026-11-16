@@ -10,7 +10,7 @@ description: What a project gets from the harness of its dependencies, how upgra
 - Your agents read rules and pointers in `AGENTS.md`, and skills, sub-agents and tools in their own folders.
 - Upgrades show up in pull requests as changes to the managed block and the lock.
 
-Set the project up first with [Getting started](./getting-started.mdx).
+Set the project up first with [Set up a project](./setup.md).
 
 ## Which packages count
 

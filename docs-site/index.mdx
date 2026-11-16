@@ -9,8 +9,8 @@ hero:
     - text: Get started
       link: /getting-started
       variant: primary
-    - text: Share from your library
-      link: /guides/share
+    - text: For AI agents
+      link: /agents
       variant: secondary
 ---
 
@@ -26,10 +26,15 @@ import whyColorsUsage from './examples/why-colors-usage.txt?raw';
     { label: 'npm', language: 'shell', code: 'npm i -D @tenphi/harnesspm\nnpx harnesspm init' },
     { label: 'pnpm', language: 'shell', code: 'pnpm add -D @tenphi/harnesspm\npnpm exec harnesspm init' },
     { label: 'yarn', language: 'shell', code: 'yarn add -D @tenphi/harnesspm\nyarn harnesspm init' },
+    {
+      label: 'Ask your agent',
+      language: 'text',
+      code: 'Set up harnesspm in this project:\ninstall @tenphi/harnesspm as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, and which packages\nhave tools that wait for my trust.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
+    },
   ]}
 />
 
-Run these once in a project. `init` makes every install run `harnesspm sync`, which updates what your agents read.
+Run these once in a project, or ask your agent to. `init` makes every install run `harnesspm sync`, which updates what your agents read.
 
 <Callout kind="note" title="Experimental">
   harnesspm is an experimental tool. Its formats and commands can still change.
@@ -158,15 +163,17 @@ It applies in every repository on your machine, and one line in a setup script b
 
 <CardGrid>
   <Card title="Use" href="/getting-started">
-    Your project gets the harness of its dependencies. Two commands, then every install keeps it current.
+    Your project gets the harness of its dependencies. One prompt or two commands, then every install keeps it current.
   </Card>
-  <Card title="Share" href="/guides/share">
+  <Card title="Share" href="/ask-your-agent#share-a-harness-from-your-library">
     Your library ships rules, docs, skills and tools in its npm package, and passes on the harness of the libraries it builds on.
   </Card>
-  <Card title="Add your own" href="/guides/add-your-own">
+  <Card title="Add your own" href="/ask-your-agent#bring-your-own-harness-to-every-repository">
     Your team's or your own workflow, notes and skills, on top of any repository and never committed.
   </Card>
 </CardGrid>
+
+You say what you want, and your agent does the steps. [For AI agents](/agents) has every step in detail, for your agent and for you.
 
 Every format, rule and command is in [the specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md), on GitHub. It also ships in the npm package, so your agents read the version you installed.
 
