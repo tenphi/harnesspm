@@ -28,18 +28,25 @@ export interface Lock {
   telemetry?: { send: Send };
 }
 
-function hashDir(dir: string): string {
+function hashDir(dir: string, includes: (rel: string) => boolean = () => true): string {
   const parts: string[] = [];
   const walk = (current: string): void => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(current, entry.name);
+      const rel = relPosix(dir, full);
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) parts.push(`${relPosix(dir, full)}\n${readText(full)}`);
+      else if (entry.isFile() && includes(rel)) parts.push(`${rel}\n${readText(full)}`);
     }
   };
   walk(dir);
   return hash(parts.join('\n\0\n'));
 }
+
+/**
+ * A docs unit is its `llms.txt` and its `.md` and `.mdx` pages (spec 2.7). A docs folder can be a package's
+ * source folder, with pages next to the code, so a change to any other file leaves the docs hash as it is.
+ */
+const isDocsFile = (rel: string): boolean => rel === 'llms.txt' || /\.mdx?$/.test(rel);
 
 /** Where a package's tarball comes from, as the package manager's lockfile records it. */
 export interface Origin {
@@ -149,7 +156,7 @@ export function buildLock(res: Resolution, previous: Lock | undefined, telemetry
   const units: Lock['units'] = {};
   for (const rule of res.rules) units[rule.id] = { kind: 'rules', hash: hash(rule.text) };
   for (const skill of res.skills) units[skill.id] = { kind: 'skills', hash: hashDir(skill.dir) };
-  for (const docs of res.docs) units[docs.id] = { kind: 'docs', hash: hashDir(docs.dir) };
+  for (const docs of res.docs) units[docs.id] = { kind: 'docs', hash: hashDir(docs.dir, isDocsFile) };
   for (const script of res.scripts) units[script.id] = { kind: 'scripts', hash: isFile(script.file) ? hash(readText(script.file)) : 'missing' };
   for (const hook of res.hooks) units[hook.id] = { kind: 'hooks', hash: hash(JSON.stringify([hook.event, hook.matchers, hook.run, hook.timeout ?? null])) };
   for (const server of res.mcp) units[server.id] = { kind: 'mcp', hash: hash(JSON.stringify(server.config)) };
