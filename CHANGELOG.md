@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- [#10](https://github.com/tenphi/harnesspm/pull/10) [`f4a5899`](https://github.com/tenphi/harnesspm/commit/f4a5899c50aebc18e0c9d6cf18669723c11f29e6) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm sync` no longer fails when a docs page of a package has invalid frontmatter: it warns and lists the page by its heading or file name. `harnesspm check` reports such a page, so the author fixes it before publishing.
+
+- [#10](https://github.com/tenphi/harnesspm/pull/10) [`d8df8e9`](https://github.com/tenphi/harnesspm/commit/d8df8e97f9c554fb6beb6a50082c97e75eb05be2) Thanks [@tenphi](https://github.com/tenphi)! - The specification, which ships as the docs of harnesspm's own harness, shows the managed block as `sync` writes it and calls harnesspm experimental.
+
 ## 0.4.0
 
 ### Minor Changes
