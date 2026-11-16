@@ -12,7 +12,7 @@ npm i -D @tenphi/harnesspm
 npx harnesspm init
 ```
 
-`init` adds `harnesspm sync` to the `postinstall` script of a private package, or to `prepare` otherwise, so every full install updates the agent files. After `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync` yourself. Commit `harnesspm.json`, `harnesspm.lock.json`, the `AGENTS.md` block and the `CLAUDE.md` files that import `AGENTS.md`, also the ones next to nested `AGENTS.md` files.
+`init` adds `harnesspm sync` to the `postinstall` script of a private package, or to `prepare` otherwise, so every full install updates the agent files. After `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync` yourself. Commit `package.json` and the package manager's lockfile, `harnesspm.json`, `harnesspm.lock.json`, the `AGENTS.md` block and the `CLAUDE.md` files that import `AGENTS.md`, also the ones next to nested `AGENTS.md` files.
 
 In CI, run `npx harnesspm sync --check` after the install. With `CI=true`, `sync` leaves committed files as they are, so the check sees a missed sync. A job that commits them runs `npx harnesspm sync --write`.
 
@@ -20,7 +20,7 @@ In CI, run `npx harnesspm sync --check` after the install. With `CI=true`, `sync
 
 Run `npx harnesspm status`. It lists the packages, pending tools and the always-on size.
 
-- **Pending tools** come from packages the project does not trust yet. Ask the user before adding a package to `trust` in `harnesspm.json`.
+- **Pending tools** come from packages the project does not trust yet. Ask the user before adding a package to `trust` in `harnesspm.json`, and say what each tool does: `harness/plugin.json` of its package has each script's `description`, and `"allow": true` when it asks to run without a prompt.
 - **You cannot grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending. Ask the user to run `npx harnesspm approve` in their own terminal. Do not edit agent settings files to work around it.
 - **One upstream rule does not fit** the project: run `npx harnesspm new patch <rule ID>` and edit only the sections that differ. Use a `replace` or `exclude` entry in `harnesspm.json` to change or drop a whole unit.
 - **A job that does not install dependencies**, such as a review bot, runs `npx -y @tenphi/harnesspm fetch` first.
