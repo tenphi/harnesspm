@@ -22,6 +22,22 @@ What follows for harnesspm:
 - 🔍 An install without dev dependencies still runs the project's `postinstall`. In a private app that `init` set up, `npm ci --omit=dev` failed with `sh: 1: harnesspm: not found` and npm error code 127 (npm 10.9.9, Nov 2026).
 - 🔍 The same failure followed `npx -y @tenphi/harnesspm init` in a project that never installed harnesspm: `init` exited with code 0, and the next `npm install` failed (harnesspm 0.4.1, Nov 2026). So `init` now stops when the project does not list the package as a dependency.
 
+### The install hook without dev dependencies
+
+So `init` writes an install hook that skips the sync when harnesspm is not installed ([spec 10.1](../spec/10-cli.md#the-install-hook)). 🔍 Observed with it in November 2026, on Linux:
+
+| Package manager | Install without dev dependencies | Full install |
+| --- | --- | --- |
+| npm 10.9.9 | `npm ci --omit=dev` passes. Before, it failed with code 127. | `npm ci` runs the sync |
+| npm 12.2.2 | `npm ci --omit=dev` passes | `npm ci` runs the sync |
+| pnpm 10.28.0 | `pnpm install --prod` passes | `pnpm install` runs the sync |
+| Yarn 1.22.22 | `yarn install --production` passes | `yarn install` runs the sync |
+| Yarn 4.9.1, `nodeLinker: node-modules` | `yarn workspaces focus --production` passes. It does not run the project's `postinstall` at all. | `yarn install` runs the sync |
+
+- The npm rows used a private app with the hook alone, and a published package with the hook in `prepare` after an existing script. The pnpm and Yarn rows used a private app with the hook after an existing script, `node -e "0" && (…)`.
+- In Yarn 4's own shell, `yarn run postinstall` skipped the sync when harnesspm was not installed. With an existing script that exits with code 5 in front, it exited with code 5. Without the parentheses, the sync would have run and hidden that failure.
+- Windows cmd was not tested.
+
 ## Install scripts of dependencies
 
 Can a package set up its own harness when a project installs it? Only an install script of the package could do that, and package managers no longer run those by default.

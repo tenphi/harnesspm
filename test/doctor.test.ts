@@ -117,6 +117,19 @@ test('doctor: outside a git repository it warns and does not fail', () => {
   assert.match(result.stdout, /⚠️ {2}Not a git repository: nothing keeps per-machine files out of commits/);
 });
 
+test('doctor: an install hook in the old form is a warning that names init', () => {
+  const dir = app();
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+  const warning = /⚠️ {2}The "postinstall" script runs `harnesspm sync` also when harnesspm is not installed, so an install without dev dependencies, such as `npm ci --omit=dev`, fails\. Run `npx harnesspm init` to update it\./;
+  writeFiles(dir, { 'package.json': JSON.stringify({ ...pkg, scripts: { postinstall: 'patch-package && harnesspm sync' } }) });
+  const old = run(dir, 'doctor');
+  assert.equal(old.status, 0, 'a warning does not fail');
+  assert.match(old.stdout, warning);
+  const hook = `node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}" || harnesspm sync`;
+  writeFiles(dir, { 'package.json': JSON.stringify({ ...pkg, scripts: { postinstall: hook } }) });
+  assert.doesNotMatch(run(dir, 'doctor').stdout, /also when harnesspm is not installed/);
+});
+
 test('doctor: an untrusted package is a warning that says the fix once', () => {
   const dir = project({ '@acme/kit': '1' });
   installPackage(dir, '@acme/kit', {
