@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4
+
+### Patch Changes
+
+- [#19](https://github.com/tenphi/harnesspm/pull/19) [`d9f9fdc`](https://github.com/tenphi/harnesspm/commit/d9f9fdc8dbf2a61168f0164b1b70e5ae88c8bfda) Thanks [@tenphi](https://github.com/tenphi)! - Docs leave out the files git ignores. A local file next to the pages, such as an agent's plan, no longer changes the lock, the docs index or `check` on one machine only, so `sync --check` in CI agrees with a local sync.
+
 ## 0.4.3
 
 ### Patch Changes
