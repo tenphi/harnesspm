@@ -141,5 +141,5 @@ test('doctor: an untrusted package is a warning that says the fix once', () => {
   const result = run(dir, 'doctor');
   assert.equal(result.status, 0, result.stdout);
   const line = result.stdout.split('\n').find((l) => l.includes('@acme/kit'));
-  assert.equal(line, '  ⚠️  Off: @acme/kit: 1 script (not trusted; add it to "trust" in harnesspm.json)');
+  assert.equal(line, '  ⚠️  Off: @acme/kit: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)');
 });

@@ -23,9 +23,10 @@ export function trustOf(pkg: ResolvedPackage, res: Resolution, lock: Lock | unde
   if (value === 'pin') {
     const approved = lock?.packages[pkg.name]?.approved;
     if (approved === undefined || approved === pkg.version) return { trusted: true };
-    return { trusted: false, reason: `version ${pkg.version} is not approved (approved: ${approved}); run \`npx harnesspm approve ${pkg.name}\`` };
+    return { trusted: false, reason: `version ${pkg.version} is not approved (approved: ${approved}); a person approves it with \`npx harnesspm approve ${pkg.name}\`` };
   }
-  return { trusted: false, reason: `not trusted; add it to "trust" in harnesspm.json` };
+  // Trust is the person's decision (spec 6.2). The reason says who acts, so an agent does not take it as its next step.
+  return { trusted: false, reason: `not trusted; a person turns it on in "trust" in harnesspm.json` };
 }
 
 export interface HookEntry {

@@ -46,6 +46,29 @@ Authors
                                  a patch that changes some sections of a rule
 `;
 
+/** Details for a command whose usage line is not enough. */
+const DETAILS: Record<string, string> = {
+  new: `Kinds: rule, skill, agent, script, hook, mcp. \`new patch\` takes a rule ID, such as acme-ui:rules/usage.
+  --to <plugin>   write into a harness you added (\`harnesspm status\` lists them), not the project's own harness/
+  --entry         with --to: write into that harness's entry for this repository`,
+};
+
+/** Help for one command: its lines in HELP and its details. The whole HELP for an unknown command. */
+function commandHelp(command: string): string {
+  const picked: string[] = [];
+  let inside = false;
+  for (const line of HELP.split('\n')) {
+    if (line === `  harnesspm ${command}` || line.startsWith(`  harnesspm ${command} `)) {
+      inside = true;
+      picked.push(line);
+    } else if (inside && /^ {3,}\S/.test(line)) picked.push(line);
+    else inside = false;
+  }
+  if (picked.length === 0) return HELP;
+  const details = DETAILS[command];
+  return [...picked, ...(details !== undefined ? ['', details] : []), '', 'Every command: harnesspm help. Every option: https://harnesspm.tenphi.me/reference/cli/'].join('\n');
+}
+
 const out: Output = {
   log: (line) => console.log(line),
   warn: (line) => console.error(line),
@@ -53,8 +76,10 @@ const out: Output = {
 
 function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number {
   const [command, ...rest] = argv;
-  if (command !== 'run' && command !== 'mcp' && (rest.includes('--help') || rest.includes('-h'))) {
-    console.log(HELP);
+  const isHelp = (arg: string | undefined): boolean => arg === '--help' || arg === '-h';
+  // After `run <plugin>:<script>`, every argument goes to the script, `--help` too. Only a first `--help` is harnesspm's.
+  if (command !== undefined && (command === 'run' || command === 'mcp' ? isHelp(rest[0]) : rest.some(isHelp))) {
+    console.log(commandHelp(command));
     return 0;
   }
   if (command === 'run' || command === 'mcp') {
@@ -128,8 +153,10 @@ function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mc
       console.log(pkg.version);
       return 0;
     }
-    case undefined:
     case 'help':
+      console.log(args[0] !== undefined ? commandHelp(args[0]) : HELP);
+      return 0;
+    case undefined:
     case '--help':
     case '-h':
       console.log(HELP);

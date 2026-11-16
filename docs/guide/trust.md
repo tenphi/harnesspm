@@ -24,7 +24,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 Until you trust a package, its executable units are **pending**. `sync` lists them and does not fail:
 
 ```text
-⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; add it to "trust" in harnesspm.json)
+⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; a person turns it on in "trust" in harnesspm.json)
 ```
 
 ## Trust a package

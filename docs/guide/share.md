@@ -27,12 +27,13 @@ A harness can be two files: a manifest and one rule. `npx harnesspm new` writes 
 
 ```text
 $ npx harnesspm new rule usage
-Created in the project harness (harness):
+Wrote in the project's own harness (harness/):
+  harness/plugin.json
   harness/dev.harnesspm/rules/usage.md
-Edit it, then save it the way that harness's owner wants (`npx harnesspm why <ID>` names the rules).
+Next: edit it, then run `npx harnesspm check`. To see the harness in this repository's AGENTS.md too, run `npx harnesspm init`.
 ```
 
-It also creates the manifest, `harness/plugin.json`:
+`npx harnesspm new --help` lists every kind. The manifest, `harness/plugin.json`, starts like this:
 
 ```json
 {

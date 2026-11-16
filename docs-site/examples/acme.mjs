@@ -183,6 +183,8 @@ if (upgrade) {
   write(app, {
     'package.json': json({ name: 'app', version: '1.0.0', private: true, dependencies: { '@acme/ui': '^4.2.0' }, devDependencies: { [own.name]: `^${own.version}` } }),
     '.gitignore': 'node_modules\n',
+    // An install writes a lockfile, and `init` names it with the files to commit.
+    'package-lock.json': json({ name: 'app', version: '1.0.0', lockfileVersion: 3, requires: true, packages: {} }),
   });
   installPackages();
   // harnesspm itself, as an install puts it: the files the npm package ships.

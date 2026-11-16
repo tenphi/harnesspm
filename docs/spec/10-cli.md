@@ -9,11 +9,13 @@
 
 The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. Use `npx harnesspm …` in a project that depends on it. Use `npx -y @tenphi/harnesspm …` anywhere else, so npx downloads the package by its full name. Outputs follow the same split, and an allow rule always has the prefix of the command it allows.
 
+`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
+
 ## 10.1 Projects
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync`. It MUST stop before it changes anything when the project's `package.json` does not list `@tenphi/harnesspm` in `dependencies`, `devDependencies` or `optionalDependencies`: the script it adds calls the `harnesspm` command, so the next install would fail. |
+| `harnesspm init` | Creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync` and names the committed files ([1.7](01-overview.md#17-what-is-committed)) that git sees as new or changed. It MUST stop before it changes anything when the project's `package.json` does not list `@tenphi/harnesspm` in `dependencies`, `devDependencies` or `optionalDependencies`: the script it adds calls the `harnesspm` command, so the next install would fail. |
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). With `CI=true`, it writes only the per-machine outputs and leaves the committed ones to `sync --check` ([06-trust.md](06-trust.md#64-ci)). |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --write` | Writes the committed outputs with `CI=true` too, for a job that commits them. `init`, `approve` and `new` always write them. |

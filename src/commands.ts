@@ -188,6 +188,32 @@ function upgradedHook(script: unknown): string | undefined {
   return undefined;
 }
 
+/** Whether a package.json lists harnesspm, so the project has the `harnesspm` command. Its own repository is the package. */
+function dependsOnHarnesspm(pkg: unknown): boolean {
+  if (!isRecord(pkg)) return false;
+  if (pkg['name'] === PACKAGE_NAME) return true;
+  return ['dependencies', 'devDependencies', 'optionalDependencies'].some((field) => {
+    const dependencies = pkg[field];
+    return isRecord(dependencies) && PACKAGE_NAME in dependencies;
+  });
+}
+
+/** Lockfiles that an install changes. `init` names the one the project has with the files to commit. */
+const LOCKFILES = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb'];
+
+/** The committed files (spec 1.7) that git sees as new or changed, in a fixed order. Empty outside git. */
+function filesToCommit(projectDir: string): string[] {
+  const { team, full } = resolveAll(projectDir, { withAdded: false });
+  const committed = team ? computePlan(team, full).committed : undefined;
+  const nested = committed ? [...committed.workspaces.filter((ws) => ws.agentsMd !== undefined).map((ws) => path.join(ws.dir, 'AGENTS.md')), ...committed.claudeMds.map((c) => c.file)] : [];
+  const candidates = [...new Set(['AGENTS.md', 'CLAUDE.md', ...nested.map((file) => relPosix(projectDir, file)), CONFIG_FILE, LOCK_FILE, 'package.json', ...LOCKFILES])];
+  // The short format shows paths relative to the current folder, also in a subfolder of the repository.
+  const result = spawnSync('git', ['status', '--short', '--untracked-files=all', '--', ...candidates], { cwd: projectDir, encoding: 'utf8' });
+  if (result.status !== 0) return [];
+  const changed = new Set(result.stdout.split('\n').filter((line) => line.length > 3).map((line) => line.slice(3).replace(/^.* -> /, '')));
+  return candidates.filter((file) => changed.has(file));
+}
+
 export function init(projectDir: string, out: Output): number {
   const pkgFile = path.join(projectDir, 'package.json');
   if (!isFile(pkgFile)) throw new HarnessError('No package.json here. Run `npm init` first.');
@@ -196,11 +222,7 @@ export function init(projectDir: string, out: Output): number {
   if (!isRecord(pkg)) throw new HarnessError('package.json must be a JSON object');
   // The script that `init` adds calls the `harnesspm` command. Without the dependency, the next install fails with
   // "harnesspm: not found" (research/package-managers.md). So stop before anything changes.
-  const lists = (field: string): boolean => {
-    const dependencies = pkg[field];
-    return isRecord(dependencies) && PACKAGE_NAME in dependencies;
-  };
-  if (pkg['name'] !== PACKAGE_NAME && !['dependencies', 'devDependencies', 'optionalDependencies'].some(lists)) {
+  if (!dependsOnHarnesspm(pkg)) {
     throw new HarnessError(`${PACKAGE_NAME} is not a dependency of this project, so the install script that \`init\` adds would fail. Run \`npm i -D ${PACKAGE_NAME}\` first, then \`${NPX_LOCAL} init\`.`);
   }
   const configFile = path.join(projectDir, CONFIG_FILE);
@@ -235,7 +257,12 @@ export function init(projectDir: string, out: Output): number {
   }
   const claude = claudeImport(projectDir);
   if (writeIfChanged(claude.file, claude.text)) out.log(`${relPosix(projectDir, claude.file)} now imports AGENTS.md`);
-  return sync(projectDir, out, { write: true });
+  const code = sync(projectDir, out, { write: true });
+  // Say which files belong in git, and that the rest stays out of it, so nobody has to work it out from `git status`.
+  const toCommit = filesToCommit(projectDir);
+  if (toCommit.length > 0) out.log(`To commit: ${toCommit.join(', ')}`);
+  if (gitExcludeFile(projectDir) !== undefined) out.log('Links and settings for this machine stay out of git: .git/info/exclude lists them.');
+  return code;
 }
 
 /** Directories of editable added harnesses, which agents may write to (spec 8.5). */
@@ -542,7 +569,7 @@ export function why(cwd: string, id: string, out: Output): number {
         ? 'yes'
         : trust === 'pin'
           ? 'pinned: active in the version approved in the lock'
-          : `no: it stays off. Add "${pkg.name}": true to "trust" in ${CONFIG_FILE} to turn it on.`,
+          : `no: it stays off. A person turns it on with "${pkg.name}": true in "trust" in ${CONFIG_FILE}.`,
     );
   }
   if (rule?.replacedBy) row('replaced', `by ${rule.replacedBy.by}: ${rel(rule.replacedBy.file!)}`);
@@ -601,6 +628,14 @@ export function approve(cwd: string, name: string | undefined, out: Output): num
   return sync(projectDir, out, { write: true });
 }
 
+/** What to do after `new`. `why` and `sync` reach the project's own harness only where the project uses harnesspm. */
+function nextAfterNew(projectDir: string, added: boolean): string {
+  const npx = dependsOnHarnesspm(readJsonIfExists(path.join(projectDir, 'package.json'))) ? NPX_LOCAL : NPX_ANY;
+  if (added) return `Next: edit it, run \`${npx} sync\`, then save the change the way that harness's own AGENTS.md or CONTRIBUTING.md says.`;
+  if (isFile(path.join(projectDir, CONFIG_FILE))) return `Next: edit it, then run \`${npx} sync\` and \`${npx} check\`.`;
+  return `Next: edit it, then run \`${npx} check\`. To see the harness in this repository's AGENTS.md too, run \`${npx} init\`.`;
+}
+
 export function newUnit(cwd: string, kind: string, name: string, options: { to?: string; entry?: boolean }, out: Output): number {
   const projectDir = findProjectDir(cwd);
   const show = (file: string): string => (file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
@@ -612,10 +647,10 @@ export function newUnit(cwd: string, kind: string, name: string, options: { to?:
   } else {
     if (!(KINDS as readonly string[]).includes(kind)) throw new HarnessError(`Unknown kind "${kind}". Use one of: ${KINDS.join(', ')}, patch.`);
     const target = resolveTarget(projectDir, options);
-    const files = createUnit(target, kind as Kind, name);
-    out.log(`Created in ${target.label}:`);
+    const files = [...new Set([...target.written, ...createUnit(target, kind as Kind, name)])];
+    out.log(`Wrote in ${target.label}:`);
     for (const file of files) out.log(`  ${show(file)}`);
-    out.log('Edit it, then save it the way that harness\'s owner wants (`npx harnesspm why <ID>` names the rules).');
+    out.log(nextAfterNew(projectDir, options.to !== undefined));
   }
   sync(projectDir, out, { quiet: true, write: true });
   return 0;

@@ -12,6 +12,11 @@ test('S1: new creates a harness with one rule, and every template is valid', () 
   const dir = project({}, { name: '@acme/widgets', files: ['harness'] }, false);
   const first = run(dir, 'new', 'rule', 'usage');
   assert.equal(first.status, 0, first.stderr);
+  // Every file it wrote, the manifest too, and a next step that works in a library that does not use harnesspm.
+  assert.equal(
+    first.stdout,
+    "Wrote in the project's own harness (harness/):\n  harness/plugin.json\n  harness/dev.harnesspm/rules/usage.md\nNext: edit it, then run `npx -y @tenphi/harnesspm check`. To see the harness in this repository's AGENTS.md too, run `npx -y @tenphi/harnesspm init`.\n",
+  );
   assert.deepEqual(JSON.parse(read(dir, 'harness/plugin.json')), { $schema: PLUGIN_SCHEMA, name: 'widgets' });
   assert.match(read(dir, 'harness/dev.harnesspm/rules/usage.md'), /^# Usage\n/);
   for (const [kind, name] of [['skill', 'review'], ['agent', 'reviewer'], ['script', 'probe'], ['hook', 'fmt'], ['mcp', 'notes']] as const) {
@@ -55,7 +60,22 @@ test('S4: new patch copies the sections and registers the patch in harnesspm.jso
   writeFiles(dir, { 'package.json': JSON.stringify(pkg) });
   run(dir, 'new', 'patch', 'kit:rules/word');
   assert.equal(read(dir, 'harnesspm/patches/kit-word.patch.md'), '# Kit word\n\nWord of the kit: sienna-lark.\n');
-  assert.match(run(dir, 'new', '--help').stdout, /harnesspm new <kind> <name>/);
+  // Help for one command: its usage and its options, not every command.
+  const help = run(dir, 'new', '--help').stdout;
+  assert.match(help, /harnesspm new <kind> <name>/);
+  assert.match(help, /harnesspm new patch <rule ID>/);
+  assert.match(help, /--entry +with --to: write into that harness's entry for this repository/);
+  assert.doesNotMatch(help, /harnesspm init/);
+  assert.equal(run(dir, 'help', 'new').stdout, help);
+  assert.match(run(dir, 'run', '--help').stdout, /^ {2}harnesspm run <plugin>:<script> \[-- args\]\n {33}run a script of a trusted package\n/);
+  assert.match(run(dir, 'help', 'nope').stdout, /^harnesspm — the harness package manager/, 'an unknown command gets the whole help');
+});
+
+test('new in a project that uses harnesspm names sync and check, with the installed command', () => {
+  const dir = project({ '@tenphi/harnesspm': '1' }, { name: 'app' });
+  const result = run(dir, 'new', 'rule', 'usage');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\nNext: edit it, then run `npx harnesspm sync` and `npx harnesspm check`\.\n$/);
 });
 
 test("new patch goes into harness/plugin.json when the rule comes through the project's own extends", () => {
@@ -78,6 +98,7 @@ test('new --to writes into an added harness, and --entry into its entry for this
   run(dir, 'add', mine);
   const rule = run(dir, 'new', 'rule', 'workflow', '--to', 'andrew');
   assert.equal(rule.status, 0, rule.stderr);
+  assert.match(rule.stdout, /\nNext: edit it, run `npx -y @tenphi\/harnesspm sync`, then save the change the way that harness's own AGENTS\.md or CONTRIBUTING\.md says\.\n$/);
   assert.ok(fs.existsSync(path.join(mine, 'harness/dev.harnesspm/rules/workflow.md')));
   const entry = run(dir, 'new', 'rule', 'local-setup', '--to', 'andrew', '--entry');
   assert.equal(entry.status, 0, entry.stderr);
