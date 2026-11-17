@@ -62,7 +62,7 @@ To see how agents use the harness, a team can turn on telemetry in `harnesspm.js
 
 ## Learn more
 
-- 📚 [The docs site](https://harnesspm.tenphi.me): the two ways to start, prompts for your agent, guides and a reference.
+- 📚 [The docs site](https://harnesspm.tenphi.me): the three ways to start, prompts for your agent, guides and a reference.
 - 📐 [The specification](docs/spec/README.md): every format, rule and command. Each chapter opens with a short summary. It ships in the npm package, so agents read the version you installed.
 - 🔬 [The research notes](docs/research/): the sources behind every statement about the agents.
 - 🧩 [Projects that ship a harness](https://harnesspm.tenphi.me/#in-real-projects), as working examples.
