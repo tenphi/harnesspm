@@ -31,13 +31,13 @@ The handler gets events only after a person's `sync` has recorded it in `harness
 | --- | --- |
 | `run` | `harnesspm run` finishes a script, also when a hook runs it |
 | `mcp` | `harnesspm mcp` starts an MCP server |
-| `sync` | `harnesspm sync` writes the outputs. It lists added, removed and changed units. |
+| `sync` | `harnesspm sync` writes the outputs. It lists added, removed and changed units. A sync in CI sends none. |
 | `why` | `harnesspm why` finds a unit |
-| `read` | The agent reads a file of a unit, or loads a file-scoped rule by itself. Claude Code only. |
+| `read` | The agent reads a file of a unit, or loads a file-scoped rule or a workspace's rules by itself. Claude Code only. |
 | `skill` | The agent loads a skill. Claude Code only. |
 | `session` | A session starts or resumes |
 
-`read`, `skill` and `session` come from harnesspm's own asynchronous hooks, so the agent never waits for them. Every event names units by their IDs, and covers only the dependency and project layers. Units of added harnesses belong to a person and never reach the team's handler. [Events](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#142-events) lists every field, with an example.
+`read`, `skill` and `session` come from harnesspm's own asynchronous hooks, so the agent never waits for them. Every event names units by their IDs, and the repository by its `origin` remote, such as `github.com/acme/app`. Events cover only the dependency and project layers. Units of added harnesses belong to a person and never reach the team's handler. [Events](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#142-events) lists every field, with an example.
 
 ## Send events somewhere
 
@@ -51,6 +51,18 @@ await fetch(process.env.HARNESS_EVENTS_URL, { method: 'POST', headers: { 'conten
 ```
 
 For many events, prefer a file and ship it on a schedule. An OpenTelemetry Collector can tail the file with its filelog receiver, so no code runs in harnesspm.
+
+## Report your own tools
+
+A tool of your project that is not a harnesspm script, such as `yarn probe`, can send its runs to the same handler:
+
+```js
+import { reportRun } from '@tenphi/harnesspm/telemetry';
+
+reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
+```
+
+It follows the same switch, opt-outs and trust rule as `harnesspm run`, and never throws, prints or waits. Keep arguments, file contents and paths out of `fields`. [Events from a project's own tools](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#149-events-from-a-projects-own-tools) has every field.
 
 ## Opt out
 

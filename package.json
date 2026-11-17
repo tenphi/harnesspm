@@ -7,6 +7,13 @@
   "bin": {
     "harnesspm": "dist/cli.js"
   },
+  "exports": {
+    "./telemetry": {
+      "types": "./dist/telemetry-api.d.ts",
+      "default": "./dist/telemetry-api.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "schema",

@@ -107,6 +107,53 @@ test("status and doctor: an AGENTS.md over Codex's 32 KiB limit is called over, 
   assert.match(doctor.stdout, new RegExp(`📦 Outputs\n[^]*  ⚠️  AGENTS\\.md is ${size} KiB, over Codex's 32 KiB limit: Codex reads only the first 32 KiB\\. Move details into on-demand rules or docs\\.`));
 });
 
+test('status and doctor name each managed block that Codex never reaches, along its folder path', () => {
+  const dir = project({}, { name: 'mono', private: true, workspaces: ['packages/*'] });
+  const notes = Array.from({ length: 450 }, (_, i) => `- Note ${i}: ${'hand-written guidance for this repository '.repeat(2)}`).join('\n');
+  writeFiles(dir, {
+    'AGENTS.md': `# Repository notes\n\n${notes}\n`,
+    'packages/web/package.json': JSON.stringify({ name: '@acme/web', dependencies: { '@acme/kit': '1' } }),
+    'packages/api/package.json': JSON.stringify({ name: '@acme/api', dependencies: { '@acme/server': '1' } }),
+    'packages/api/AGENTS.override.md': '# Local override\n',
+  });
+  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Forms\n\nUse the Form component.\n' } });
+  installPackage(dir, '@acme/server', { plugin: 'server', harness: { 'dev.harnesspm/rules/handlers.md': '# Handlers\n\nValidate input.\n' } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const rootBytes = fs.statSync(path.join(dir, 'AGENTS.md')).size;
+  const before = Buffer.byteLength(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8').split('<!-- BEGIN:harnesspm')[0]!);
+  const webBlock = (rootBytes / 1024).toFixed(1);
+
+  const status = run(dir, 'status');
+  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in AGENTS\\.md: it starts at ${(before / 1024).toFixed(1)} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, move the block to the top of its file, where sync keeps it, or move details into on-demand rules or docs\\.`));
+  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\.`));
+  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\./);
+  const doctor = run(dir, 'doctor');
+  assert.equal(doctor.status, 0, 'warnings, not failures');
+  assert.match(doctor.stdout, /📦 Outputs\n[^]*  ⚠️  Codex never reads the harness block in packages\/web\/AGENTS\.md/);
+
+  // Moved to the top, the root block stays there and Codex reads it. The workspace block is still past the limit.
+  const text = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  const block = text.slice(text.indexOf('<!-- BEGIN:harnesspm'));
+  writeFiles(dir, { 'AGENTS.md': `${block}\n${text.slice(0, text.indexOf('<!-- BEGIN:harnesspm')).trimEnd()}\n` });
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.ok(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8').startsWith('<!-- BEGIN:harnesspm'));
+  const after = run(dir, 'status');
+  assert.doesNotMatch(after.stderr, /harness block in AGENTS\.md/);
+  assert.match(after.stderr, /Codex never reads the harness block in packages\/web\/AGENTS\.md/);
+});
+
+test('status counts the AGENTS.md files above a project that sits below the git root, as Codex does', () => {
+  const repo = project({}, {}, false);
+  const notes = Array.from({ length: 450 }, (_, i) => `- Note ${i}: ${'hand-written guidance for this repository '.repeat(2)}`).join('\n');
+  writeFiles(repo, { 'AGENTS.md': `# Repository notes\n\n${notes}\n` });
+  const dir = path.join(repo, 'tools', 'app');
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'app', version: '1.0.0', devDependencies: { '@acme/kit': '1' } }), 'harnesspm.json': '{}\n' });
+  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Forms\n\nUse the Form component.\n' } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const above = (fs.statSync(path.join(repo, 'AGENTS.md')).size / 1024).toFixed(1);
+  assert.match(run(dir, 'status').stderr, new RegExp(`Codex never reads the harness block in AGENTS\\.md: it starts at ${above} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it`));
+});
+
 test('doctor: outside a git repository it warns and does not fail', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-nogit-'));
   writeFiles(dir, { 'package.json': '{ "name": "app", "version": "1.0.0" }\n', 'harnesspm.json': '{}\n' });

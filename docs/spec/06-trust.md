@@ -46,7 +46,9 @@ Rules:
    - These markers are advisory: a model can unset them. They stop accidents, such as an install the model starts, not a model that works around them.
    - A hook runs from settings a person wrote, so a hook run may add entries.
    - A model run keeps the entries a person granted before, and never removes a deny or ask rule. Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and other removals are written as usual.
+   - A hook whose command changes only in its prefix, such as the local binary in place of npx ([5.2](05-executables.md#52-hooks)), runs the same script. A model run writes it too.
    - A model run also keeps the telemetry handler that the lock has. A new or changed handler is held the same way ([14.5](14-telemetry.md#145-trust)).
+   - `sync` lists the entries it held back. `status` and `doctor` list the same entries, counted the same way, with a held telemetry handler first. Outside a cloud session, they ask the person to run `sync` or `approve` in their own terminal. In a Claude Code cloud session (`CLAUDE_CODE_REMOTE=true`), the person has no terminal there, so they point to the environment's setup script instead ([9](09-cloud.md)).
 
 ## 6.3 The lock
 

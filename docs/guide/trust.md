@@ -65,7 +65,7 @@ When the agent's model runs harnesspm, for example through an install the model 
    Ask the person to run `npx -y @tenphi/harnesspm sync` or `npx -y @tenphi/harnesspm approve` in their own terminal.
 ```
 
-This example is from a repository whose own harness has three skills. A run with nothing new to add prints no such line.
+This example is from a repository whose own harness has three skills. A run with nothing new to add prints no such line. `status` and `doctor` list the same entries. In a Claude Code cloud session, the second line asks for the environment's setup script instead, because nobody has a terminal there.
 
 harnesspm tells a model run from the markers that Claude Code and Codex set on commands their models run. A hook runs from settings a person wrote, so a hook may add entries. The markers stop accidents, such as an install that the model starts. A model that unsets them on purpose is not stopped. See [trusting a package](https://github.com/tenphi/harnesspm/blob/main/docs/spec/06-trust.md#62-trusting-a-package) for the exact markers.
 

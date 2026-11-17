@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnesspmHome } from './homes.ts';
-import { HarnessError, agentOf, caller, gitExcludeFile, isFile, isRecord, readTextIfExists, toPosix } from './util.ts';
+import { HarnessError, agentOf, caller, gitExcludeFile, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
 
 export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'read', 'skill', 'session'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -110,6 +110,8 @@ export interface EventContext {
   /** The project root, as a real path. */
   projectDir: string;
   project: string;
+  /** `<host>/<path>` of the `origin` remote. Undefined: looked up when an event is sent. Empty: none. */
+  repository?: string | undefined;
   /** Workspace folders from the root, with forward slashes. */
   workspaces: string[];
 }
@@ -165,7 +167,9 @@ export function commandCaller(agentFlag?: string, env: NodeJS.ProcessEnv = proce
 /** One event (spec 14.2). Fields that are undefined are left out. */
 export function makeEvent(ctx: EventContext, fields: EventFields, cwd = process.cwd()): Record<string, unknown> {
   const { type, ...rest } = fields;
-  const event: Record<string, unknown> = { schema: EVENT_SCHEMA, type, time: new Date().toISOString(), project: ctx.project, workspace: workspaceOf(ctx, cwd), harnesspm: harnesspmVersion() };
+  const event: Record<string, unknown> = { schema: EVENT_SCHEMA, type, time: new Date().toISOString(), project: ctx.project };
+  if (ctx.repository) event['repository'] = ctx.repository;
+  Object.assign(event, { workspace: workspaceOf(ctx, cwd), harnesspm: harnesspmVersion() });
   for (const [key, value] of Object.entries(rest)) if (value !== undefined) event[key] = value;
   return event;
 }
@@ -197,35 +201,56 @@ function excludeFromGit(projectDir: string, file: string): void {
 
 const DELIVER = fileURLToPath(new URL(`./deliver${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url));
 
-/** Hands one event to the handler without waiting for it (spec 14.3). */
-function deliver(projectDir: string, send: Send, event: Record<string, unknown>): void {
-  const line = JSON.stringify(event);
+/**
+ * Hands events to the handler without waiting for it (spec 14.3). A command handler gets them in one detached process,
+ * which runs the command once for each event, so a hook that sends many events starts one process.
+ */
+function deliver(projectDir: string, send: Send, events: Record<string, unknown>[]): void {
+  const lines = events.map((event) => JSON.stringify(event));
+  if (lines.length === 0) return;
   if (typeof send !== 'string') {
     const file = path.resolve(projectDir, send.file);
     const fresh = !fs.existsSync(file);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, `${line}\n`);
+    fs.appendFileSync(file, `${lines.join('\n')}\n`);
     if (fresh) excludeFromGit(projectDir, file);
     return;
   }
-  if (line.length > MAX_EVENT) throw new Error(`a ${String(event['type'])} event of ${line.length} bytes is too large to send`);
-  const child = spawn(process.execPath, [DELIVER], {
-    cwd: projectDir,
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, HARNESSPM_EVENT: line, HARNESSPM_HANDLER: send },
-  });
-  child.on('error', (error) => note(projectDir, `handler: ${error.message}`));
-  child.unref();
+  const big = events.findIndex((_, i) => lines[i]!.length > MAX_EVENT);
+  if (big >= 0) throw new Error(`a ${String(events[big]!['type'])} event of ${lines[big]!.length} bytes is too large to send`);
+  // One environment variable holds the events, one per line. Keep it under MAX_EVENT, so it fits the system's limit.
+  const chunks: string[][] = [];
+  for (const line of lines) {
+    const last = chunks.at(-1);
+    if (last && last.join('\n').length + 1 + line.length <= MAX_EVENT) last.push(line);
+    else chunks.push([line]);
+  }
+  for (const chunk of chunks) {
+    const child = spawn(process.execPath, [DELIVER], {
+      cwd: projectDir,
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, HARNESSPM_EVENT: chunk.join('\n'), HARNESSPM_HANDLER: send },
+    });
+    child.on('error', (error) => note(projectDir, `handler: ${error.message}`));
+    child.unref();
+  }
 }
 
 /** Sends one event when telemetry is on and wants this type. Never throws, never waits. */
 export function sendEvent(state: TelemetryState, ctx: EventContext, fields: EventFields, cwd = process.cwd()): void {
-  if (state.send === undefined || !state.events.has(fields.type)) return;
+  sendEvents(state, ctx, [fields], cwd);
+}
+
+/** Sends the events that telemetry wants, in one hand-off. Never throws, never waits. */
+export function sendEvents(state: TelemetryState, ctx: EventContext, list: EventFields[], cwd = process.cwd()): void {
+  const wanted = list.filter((fields) => state.events.has(fields.type));
+  if (state.send === undefined || wanted.length === 0) return;
   try {
-    deliver(ctx.projectDir, state.send, makeEvent(ctx, fields, cwd));
+    const known = ctx.repository !== undefined ? ctx : { ...ctx, repository: remoteKey(ctx.projectDir) ?? '' };
+    deliver(ctx.projectDir, state.send, wanted.map((fields) => makeEvent(known, fields, cwd)));
   } catch (error) {
-    note(ctx.projectDir, `${fields.type} event: ${(error as Error).message}`);
+    note(ctx.projectDir, `${wanted.map((fields) => fields.type).join(', ')} event: ${(error as Error).message}`);
   }
 }
 
@@ -234,6 +259,8 @@ export function sendEvent(state: TelemetryState, ctx: EventContext, fields: Even
 /** What the agent hooks need to map a file or skill to a unit. `sync` writes it on each machine. */
 export interface TelemetryIndex {
   project: string;
+  /** `<host>/<path>` of the `origin` remote, so a hook does not ask git each time. */
+  repository?: string;
   workspaces: string[];
   /** Plugin name → its package. */
   packages: Record<string, { package: string; version: string }>;
@@ -243,6 +270,8 @@ export interface TelemetryIndex {
   dirs: Record<string, string>;
   /** Skill name → unit ID. */
   skills: Record<string, string>;
+  /** Real path of a workspace's AGENTS.md → the always-on rules in its managed block (spec 4.5). */
+  blocks?: Record<string, string[]>;
 }
 
 export function readIndex(projectDir: string): TelemetryIndex | undefined {
@@ -273,30 +302,53 @@ export function unitOfFile(index: TelemetryIndex, file: string, cwd: string): { 
   return undefined;
 }
 
-/** The event that an agent's hook payload stands for, without the common fields. */
-export function agentEvent(payload: Record<string, unknown>, index: TelemetryIndex): { type: EventType; [field: string]: unknown } | undefined {
+/** The always-on rules in the managed block of a workspace's AGENTS.md, by the file's path or real path. */
+function blockUnits(index: TelemetryIndex, file: string, cwd: string): string[] {
+  const abs = path.resolve(cwd, file);
+  let real = abs;
+  try {
+    real = fs.realpathSync(abs);
+  } catch {
+    // A file that is gone can still match by its path.
+  }
+  return index.blocks?.[real] ?? index.blocks?.[abs] ?? [];
+}
+
+type AgentEvent = { type: EventType; [field: string]: unknown };
+
+/** The events that an agent's hook payload stands for, without the common fields. Usually one; none for other files. */
+export function agentEvents(payload: Record<string, unknown>, index: TelemetryIndex): AgentEvent[] {
   const hook = payload['hook_event_name'];
   const cwd = typeof payload['cwd'] === 'string' ? payload['cwd'] : process.cwd();
-  if (hook === 'SessionStart') return { type: 'session', source: typeof payload['source'] === 'string' ? payload['source'] : undefined };
+  if (hook === 'SessionStart') return [{ type: 'session', source: typeof payload['source'] === 'string' ? payload['source'] : undefined }];
   const input = isRecord(payload['tool_input']) ? payload['tool_input'] : {};
-  let found: { unit: string; page?: string } | undefined;
+  let found: { unit: string; page?: string }[];
   let type: EventType;
   let via: string | undefined;
+  const ofFile = (file: string, blocks: boolean): { unit: string; page?: string }[] => {
+    const one = unitOfFile(index, file, cwd);
+    return one ? [one] : blocks ? blockUnits(index, file, cwd).map((unit) => ({ unit })) : [];
+  };
   if (hook === 'PostToolUse' && payload['tool_name'] === 'Read' && typeof input['file_path'] === 'string') {
-    [found, type, via] = [unitOfFile(index, input['file_path'], cwd), 'read', 'tool'];
+    // A Read of a workspace's AGENTS.md sends nothing for its block: the Read makes Claude Code load that folder's
+    // CLAUDE.md and its import, and that load sends the block's rules, so each is counted once.
+    [found, type, via] = [ofFile(input['file_path'], false), 'read', 'tool'];
   } else if (hook === 'InstructionsLoaded' && typeof payload['file_path'] === 'string') {
-    [found, type, via] = [unitOfFile(index, payload['file_path'], cwd), 'read', 'auto'];
+    // A workspace's CLAUDE.md loads with `nested_traversal`, and the AGENTS.md it imports with `include`. The index
+    // lists only AGENTS.md, so one load sends each rule once.
+    [found, type, via] = [ofFile(payload['file_path'], true), 'read', 'auto'];
   } else if (hook === 'PostToolUse' && payload['tool_name'] === 'Skill' && typeof input['skill'] === 'string') {
     const unit = index.skills[input['skill']];
-    [found, type] = [unit !== undefined ? { unit } : undefined, 'skill'];
-  } else return undefined;
-  if (!found) return undefined;
-  const pkg = index.packages[found.unit.slice(0, found.unit.indexOf(':'))];
-  return { type, unit: found.unit, package: pkg?.package, version: pkg?.version, page: found.page, via };
+    [found, type] = [unit !== undefined ? [{ unit }] : [], 'skill'];
+  } else return [];
+  return found.map(({ unit, page }) => {
+    const pkg = index.packages[unit.slice(0, unit.indexOf(':'))];
+    return { type, unit, package: pkg?.package, version: pkg?.version, page, via };
+  });
 }
 
 /** The nearest folder with harnesspm.json, as a real path. */
-function configDir(cwd: string): string | undefined {
+export function configDir(cwd: string): string | undefined {
   for (let dir = path.resolve(cwd); ; dir = path.dirname(dir)) {
     if (isFile(path.join(dir, 'harnesspm.json'))) return fs.realpathSync(dir);
     if (path.dirname(dir) === dir) return undefined;
@@ -320,11 +372,11 @@ export function track(args: string[]): number {
     const state = readTelemetryState(projectDir);
     if (state.send === undefined) return 0;
     const index = readIndex(projectDir);
-    const found = index ? agentEvent(payload, index) : undefined;
-    if (!index || !found || !state.events.has(found.type)) return 0;
-    const { type, ...rest } = found;
+    if (!index) return 0;
     const session = typeof payload['session_id'] === 'string' ? payload['session_id'] : undefined;
-    sendEvent(state, { projectDir, project: index.project, workspaces: index.workspaces }, { type, caller: 'agent', agent, session, ...rest }, cwd);
+    // The index has the remote, so a hook never waits for git.
+    const ctx: EventContext = { projectDir, project: index.project, repository: index.repository ?? '', workspaces: index.workspaces };
+    sendEvents(state, ctx, agentEvents(payload, index).map(({ type, ...rest }) => ({ type, caller: 'agent', agent, session, ...rest })), cwd);
   } catch (error) {
     if (projectDir !== undefined) note(projectDir, `track: ${(error as Error).message}`);
   }

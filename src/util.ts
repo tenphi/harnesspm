@@ -10,6 +10,32 @@ export const NPX_LOCAL = 'npx harnesspm';
 /** Runs harnesspm anywhere: npx downloads the package by its full name when it is not installed. */
 export const NPX_ANY = `npx -y ${PACKAGE_NAME}`;
 
+/** A command prefix that starts harnesspm: as shell words, for hooks, and as an argument list, for MCP servers. */
+export interface Runner {
+  shell: string;
+  argv: string[];
+}
+
+/** A runner through npx, such as `npx -y @tenphi/harnesspm`. */
+export const npxRunner = (prefix: string): Runner => ({ shell: prefix, argv: prefix.split(' ') });
+
+/** A word for sh: as it is when it is safe, else in single quotes. */
+export function shellWord(word: string): string {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * How hooks and MCP servers start harnesspm in a project (spec 5.2, 14.4): the project's own binary when it has one, else
+ * `fallback` through npx, which costs about 0.4 s per call. The path is absolute, so only per-machine files use it. Allow
+ * rules keep the npx form, because they must match the command the agent types (spec 5.4). Windows keeps npx: its
+ * `.bin` entry for sh is not a command there.
+ */
+export function runner(projectDir: string, fallback: string): Runner {
+  const bin = path.join(projectDir, 'node_modules', '.bin', 'harnesspm');
+  if (process.platform === 'win32' || !isFile(bin)) return npxRunner(fallback);
+  return { shell: shellWord(bin), argv: [bin] };
+}
+
 /** An error that the CLI prints without a stack trace. */
 export class HarnessError extends Error {}
 
@@ -175,6 +201,27 @@ export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
   if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
   if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'model';
   return 'person';
+}
+
+/** True in a Claude Code cloud session, where the person has no terminal of their own (spec 9). */
+export function inCloudSession(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env['CLAUDE_CODE_REMOTE'] === 'true';
+}
+
+/** `<host>/<path>` of a repository's `origin` remote, without `.git`, for SSH and HTTPS URLs. Undefined without one. */
+export function remoteKey(projectDir: string): string | undefined {
+  const result = spawnSync('git', ['remote', 'get-url', 'origin'], { cwd: projectDir, encoding: 'utf8' });
+  const url = (result.stdout ?? '').trim();
+  return result.status === 0 && url !== '' ? normalizeRemote(url) : undefined;
+}
+
+export function normalizeRemote(url: string): string {
+  let rest = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
+  const scp = /^[^@/]+@([^:/]+):(.+)$/.exec(rest);
+  if (scp) return `${scp[1]}/${scp[2]!.replace(/^\/+/, '')}`;
+  rest = rest.replace(/^[a-z+]+:\/\//i, '').replace(/^[^@/]+@/, '');
+  const [hostPort, ...segments] = rest.split('/');
+  return [hostPort!.replace(/:\d+$/, ''), ...segments].join('/');
 }
 
 /** The agent whose marker is in the environment: `claude`, `codex`, or undefined (spec 5.1). */

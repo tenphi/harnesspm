@@ -1,7 +1,7 @@
 // Workspaces of a monorepo (spec 3.6): package.json "workspaces" or pnpm-workspace.yaml.
+import { createRequire } from 'node:module';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { parse } from 'yaml';
 import { isFile, isRecord, readJsonIfExists, readTextIfExists } from './util.ts';
 
 function patternsOf(projectDir: string): string[] {
@@ -9,7 +9,8 @@ function patternsOf(projectDir: string): string[] {
   const field = isRecord(pkg) ? pkg['workspaces'] : undefined;
   const fromPackage = Array.isArray(field) ? field : isRecord(field) && Array.isArray(field['packages']) ? field['packages'] : [];
   const pnpmText = readTextIfExists(path.join(projectDir, 'pnpm-workspace.yaml'));
-  const pnpm = pnpmText !== undefined ? (parse(pnpmText) as unknown) : undefined;
+  // The YAML parser loads only for pnpm, so `reportRun`, which reaches this module, stays light (spec 14.9).
+  const pnpm = pnpmText !== undefined ? ((createRequire(import.meta.url)('yaml') as typeof import('yaml')).parse(pnpmText) as unknown) : undefined;
   const fromPnpm = isRecord(pnpm) && Array.isArray(pnpm['packages']) ? pnpm['packages'] : [];
   return [...fromPackage, ...fromPnpm].filter((p): p is string => typeof p === 'string');
 }

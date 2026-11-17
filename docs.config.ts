@@ -2,8 +2,8 @@ import { defineDocsConfig } from '@tenphi/cookbook/config';
 import harnesspmPackage from './package.json' with { type: 'json' };
 
 /*
-  The site has two tabs. "For humans" is short: Home, the two ways to start
-  (use a harness, share a harness) and Ask your agent, with prompts and the
+  The site has two tabs. "For humans" is short: Home, the three ways to start
+  (use a harness, share a harness, bring your own harness) and Ask your agent, with prompts and the
   decisions that stay with a person. "For AI agents" has every step: a start
   page, the guides and the reference.
 
@@ -41,6 +41,7 @@ export default defineDocsConfig({
       // Pages with a route of their own are .mdx files, named one by one.
       { id: 'start', file: 'docs/guide/getting-started.mdx', route: '/getting-started' },
       { id: 'share', file: 'docs/guide/share-a-harness.mdx', route: '/share' },
+      { id: 'own', file: 'docs/guide/bring-your-own.mdx', route: '/bring-your-own' },
       { id: 'ask', file: 'docs/guide/ask-your-agent.mdx', route: '/ask-your-agent' },
       { id: 'agents', file: 'docs/guide/agents.mdx', route: '/agents' },
       // Every .md file in docs/guide/ is a guide.
@@ -60,6 +61,7 @@ export default defineDocsConfig({
             items: [
               { label: 'Use a harness', link: '/getting-started' },
               { label: 'Share a harness', link: '/share' },
+              { label: 'Bring your own harness', link: '/bring-your-own' },
             ],
           },
           // A group of its own: a link after a group reads as part of that group.

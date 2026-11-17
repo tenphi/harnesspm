@@ -19,6 +19,7 @@ import {
   tomlString,
   upsertBlock,
   withClaudeImport,
+  workspacesSection,
   wrapBlock,
   type PathFor,
 } from './render.ts';
@@ -40,6 +41,8 @@ import {
   readTextIfExists,
   realpath,
   relPosix,
+  remoteKey,
+  runner,
   writeIfChanged,
 } from './util.ts';
 
@@ -267,6 +270,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   }
 
   let committed: Plan['committed'];
+  const blockUnits = new Map<string, string[]>();
   let lock: Lock | undefined = readLock(projectDir);
   let telemetryHeld: string | undefined;
   if (team) {
@@ -288,9 +292,8 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     // The root block holds what the root reaches and what every workspace shares (spec 3.6, 4.5).
     const keys = team.workspaces.map((ws) => ws.key);
     const shared = (pkg: ResolvedPackage): boolean => pkg.members.has('') || (keys.length > 0 && keys.every((k) => pkg.members.has(k)));
-    const rootContent = renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix), teamTools.paths);
-    const block = wrapBlock(rootContent !== '' ? rootContent : 'No harness units yet.');
     const workspaces: NonNullable<Plan['committed']>['workspaces'] = [];
+    const withBlocks: string[] = [];
     for (const ws of team.workspaces) {
       // Paths in a workspace's block are relative to its folder.
       const toWs = (p: string): string => (path.isAbsolute(p) ? p : relPosix(ws.dir, path.join(projectDir, p)));
@@ -301,12 +304,22 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
           return index === undefined ? undefined : toWs(index);
         },
       };
-      const content = renderSections(sectionsFor(team, team.packages.filter((p) => !shared(p) && p.members.has(ws.key)), wsPaths, prefix), wsPaths);
+      const own = team.packages.filter((p) => !shared(p) && p.members.has(ws.key));
+      const content = renderSections(sectionsFor(team, own, wsPaths, prefix), wsPaths);
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
       const existing = readTextIfExists(agentsFile);
       const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
       workspaces.push({ dir: ws.dir, agentsMd });
+      if (content === '') continue;
+      withBlocks.push(ws.key);
+      // Telemetry maps a load of this file to the always-on rules its block holds (spec 14.4).
+      const always = team.rules.filter((r) => r.activation === 'always' && own.includes(r.pkg)).map((r) => r.id);
+      if (always.length > 0) blockUnits.set(path.join(realOrSame(ws.dir), 'AGENTS.md'), always);
     }
+    const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix), teamTools.paths)]
+      .filter((part) => part !== undefined && part !== '')
+      .join('\n\n');
+    const block = wrapBlock(rootContent !== '' ? rootContent : 'No harness units yet.');
     for (const [file, content] of teamGenerated) if (!generated.has(file)) generated.set(file, content);
     // The root CLAUDE.md silences every nested AGENTS.md in Claude Code, so each one gets its own import (spec 4.3, note 7).
     const claudeDirs = new Set([projectDir, ...workspaces.filter((ws) => ws.agentsMd !== undefined).map((ws) => ws.dir), ...nestedAgentsDirs(projectDir)]);
@@ -351,8 +364,11 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   // Executable units and sub-agents (spec 4.3, chapter 5), with trust (spec 6.2).
   const trust = (pkg: ResolvedPackage) => trustOf(pkg, full, lock);
   const agentDirs = { claudeAgents: path.join(projectDir, '.claude', 'agents'), codexAgents: path.join(projectDir, '.codex', 'agents') };
-  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => NPX_LOCAL }) : undefined;
-  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => NPX_ANY });
+  // Hooks and MCP servers start through the project's own binary when it has one (spec 5.2).
+  const teamRunner = runner(projectDir, NPX_LOCAL);
+  const addedRunner = runner(projectDir, NPX_ANY);
+  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => NPX_LOCAL, runner: () => teamRunner }) : undefined;
+  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => NPX_ANY, runner: () => addedRunner });
   warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
   // Telemetry's agent events (spec 14.4): harnesspm's own hooks, when the recorded handler and this machine allow them.
@@ -361,9 +377,9 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     const state = telemetryState(projectDir, team.config.telemetry, lock?.telemetry?.send);
     const events = AGENT_EVENTS.filter((e) => state.events.has(e));
     if (events.length > 0) {
-      teamExec.claude.hooks.push(...telemetryHooks(projectDir, 'claude', events));
-      teamExec.codex.hooks.push(...telemetryHooks(projectDir, 'codex', events));
-      const index = telemetryIndexFor(team, tools.generatedRule, (pkg) => path.join(teamGen, 'docs', pkg.plugin, 'llms.txt'));
+      teamExec.claude.hooks.push(...telemetryHooks(teamRunner.shell, 'claude', events));
+      teamExec.codex.hooks.push(...telemetryHooks(teamRunner.shell, 'codex', events));
+      const index = telemetryIndexFor(team, tools.generatedRule, (pkg) => path.join(teamGen, 'docs', pkg.plugin, 'llms.txt'), blockUnits);
       telemetryIndex = `${JSON.stringify(index, null, 2)}\n`;
     }
   }
@@ -386,22 +402,19 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   };
 }
 
-/** The command of harnesspm's agent hooks. A local binary, because npx costs about 0.4 s per call (spec 14.4). */
-function trackCommand(projectDir: string, agent: 'claude' | 'codex'): string {
-  const bin = path.join(projectDir, 'node_modules', '.bin', 'harnesspm');
-  const prefix = isFile(bin) ? (/^[\w@%+=:,./-]+$/.test(bin) ? bin : `'${bin.replaceAll("'", "'\\''")}'`) : NPX_LOCAL;
-  return `${prefix} track --agent ${agent}`;
-}
-
-/** Claude Code: reads, skills, file-scoped rules it loads by itself, sessions. Codex: sessions only (spec 14.4). */
-function telemetryHooks(projectDir: string, agent: 'claude' | 'codex', events: EventType[]): HookEntry[] {
-  const command = trackCommand(projectDir, agent);
+/**
+ * Claude Code: reads, skills, file-scoped rules and workspace blocks it loads by itself, sessions. Codex: sessions only
+ * (spec 14.4). `prefix` is the runner, a local binary when there is one, because npx costs about 0.4 s per call.
+ */
+function telemetryHooks(prefix: string, agent: 'claude' | 'codex', events: EventType[]): HookEntry[] {
+  const command = `${prefix} track --agent ${agent}`;
   const hook = (event: string, matcher?: string): HookEntry => ({ event, ...(matcher !== undefined ? { matcher } : {}), command, timeout: 10, async: true });
   const hooks: HookEntry[] = [];
   if (agent === 'claude') {
     const tools = [...(events.includes('read') ? ['Read'] : []), ...(events.includes('skill') ? ['Skill'] : [])];
     if (tools.length > 0) hooks.push(hook('PostToolUse', tools.join('|')));
-    if (events.includes('read')) hooks.push(hook('InstructionsLoaded', 'path_glob_match'));
+    // `nested_traversal` and `include`: a workspace's CLAUDE.md, and the AGENTS.md it imports (spec 4.5).
+    if (events.includes('read')) hooks.push(hook('InstructionsLoaded', 'path_glob_match|nested_traversal|include'));
   }
   if (events.includes('session')) hooks.push(hook('SessionStart'));
   return hooks;
@@ -415,10 +428,29 @@ const realOrSame = (p: string): string => {
   }
 };
 
-/** Maps the files and folders agents read to the units of the dependency and project layers (spec 14.4). */
-function telemetryIndexFor(res: Resolution, generatedRule: (rule: FinalRule) => string, generatedDocsIndex: (pkg: ResolvedPackage) => string): TelemetryIndex {
+/**
+ * Maps the files and folders agents read to the units of the dependency and project layers (spec 14.4). `blocks` maps
+ * each workspace's AGENTS.md to the always-on rules in its managed block.
+ */
+function telemetryIndexFor(
+  res: Resolution,
+  generatedRule: (rule: FinalRule) => string,
+  generatedDocsIndex: (pkg: ResolvedPackage) => string,
+  blocks: Map<string, string[]>,
+): TelemetryIndex {
   const team = (pkg: ResolvedPackage): boolean => pkg.layer !== 'added';
-  const index: TelemetryIndex = { project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key), packages: {}, files: {}, dirs: {}, skills: {} };
+  const repository = remoteKey(res.projectDir);
+  const index: TelemetryIndex = {
+    project: res.projectName,
+    // Empty when there is no remote, so no event asks git again.
+    repository: repository ?? '',
+    workspaces: res.workspaces.map((ws) => ws.key),
+    packages: {},
+    files: {},
+    dirs: {},
+    skills: {},
+    blocks: Object.fromEntries(blocks),
+  };
   for (const pkg of res.packages.filter(team)) index.packages[pkg.plugin] = { package: pkg.name, version: pkg.version };
   for (const rule of res.rules.filter((r) => team(r.pkg))) {
     for (const file of [rule.original, rule.source, generatedRule(rule)]) index.files[realOrSame(file)] = rule.id;

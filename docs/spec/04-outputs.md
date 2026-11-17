@@ -71,6 +71,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 1. A workspace with its own units gets a managed block in `<workspace>/AGENTS.md`. Codex joins `AGENTS.md` files from the root down to the current folder. Paths in a workspace's block are relative to its folder. A block that becomes empty is removed, and so is a file that held only the block.
 2. A workspace's `AGENTS.md` gets a `CLAUDE.md` that imports it, like every nested `AGENTS.md` ([4.3](#43-project-outputs), note 7). Both files are committed.
 3. Skills and executable units are written at the root.
+4. The root block starts with a `## Workspaces` section that names each workspace with a block of its own. Claude Code loads a workspace's block only when the agent opens a file there with its file tools, and Codex only when it starts in that folder ([research](../research/agent-capabilities.md#instructions)). The root block is always on, so an agent that works through the shell still learns that the block exists.
 
 ## 4.6 Managed blocks
 
@@ -107,6 +108,8 @@ Use Form.useController.
 | On-demand rule | `- <description>: read <file> (<ID>)` |
 | Docs | `- Docs: <index> (<ID>)`. The index is the package's own `llms.txt`, or the one harnesspm generates in `node_modules/.harnesspm/docs/<plugin name>/`. |
 | Script with a `description`, from the project or a trusted package | ``- Script: `npx harnesspm run <plugin name>:<script>` — <description> (<ID>)`` |
+| Hooks that check file edits, from the project or a trusted package | ``- Edit files with your file tools, not shell commands such as `sed`, so the hook that checks each edit runs (<IDs>)``, once per package. A hook counts when it runs before or after a tool and its matcher, read as each agent reads it, matches an edit tool: `Edit`, `Write` or `MultiEdit` for Claude Code, `apply_patch`, `Edit` or `Write` for Codex. A matcher that matches every tool does not count. An edit through the shell skips it. |
+| Workspaces with blocks of their own, in the root block of a monorepo | A `## Workspaces` section first, naming each folder ([4.5](#45-monorepos)) |
 
 Every heading and line of a unit carries its ID, so an agent can find the source with `harnesspm why`.
 
@@ -128,3 +131,11 @@ Both agents have plugin systems. harnesspm does not generate plugins in v1, beca
 | Claude Code | No hard limit. The vendor advises under about 200 lines per `CLAUDE.md`. |
 
 `harnesspm status` reports the always-on size per agent, warns near a limit, and says when `AGENTS.md` is over Codex's. `harnesspm doctor` warns under Outputs when `AGENTS.md` is over 32 KiB, because Codex then reads only its first 32 KiB.
+
+Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from its project root, usually the git root, down to the folder it starts in, and only the files' bytes count toward the limit ([research](../research/agent-capabilities.md#codex)). So `status` and `doctor` also name each managed block that Codex never reads, or reads only in part, with where it starts or ends in the joined files:
+
+- a root block after long hand-written text;
+- a workspace block below a long root `AGENTS.md`;
+- a block in a folder that has an `AGENTS.override.md`.
+
+A new block goes at the end of its file, and `sync` keeps a block where it is. So moving the root block to the top of `AGENTS.md` keeps it in the part Codex reads.

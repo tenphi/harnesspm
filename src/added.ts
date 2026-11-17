@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { harnesspmHome } from './homes.ts';
 import { loadHarnessPackage, NS, parseExtension, type HarnessPackage } from './manifest.ts';
-import { HarnessError, NPX_ANY, ensureDir, isDir, isFile, isRecord, readJson, readJsonIfExists } from './util.ts';
+import { HarnessError, NPX_ANY, ensureDir, isDir, isFile, isRecord, normalizeRemote, readJson, readJsonIfExists, remoteKey } from './util.ts';
 
 export type Scope = 'user' | 'local';
 export type SourceKind = 'git' | 'folder' | 'npm';
@@ -126,21 +126,8 @@ export function updateSource(source: Source): string {
   return pulled.ok ? `${source.spec}: up to date` : `${source.spec}: pull failed: ${pulled.out}`;
 }
 
-/** `<host>/<path>` of a repository's `origin` remote, without `.git`, for SSH and HTTPS URLs. */
-export function remoteKey(projectDir: string): string | undefined {
-  const result = run('git', ['remote', 'get-url', 'origin'], projectDir);
-  if (!result.ok || result.out === '') return undefined;
-  return normalizeRemote(result.out);
-}
-
-export function normalizeRemote(url: string): string {
-  let rest = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
-  const scp = /^[^@/]+@([^:/]+):(.+)$/.exec(rest);
-  if (scp) return `${scp[1]}/${scp[2]!.replace(/^\/+/, '')}`;
-  rest = rest.replace(/^[a-z+]+:\/\//i, '').replace(/^[^@/]+@/, '');
-  const [hostPort, ...segments] = rest.split('/');
-  return [hostPort!.replace(/:\d+$/, ''), ...segments].join('/');
-}
+// The remote key lives in util.ts, so telemetry can use it without loading this module.
+export { normalizeRemote, remoteKey };
 
 export interface AddedHarness {
   source: Source;

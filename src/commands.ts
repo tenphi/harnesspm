@@ -23,11 +23,11 @@ import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_D
 import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { runMcp, runScript } from './run.ts';
-import { alwaysOnText } from './render.ts';
+import { alwaysOnText, blockRange } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
-import { writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, gitExcludeFile, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -41,11 +41,20 @@ const printWarnings = (out: Output, warnings: string[]): void => {
 
 const plural = (count: number, word: string, many = `${word}s`): string => `${count} ${count === 1 ? word : many}`;
 
+/**
+ * Where a person grants what an agent could not. A Claude Code cloud session has no terminal of the person's, and its
+ * container goes away, so there the setup script runs the command, before each new session starts (spec 9).
+ */
+const cloudStep = (what: string, them: string): string => `In a Claude Code cloud session, ask the person to run ${what} in the environment's setup script. New sessions then start with ${them}.`;
+const grantStep = (inTerminal: string): string => (inCloudSession() ? cloudStep('the install, or their own `npx -y @tenphi/harnesspm add <source>`,', 'these entries') : inTerminal);
+
+const heldList = (held: string[]): string => `${plural(held.length, 'entry', 'entries')} that an agent cannot grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''})`;
+
 function printPending(out: Output, report: UserReport): void {
   for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
   if (report.held.length > 0) {
-    out.log(`⏳ held back: ${plural(report.held.length, 'entry', 'entries')} that an agent cannot grant (${report.held.slice(0, 3).join('; ')}${report.held.length > 3 ? '; …' : ''}).`);
-    out.log(`   Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`);
+    out.log(`⏳ held back: ${heldList(report.held)}.`);
+    out.log(`   ${grantStep(`Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`)}`);
   }
 }
 
@@ -149,10 +158,10 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
 /** Where events about a resolved project go (spec chapter 14). */
 const eventContext = (res: Resolution): EventContext => ({ projectDir: res.projectDir, project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key) });
 
-/** The `sync` event: packages and the units that changed since the last lock (spec 14.2). */
+/** The `sync` event: packages and the units that changed since the last lock (spec 14.2). CI sends none: every job syncs. */
 function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | undefined): void {
   const state = readTelemetryState(team.projectDir);
-  if (!state.events.has('sync') || !after) return;
+  if (!state.events.has('sync') || !after || commandCaller().caller === 'ci') return;
   const old = before?.units ?? {};
   const units = after.units;
   const pending = team.packages.filter(
@@ -279,7 +288,7 @@ function writableDirs(): string[] {
 function settingsAfterChange(out: Output, hook: boolean): void {
   if (caller() === 'model') {
     out.log('⏳ The SessionStart hook and write access to the harness folder are pending: an agent cannot grant them.');
-    out.log('   Ask the person to run the same command in their own terminal.');
+    out.log(`   ${inCloudSession() ? cloudStep('the same command', 'them') : 'Ask the person to run the same command in their own terminal.'}`);
     return;
   }
   const anyUser = readList(configFileFor('user', '')).length > 0;
@@ -350,6 +359,73 @@ export function update(cwd: string, out: Output): number {
 /** Codex reads `AGENTS.md` files up to `project_doc_max_bytes`, 32 KiB by default, and cuts off the rest (spec 4.9). */
 const CODEX_LIMIT = 32 * 1024;
 const CODEX_OVER = "Codex's 32 KiB limit: Codex reads only the first 32 KiB";
+const kib = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
+
+/**
+ * Managed blocks that Codex misses, in full or in part (spec 4.9). Codex joins one file per folder, from its project
+ * root, the git root, down to the folder it starts in: `AGENTS.override.md` when there is one, else `AGENTS.md`. Only
+ * file bytes count. The root block at the very start is left out: the size warning for the root `AGENTS.md` covers it.
+ */
+function codexMisses(projectDirInput: string, plan: Plan): string[] {
+  const committed = plan.committed;
+  if (!committed) return [];
+  // Workspace folders are real paths, so the root is one too.
+  const projectDir = fs.realpathSync(projectDirInput);
+  // harnesspm.json can sit below the git root. Codex counts the AGENTS.md files above it too.
+  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: projectDir, encoding: 'utf8' });
+  const gitRoot = top.status === 0 && top.stdout.trim() !== '' ? fs.realpathSync(top.stdout.trim()) : projectDir;
+  const inside = (dir: string): boolean => dir === gitRoot || dir.startsWith(gitRoot + path.sep);
+  const planned = new Map<string, string | undefined>([[projectDir, committed.agentsMd], ...committed.workspaces.map((ws) => [ws.dir, ws.agentsMd] as const)]);
+  const bytesIn = (dir: string): number => {
+    const text = readTextIfExists(path.join(dir, 'AGENTS.override.md')) ?? (planned.has(dir) ? planned.get(dir) : readTextIfExists(path.join(dir, 'AGENTS.md')));
+    return text !== undefined ? Buffer.byteLength(text) : 0;
+  };
+  const problems: string[] = [];
+  for (const [dir, text] of planned) {
+    const range = blockRange(text);
+    if (text === undefined || range === undefined) continue;
+    const rel = relPosix(projectDir, path.join(dir, 'AGENTS.md'));
+    if (isFile(path.join(dir, 'AGENTS.override.md'))) {
+      problems.push(`Codex never reads the harness block in ${rel}: it reads ${relPosix(projectDir, path.join(dir, 'AGENTS.override.md'))} there instead.`);
+      continue;
+    }
+    let above = 0;
+    for (let up = path.dirname(dir); dir !== gitRoot && inside(up); up = path.dirname(up)) {
+      above += bytesIn(up);
+      if (up === gitRoot) break;
+    }
+    const before = Buffer.byteLength(text.slice(0, range[0]));
+    const start = above + before;
+    const end = start + Buffer.byteLength(text.slice(range[0], range[1]));
+    if (end <= CODEX_LIMIT || (dir === projectDir && start === 0)) continue;
+    const steps = [
+      ...(before > 0 ? ['move the block to the top of its file, where sync keeps it'] : []),
+      ...(above > 0 ? ['shorten the AGENTS.md files above it'] : []),
+      'move details into on-demand rules or docs',
+    ].join(', or ');
+    const where = 'of the AGENTS.md files that Codex joins there, past its 32 KiB limit';
+    const what = start >= CODEX_LIMIT ? `Codex never reads the harness block in ${rel}: it starts at ${kib(start)} ${where}` : `Codex reads only part of the harness block in ${rel}: it ends at ${kib(end)} ${where}`;
+    problems.push(`${what}. To fix it, ${steps}.`);
+  }
+  return problems;
+}
+
+/**
+ * What a sync by the agent's model would leave pending and hold back now (spec 6.2, rule 4). `status` and `doctor`
+ * show it; `sync` reports the same list from what it wrote, so the count matches everywhere.
+ */
+function preview(projectDir: string, resolved: Resolved): { plan?: Plan; report: UserReport } {
+  const plan = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full, { widen: false }) : undefined;
+  const report: UserReport = { pending: [], held: [] };
+  if (plan) {
+    const stateFile = repoStateFile(projectDir);
+    report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
+    report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []));
+    report.held.push(...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile));
+  }
+  if (process.env['CI'] !== 'true') report.held.push(...userHeld(resolved.added));
+  return { ...(plan ? { plan } : {}), report };
+}
 
 function describeAdded(h: AddedHarness): string {
   return `${h.pkg.plugin} (${h.source.spec}, ${h.scope})${h.entry ? ', with an entry for this repository' : ''}`;
@@ -381,13 +457,8 @@ export function status(cwd: string, out: Output): number {
   out.log(`🏢 project       ${projectParts.join(' · ')}`);
   out.log(`➕ added         ${resolved.added.length > 0 ? resolved.added.map(describeAdded).join(' · ') : 'none'}`);
 
-  const plan: Plan | undefined = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full) : undefined;
-  if (plan) {
-    const pending = [...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending];
-    const stateFile = repoStateFile(projectDir);
-    const held = [...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile)];
-    printPending(out, { pending, held });
-  }
+  const { plan, report } = preview(projectDir, resolved);
+  printPending(out, report);
   if (resolved.team) {
     const changes = resolved.team.rules.filter((r) => resolved.full.rules.find((f) => f.id === r.id)?.text !== r.text).map((r) => r.id);
     if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
@@ -397,6 +468,7 @@ export function status(cwd: string, out: Output): number {
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
     if (bytes > CODEX_LIMIT) out.warn(`⚠️  AGENTS.md is over ${CODEX_OVER}. Move details into on-demand rules or docs.`);
     else if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
+    for (const miss of codexMisses(projectDir, plan!)) out.warn(`⚠️  ${miss}`);
   }
   const telemetry = readTelemetryState(projectDir);
   if (telemetry.config) {
@@ -465,7 +537,7 @@ export function doctor(cwd: string, out: Output): number {
   // Outputs are in place.
   const outputs: Finding[] = [];
   const resolved = resolveAll(projectDir, { withAdded: true });
-  const plan = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full) : undefined;
+  const { plan, report } = preview(projectDir, resolved);
   if (!usesHarnesspm) outputs.push({ level: 'info', text: `This repository does not use harnesspm (no ${CONFIG_FILE}), so only added harnesses apply.` });
   else if (!resolved.team) outputs.push({ level: 'warn', text: `The dependencies are not installed. Install them, then run \`${sync}\`.` });
   else {
@@ -488,22 +560,20 @@ export function doctor(cwd: string, out: Output): number {
       if (upgradedHook(script) !== undefined) outputs.push({ level: 'warn', text: `The "${name}" script runs \`harnesspm sync\` also when harnesspm is not installed, so an install without dev dependencies, such as \`npm ci --omit=dev\`, fails. Run \`${NPX_LOCAL} init\` to update it.` });
     }
     const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
-    if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${(bytes / 1024).toFixed(1)} KiB, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
+    if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${kib(bytes)}, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
+    for (const miss of codexMisses(projectDir, plan)) outputs.push({ level: 'warn', text: miss });
   }
   if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
 
   // Trust: pending entries are not errors (spec 10.4).
   const trust: Finding[] = [];
-  if (plan) {
-    const pending = [...new Set([...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending])];
-    const stateFile = repoStateFile(projectDir);
-    const held = [...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile)];
-    // Each entry already says how to turn it on: trust the package, or approve a pinned version.
-    for (const p of pending) trust.push({ level: 'warn', text: `Off: ${p}` });
-    if (held.length > 0) trust.push({ level: 'warn', text: `${plural(held.length, 'entry', 'entries')} that an agent could not grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''}). Run \`${NPX_ANY} sync\` in your own terminal.` });
-  }
+  // Each pending entry already says how to turn it on: trust the package, or approve a pinned version.
+  for (const p of new Set(report.pending)) trust.push({ level: 'warn', text: `Off: ${p}` });
+  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report.held)}. ${grantStep(`Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
   const telemetry = readTelemetryState(projectDir);
-  if (telemetry.config && telemetry.send === undefined) trust.push({ level: telemetry.off?.startsWith('held') ? 'warn' : 'info', text: `Telemetry ${telemetry.off}` });
+  // A held handler is in the list above, as `sync` lists it.
+  const heldHandler = plan?.telemetryHeld !== undefined;
+  if (telemetry.config && telemetry.send === undefined && !heldHandler) trust.push({ level: telemetry.off?.startsWith('held') ? 'warn' : 'info', text: `Telemetry ${telemetry.off}` });
   if (trust.length === 0 && plan) trust.push({ level: 'ok', text: 'Nothing waits for trust' });
   if (trust.length > 0) groups.push(['🛡️  Trust', trust]);
 

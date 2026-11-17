@@ -1,12 +1,12 @@
-// Runs a telemetry command handler for one event, in a detached process (spec 14.3).
-// harnesspm starts it and does not wait. It passes the event and the command in the environment.
+// Runs a telemetry command handler in a detached process, once for each event (spec 14.3).
+// harnesspm starts it and does not wait. It passes the events, one per line, and the command in the environment.
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const TIMEOUT = 10_000;
 
-const event = process.env['HARNESSPM_EVENT'] ?? '';
+const events = (process.env['HARNESSPM_EVENT'] ?? '').split('\n').filter((line) => line !== '');
 const command = process.env['HARNESSPM_HANDLER'] ?? '';
 const env = { ...process.env };
 delete env['HARNESSPM_EVENT'];
@@ -21,7 +21,7 @@ function note(message: string): void {
   }
 }
 
-if (event !== '' && command !== '') {
+for (const event of command !== '' ? events : []) {
   const result = spawnSync(command, { shell: true, input: `${event}\n`, env, stdio: ['pipe', 'ignore', 'pipe'], timeout: TIMEOUT, encoding: 'utf8' });
   // A handler that exits without reading the event closes stdin early, so writing it fails with EPIPE.
   // Its exit code still says how it went.

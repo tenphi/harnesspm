@@ -83,6 +83,8 @@ Claude Code and Codex use nearly the same hook model: event → matcher → comm
 | `matcher` | no | A string for both agents, or an object with a `claude` key, a `codex` key or both. With an object, the hook is written only for the agents it names. Tool names differ between agents (for example, file edits), so an object is common. Without a matcher, the hook matches every tool in both agents. |
 | `timeout` | no | Seconds. |
 
+harnesspm writes each hook as `<prefix> run --agent <agent> <plugin name>:<script>`. In a project, the prefix is the project's own binary, `<project>/node_modules/.bin/harnesspm`, as an absolute path, when it exists. npx costs about 0.4 seconds per call, and an agent waits for a hook on file edits at every edit ([research](../research/agent-capabilities.md#settings-hooks-permissions)). Hooks are in per-machine files, so an absolute path is fine there. Without that binary, and on Windows, the prefix is `npx harnesspm`, or `npx -y @tenphi/harnesspm` where the project does not depend on harnesspm. User-level files serve every repository, so they always use `npx -y @tenphi/harnesspm`. The same prefix starts stdio MCP servers ([5.3](#53-mcp-servers)) and harnesspm's telemetry hooks ([14.4](14-telemetry.md#144-agent-events)).
+
 ### Events
 
 Portable events, supported by both agents: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SubagentStart`, `SubagentStop`, `Stop`.
@@ -117,7 +119,7 @@ MCP servers use the Agent Plugins `mcp.json` format.
 
 harnesspm writes each server under the name `<plugin name>-<server>`, such as `uikit-docs`. For a server from the project, an added harness or a trusted package, it also writes an allow rule for its tools in Claude Code (`mcp__uikit-docs`), because MCP tool calls ask for approval even in cloud sessions. A trusted server already runs the package's code, so its tools need no opt-in of their own. Codex gets no rule.
 
-- **stdio servers** are written as `npx harnesspm mcp uikit:docs`. The runner expands `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`, sets the environment from [5.1](#51-scripts) and starts the server. Both agents get the same command.
+- **stdio servers** are written as `harnesspm mcp uikit:docs`, with the prefix that hooks use ([5.2](#52-hooks)). The runner expands `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`, sets the environment from [5.1](#51-scripts) and starts the server. Both agents get the same command.
 - **Remote servers** are written as they are. Secrets never go into `mcp.json`. Authentication stays with the agent.
 
 ## 5.4 Permissions
@@ -132,6 +134,8 @@ A dependency MUST NOT be able to grant itself broad rights. harnesspm writes all
 | --- | --- |
 | Claude Code | `Bash(npx harnesspm run uikit:probe *)` in `permissions.allow` |
 | Codex | `prefix_rule(pattern=["npx", "harnesspm", "run", "uikit:probe"], decision="allow")` |
+
+An allow rule keeps the npx form, also where hooks use the local binary, because it must match the command the agent types.
 
 **Deny and ask rules** only restrict. They are written as command prefixes:
 

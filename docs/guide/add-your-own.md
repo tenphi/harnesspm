@@ -24,6 +24,20 @@ An **added harness** is an ordinary harness, with a `plugin.json` and units, in 
 
 To give a harness to everyone who works on a repository, make it a dependency instead: a harness-only package in `devDependencies`.
 
+## Start one
+
+A harness of your own starts as a folder with git. `new` writes its manifest and first unit:
+
+```shell
+mkdir -p ~/dev/my-harness && cd ~/dev/my-harness && git init
+npx -y @tenphi/harnesspm new rule workflow
+```
+
+- `new` creates `harness/plugin.json`, with the folder's name as the plugin name, and `harness/dev.harnesspm/rules/workflow.md`, an always-on rule. Ignore the `init` it suggests: your harness is not a project.
+- Write the rule, then run `npx -y @tenphi/harnesspm check`, and commit.
+- A folder works on this machine. To use the harness on other machines and in cloud sessions, push it to a repository of yours and add it from there.
+- The person adds it, as below. An agent that starts a harness for someone stops before `add`.
+
 ## Add one
 
 ```shell

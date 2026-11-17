@@ -3,7 +3,7 @@
 **In short**
 
 - v1 supports **Claude Code cloud sessions**. Codex Cloud is not supported in v1 ([13.12](13-open-questions.md#1312-removed-in-review)); Codex on a person's computer is.
-- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script: when the agent runs it, new hooks, MCP servers and allow rules stay pending ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4).
+- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script: when the agent runs it, new hooks, MCP servers and allow rules stay pending ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` say this when they hold entries back, instead of asking for a terminal.
 - Added harnesses need one command in the container: in the setup script of the person's own environment, or asked of the agent.
 - Improving an added harness from the cloud needs push access to its repository. Without it, the agent shows the change in the session.
 

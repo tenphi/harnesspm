@@ -2,12 +2,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { caller, harnesspmHome, type AddedHarness } from './added.ts';
-import { applyEntries, desiredEntries, tomlTables } from './exec-outputs.ts';
+import { applyEntries, desiredEntries, heldEntries, tomlTables, type ExecEntries } from './exec-outputs.ts';
 import { agentsHome, claudeHome, claudeJsonFile, codexHome } from './homes.ts';
 import { pathTools } from './outputs.ts';
 import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from './render.ts';
-import { resolve } from './resolve.ts';
-import { NPX_ANY, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
+import { resolve, type Resolution } from './resolve.ts';
+import { NPX_ANY, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
 export const HOOK_COMMAND = `${NPX_ANY} sync`;
 
@@ -62,12 +62,33 @@ function writeCodexBlock(servers: Record<string, Record<string, unknown>>): bool
   return writeIfChanged(file, `${next}\n`);
 }
 
+function resolveUser(added: AddedHarness[]): Resolution {
+  const user = added.filter((h) => h.scope === 'user').map(({ entry: _entry, ...rest }) => rest);
+  return resolve(harnesspmHome(), { team: false, added: user });
+}
+
+/** Hooks, permissions, MCP servers and sub-agents of user-scope harnesses (spec 4.4). Adding a harness trusts it. */
+function userEntries(res: Resolution): ExecEntries {
+  // User-level files serve every repository, so they start harnesspm through npx.
+  return desiredEntries(res, new Set(res.packages), () => ({ trusted: true }), {
+    claudeAgents: path.join(claudeHome(), 'agents'),
+    codexAgents: path.join(codexHome(), 'agents'),
+    npx: () => NPX_ANY,
+    runner: () => npxRunner(NPX_ANY),
+  });
+}
+
+/** What `writeUserOutputs` would hold back in a run of the agent's model, without writing anything. */
+export function userHeld(added: AddedHarness[]): string[] {
+  if (!added.some((h) => h.scope === 'user')) return [];
+  return heldEntries('added', userEntries(resolveUser(added)), stateFile());
+}
+
 /** Writes rules, docs, skills and executables of user-scope harnesses into the agents' user folders. */
 export function writeUserOutputs(added: AddedHarness[], warnings: string[], report: UserReport = { pending: [], held: [] }): string[] {
-  const user = added.filter((h) => h.scope === 'user').map(({ entry: _entry, ...rest }) => rest);
   const home = harnesspmHome();
   ensureDir(home);
-  const res = resolve(home, { team: false, added: user });
+  const res = resolveUser(added);
   warnings.push(...res.warnings);
   const generatedRoot = path.join(home, 'generated', 'user');
   const generated = new Map<string, string>();
@@ -112,12 +133,7 @@ export function writeUserOutputs(added: AddedHarness[], warnings: string[], repo
   }
   writeState({ ...state, userLinks: [...links.keys()].sort() });
 
-  // Hooks, permissions, MCP servers and sub-agents of user-scope harnesses (spec 4.4). Adding a harness trusts it.
-  const entries = desiredEntries(res, new Set(res.packages), () => ({ trusted: true }), {
-    claudeAgents: path.join(claudeHome(), 'agents'),
-    codexAgents: path.join(codexHome(), 'agents'),
-    npx: () => NPX_ANY,
-  });
+  const entries = userEntries(res);
   warnings.push(...entries.warnings);
   const applied = applyEntries(
     'added',

@@ -21,9 +21,12 @@ harnesspm reads workspaces from the `workspaces` field of the root `package.json
 | Units that the root reaches, or that every workspace shares | The root `AGENTS.md` block |
 | Units of one workspace | A block in `<workspace>/AGENTS.md`, with paths relative to that folder |
 | `CLAUDE.md` with `@AGENTS.md` | Next to each workspace `AGENTS.md`, and each nested `AGENTS.md` that git tracks |
+| A `## Workspaces` section that names each workspace with a block | The root `AGENTS.md` block, first |
 | Skills, scripts, hooks, MCP servers, permissions | The root, where both agents read them |
 
 Codex joins `AGENTS.md` files from the root down to the folder it works in. Claude Code does not read a nested `AGENTS.md` when the root has a `CLAUDE.md`, so harnesspm makes a `CLAUDE.md` next to it import it, also for an `AGENTS.md` you wrote yourself ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). Commit both files. A block that becomes empty is removed, and so is a file that held only the block.
+
+Claude Code loads a workspace's block only when the agent opens a file there with its file tools, not when it works through the shell. So the always-on root block names the workspaces that have one, and asks the agent to read that `AGENTS.md` before it changes files there.
 
 ## Your own workspaces
 
