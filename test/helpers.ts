@@ -64,6 +64,19 @@ export function installPackage(base: string, name: string, spec: PackageSpec): s
   return dir;
 }
 
+/**
+ * Installs a stand-in for harnesspm itself in `<dir>/node_modules`, with its CLI file not executable, as Yarn 4 leaves it
+ * after an upgrade in place. Returns the CLI file's path through the project's real path.
+ */
+export function installCli(dir: string): string {
+  writeFiles(dir, {
+    'node_modules/@tenphi/harnesspm/package.json': JSON.stringify({ name: '@tenphi/harnesspm', version: '0.5.1', bin: { harnesspm: 'dist/cli.js' } }),
+    'node_modules/@tenphi/harnesspm/dist/cli.js': '#!/usr/bin/env node\n',
+  });
+  fs.chmodSync(path.join(dir, 'node_modules/@tenphi/harnesspm/dist/cli.js'), 0o644);
+  return path.join(fs.realpathSync(dir), 'node_modules/@tenphi/harnesspm/dist/cli.js');
+}
+
 export interface RunResult {
   status: number;
   stdout: string;

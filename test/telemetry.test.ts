@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { homeOf, installPackage, project, read, run, runInput, runNode, runWith, skill, writeFiles } from './helpers.ts';
+import { homeOf, installCli, installPackage, project, read, run, runInput, runNode, runWith, skill, writeFiles } from './helpers.ts';
 
 const MODEL = { AI_AGENT: 'claude-code_2-1-323_agent', CLAUDECODE: '1' };
 const EVENTS = '.harnesspm/events.jsonl';
@@ -212,8 +212,7 @@ test('a handler that a person has not recorded is held; a model run does not rec
 
 test('agent events: a person sync writes fast, async hooks; a model run holds them', () => {
   const dir = app({ send: { file: EVENTS } });
-  writeFiles(dir, { 'node_modules/.bin/harnesspm': '#!/bin/sh\n' });
-  const bin = path.join(fs.realpathSync(dir), 'node_modules/.bin/harnesspm');
+  const bin = `node ${installCli(dir)}`;
 
   const model = runWith(dir, MODEL, 'sync');
   assert.match(model.stdout, /held back: .*telemetry handler/);

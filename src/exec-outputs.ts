@@ -85,7 +85,7 @@ const codexRule = (words: string[], decision: string): string => `prefix_rule(pa
 /**
  * The entries that `packages` ask for. `npx` is the prefix that the agent types: `npx harnesspm` where the project
  * depends on harnesspm, `npx -y @tenphi/harnesspm` elsewhere. Allow rules use it, so they match the command. `runner`
- * starts hooks and MCP servers, which nobody types, so it can be a faster local binary (spec 5.2).
+ * starts hooks and MCP servers, which nobody types, so it can start the installed CLI file, which is faster (spec 5.2).
  */
 export function desiredEntries(
   res: Resolution,
@@ -226,12 +226,14 @@ const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0
 /**
  * What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`.
  * The prefix is one of the forms that `runner` writes, matched as whole shell words: `npx harnesspm`,
- * `npx -y @tenphi/harnesspm`, or the project's binary, quoted when its path needs it.
+ * `npx -y @tenphi/harnesspm`, `node` with the installed CLI file, or the project's `.bin/harnesspm` that 0.5.0 wrote.
+ * A path is quoted when it needs it.
  */
-const RUNNER_PREFIX = /^(?:npx harnesspm|npx -y @tenphi\/harnesspm|[\w@%+=:,./-]*\/node_modules\/\.bin\/harnesspm|'(?:[^']|'\\'')*\/node_modules\/\.bin\/harnesspm') /;
+const LOCAL_CLI = String.raw`\/node_modules\/(?:\.bin\/harnesspm|@tenphi\/harnesspm\/[\w./-]+\.js)`;
+const RUNNER_PREFIX = new RegExp(String.raw`^(?:npx harnesspm|npx -y @tenphi\/harnesspm|(?:node )?(?:[\w@%+=:,./-]*${LOCAL_CLI}|'(?:[^']|'\\'')*${LOCAL_CLI}')) `);
 const hookTask = (command: string): string => command.replace(RUNNER_PREFIX, 'harnesspm ');
 
-/** What a hook grants. A new runner prefix, such as the local binary in place of npx, grants nothing new. */
+/** What a hook grants. A new runner prefix, such as the installed CLI file in place of npx, grants nothing new. */
 const grantKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${hookTask(h.command)}`;
 
 /** Keeps what a model run may keep: entries it already had. Returns the entries and what is held back. */

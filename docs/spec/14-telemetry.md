@@ -85,7 +85,7 @@ Codex reads files and skills through shell commands. harnesspm cannot map a shel
 
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
-1. It is `<project>/node_modules/.bin/harnesspm track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without a local binary, or on Windows, harnesspm writes `npx harnesspm track …`.
+1. It is `node <project>/node_modules/@tenphi/harnesspm/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules in its managed block; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 

@@ -364,7 +364,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   // Executable units and sub-agents (spec 4.3, chapter 5), with trust (spec 6.2).
   const trust = (pkg: ResolvedPackage) => trustOf(pkg, full, lock);
   const agentDirs = { claudeAgents: path.join(projectDir, '.claude', 'agents'), codexAgents: path.join(projectDir, '.codex', 'agents') };
-  // Hooks and MCP servers start through the project's own binary when it has one (spec 5.2).
+  // Hooks and MCP servers start the project's installed CLI file with node when it has one (spec 5.2).
   const teamRunner = runner(projectDir, NPX_LOCAL);
   const addedRunner = runner(projectDir, NPX_ANY);
   const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => NPX_LOCAL, runner: () => teamRunner }) : undefined;
@@ -404,7 +404,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
 
 /**
  * Claude Code: reads, skills, file-scoped rules and workspace blocks it loads by itself, sessions. Codex: sessions only
- * (spec 14.4). `prefix` is the runner, a local binary when there is one, because npx costs about 0.4 s per call.
+ * (spec 14.4). `prefix` is the runner, the installed CLI file when there is one, because npx costs about 0.4 s per call.
  */
 function telemetryHooks(prefix: string, agent: 'claude' | 'codex', events: EventType[]): HookEntry[] {
   const command = `${prefix} track --agent ${agent}`;

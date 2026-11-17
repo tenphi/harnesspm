@@ -25,15 +25,31 @@ export function shellWord(word: string): string {
 }
 
 /**
- * How hooks and MCP servers start harnesspm in a project (spec 5.2, 14.4): the project's own binary when it has one, else
- * `fallback` through npx, which costs about 0.4 s per call. The path is absolute, so only per-machine files use it. Allow
- * rules keep the npx form, because they must match the command the agent types (spec 5.4). Windows keeps npx: its
- * `.bin` entry for sh is not a command there.
+ * The CLI file of the harnesspm that the project installed, by the `bin` field of its package.json. The path goes
+ * through `node_modules/@tenphi/harnesspm`, not its real path, so it stays the same when pnpm moves the package.
+ */
+export function installedCli(projectDir: string): string | undefined {
+  const dir = path.join(projectDir, 'node_modules', ...PACKAGE_NAME.split('/'));
+  try {
+    const pkg = readJsonIfExists(path.join(dir, 'package.json'));
+    const bin = isRecord(pkg) ? (typeof pkg['bin'] === 'string' ? pkg['bin'] : isRecord(pkg['bin']) ? pkg['bin']['harnesspm'] : undefined) : undefined;
+    return typeof bin === 'string' && isFile(path.join(dir, bin)) ? path.join(dir, bin) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * How hooks and MCP servers start harnesspm in a project (spec 5.2, 14.4): `node` with the CLI file that the project
+ * installed, else `fallback` through npx, which costs about 0.4 s per call. `node` runs the file whatever its mode: Yarn 4
+ * drops the executable bit on an upgrade in place (research/package-managers.md). The path is absolute, so only
+ * per-machine files use it. Allow rules keep the npx form, because they must match the command the agent types
+ * (spec 5.4). Windows keeps npx, so commands there hold no shell-quoted path.
  */
 export function runner(projectDir: string, fallback: string): Runner {
-  const bin = path.join(projectDir, 'node_modules', '.bin', 'harnesspm');
-  if (process.platform === 'win32' || !isFile(bin)) return npxRunner(fallback);
-  return { shell: shellWord(bin), argv: [bin] };
+  const cli = process.platform === 'win32' ? undefined : installedCli(projectDir);
+  if (cli === undefined) return npxRunner(fallback);
+  return { shell: `node ${shellWord(cli)}`, argv: ['node', cli] };
 }
 
 /** An error that the CLI prints without a stack trace. */
