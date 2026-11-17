@@ -6,7 +6,7 @@ import { AGENTS, WIDENING_AGENT_KEYS, type Agent } from './exec-units.ts';
 import type { Lock } from './lock.ts';
 import { tomlString } from './render.ts';
 import type { Resolution, ResolvedPackage } from './resolve.ts';
-import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
+import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged, type Runner } from './util.ts';
 
 export type Group = 'team' | 'added';
 
@@ -83,14 +83,15 @@ const bashRule = (words: string[]): string => `Bash(${words.join(' ')} *)`;
 const codexRule = (words: string[], decision: string): string => `prefix_rule(pattern = ${JSON.stringify(words)}, decision = "${decision}")`;
 
 /**
- * The entries that `packages` ask for. `npx` is the command prefix: `npx harnesspm` where the project
- * depends on harnesspm, `npx -y @tenphi/harnesspm` elsewhere. Allow rules use the same prefix as the commands.
+ * The entries that `packages` ask for. `npx` is the prefix that the agent types: `npx harnesspm` where the project
+ * depends on harnesspm, `npx -y @tenphi/harnesspm` elsewhere. Allow rules use it, so they match the command. `runner`
+ * starts hooks and MCP servers, which nobody types, so it can be a faster local binary (spec 5.2).
  */
 export function desiredEntries(
   res: Resolution,
   packages: Set<ResolvedPackage>,
   trust: (pkg: ResolvedPackage) => TrustState,
-  where: { claudeAgents: string; codexAgents: string; npx: (pkg: ResolvedPackage) => string },
+  where: { claudeAgents: string; codexAgents: string; npx: (pkg: ResolvedPackage) => string; runner: (pkg: ResolvedPackage) => Runner },
 ): ExecEntries {
   const entries = emptyEntries();
   const mine = <T extends { pkg: ResolvedPackage }>(units: T[]): T[] => units.filter((u) => packages.has(u.pkg));
@@ -124,7 +125,7 @@ export function desiredEntries(
       const entry: HookEntry = {
         event: hook.event,
         ...(matcher !== undefined ? { matcher } : {}),
-        command: `${where.npx(hook.pkg)} run --agent ${agent} ${hook.pkg.plugin}:${hook.run}`,
+        command: `${where.runner(hook.pkg).shell} run --agent ${agent} ${hook.pkg.plugin}:${hook.run}`,
         ...(hook.timeout !== undefined ? { timeout: hook.timeout } : {}),
       };
       entries[agent].hooks.push(entry);
@@ -140,7 +141,7 @@ export function desiredEntries(
     for (const agent of AGENTS) {
       let config: Record<string, unknown> | undefined;
       if (type === 'stdio') {
-        const [command, ...prefix] = where.npx(server.pkg).split(' ');
+        const [command, ...prefix] = where.runner(server.pkg).argv;
         config = { command, args: [...prefix, 'mcp', '--agent', agent, `${server.pkg.plugin}:${server.name}`] };
         if (agent === 'claude') config = { type: 'stdio', ...config };
       } else if (agent === 'claude') {
@@ -222,11 +223,51 @@ function writeOwned(stateFile: string, state: StateFile): void {
 
 const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${h.command}`;
 
+/** What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`. */
+const hookTask = (command: string): string => command.replace(/^.*?\s(?=(?:run|track) --agent )/, 'harnesspm ');
+
+/** What a hook grants. A new runner prefix, such as the local binary in place of npx, grants nothing new. */
+const grantKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${hookTask(h.command)}`;
+
 /** Keeps what a model run may keep: entries it already had. Returns the entries and what is held back. */
 function limit<T>(wanted: T[], had: T[], key: (t: T) => string, widen: boolean): { kept: T[]; held: T[] } {
   if (widen) return { kept: wanted, held: [] };
   const before = new Set(had.map(key));
   return { kept: wanted.filter((w) => before.has(key(w))), held: wanted.filter((w) => !before.has(key(w))) };
+}
+
+const isAllowRule = (rule: string): boolean => rule.includes('decision = "allow"');
+
+/** A Codex rule as the words it matches, such as `npx harnesspm run kit:probe`. */
+function ruleWords(rule: string): string {
+  try {
+    return (JSON.parse(/pattern = (\[.*?\]), decision/.exec(rule)?.[1] ?? '') as string[]).join(' ');
+  } catch {
+    return rule;
+  }
+}
+
+/**
+ * The widening entries that a run may write: all of them for a person, a setup script or a hook, and for the agent's
+ * model only those it had before (spec 6.2, rule 4). `held` names the rest. `sync` writes with it, and `status` and
+ * `doctor` preview it, so all three list the same entries.
+ */
+function widening(entries: ExecEntries, prev: Owned, widen: boolean) {
+  const allow = limit(entries.claude.allow, prev.claude.allow, (s) => s, widen);
+  const claudeHooks = limit(entries.claude.hooks, prev.claude.hooks, grantKey, widen);
+  const claudeMcpNames = limit(Object.keys(entries.claude.mcp), prev.claude.mcp, (s) => s, widen);
+  const codexHooks = limit(entries.codex.hooks, prev.codex.hooks, grantKey, widen);
+  const codexMcpNames = limit(Object.keys(entries.codex.mcp), Object.keys(prev.codex.mcp), (s) => s, widen);
+  const codexAllow = limit(entries.codex.rules.filter(isAllowRule), prev.codex.rules.filter(isAllowRule), (s) => s, widen);
+  const held = [
+    ...allow.held.map((a) => `allow ${a}`),
+    ...claudeHooks.held.map((h) => `Claude Code hook: ${hookTask(h.command)}`),
+    ...claudeMcpNames.held.map((n) => `Claude Code MCP server ${n}`),
+    ...codexHooks.held.map((h) => `Codex hook: ${hookTask(h.command)}`),
+    ...codexMcpNames.held.map((n) => `Codex MCP server ${n}`),
+    ...codexAllow.held.map((r) => `Codex allow rule: ${ruleWords(r)}`),
+  ];
+  return { allow, claudeHooks, claudeMcpNames, codexHooks, codexMcpNames, codexAllow, held };
 }
 
 type JsonHooks = Record<string, { matcher?: string; hooks?: { type?: string; command?: string; timeout?: number; async?: boolean }[] }[]>;
@@ -295,17 +336,9 @@ export interface Applied {
   files: string[];
 }
 
-/** Widening entries that `entries` asks for but harnesspm does not own yet, without writing anything. */
+/** The entries that a sync by the agent's model would hold back now, without writing anything. */
 export function heldEntries(group: Group, entries: ExecEntries, stateFile: string): string[] {
-  const prev = readOwned(stateFile)[group] ?? emptyOwned();
-  const missing = <T>(wanted: T[], had: T[], key: (t: T) => string): T[] => limit(wanted, had, key, false).held;
-  return [
-    ...missing(entries.claude.allow, prev.claude.allow, (s) => s).map((a) => `allow ${a}`),
-    ...missing(entries.claude.hooks, prev.claude.hooks, hookKey).map((h) => `Claude Code hook: ${h.command}`),
-    ...missing(Object.keys(entries.claude.mcp), prev.claude.mcp, (s) => s).map((n) => `Claude Code MCP server ${n}`),
-    ...missing(entries.codex.hooks, prev.codex.hooks, hookKey).map((h) => `Codex hook: ${h.command}`),
-    ...missing(Object.keys(entries.codex.mcp), Object.keys(prev.codex.mcp), (s) => s).map((n) => `Codex MCP server ${n}`),
-  ];
+  return widening(entries, readOwned(stateFile)[group] ?? emptyOwned(), false).held;
 }
 
 export function applyEntries(group: Group, entries: ExecEntries, targets: Targets, widen: boolean): Applied {
@@ -314,23 +347,14 @@ export function applyEntries(group: Group, entries: ExecEntries, targets: Target
   const writeClaude = targets.writeClaude !== false;
   const writeCodex = targets.writeCodex !== false;
   const changed: string[] = [];
-  const held: string[] = [];
   const files: string[] = [];
 
-  const allow = limit(entries.claude.allow, prev.claude.allow, (s) => s, widen);
-  const claudeHooks = limit(entries.claude.hooks, prev.claude.hooks, hookKey, widen);
-  const claudeMcpNames = limit(Object.keys(entries.claude.mcp), prev.claude.mcp, (s) => s, widen);
-  const codexHooks = limit(entries.codex.hooks, prev.codex.hooks, hookKey, widen);
-  const codexMcpNames = limit(Object.keys(entries.codex.mcp), Object.keys(prev.codex.mcp), (s) => s, widen);
-  const allowRules = entries.codex.rules.filter((r) => r.includes('decision = "allow"'));
-  const codexAllow = limit(allowRules, prev.codex.rules.filter((r) => r.includes('decision = "allow"')), (s) => s, widen);
+  const { allow, claudeHooks, claudeMcpNames, codexHooks, codexMcpNames, codexAllow, held } = widening(entries, prev, widen);
   // A model run never removes a restriction either.
   const keepRestrictions = (next: string[], before: string[]): string[] => (widen ? next : [...new Set([...next, ...before])]);
   const deny = keepRestrictions(entries.claude.deny, prev.claude.deny);
   const ask = keepRestrictions(entries.claude.ask, prev.claude.ask);
-  const codexRestrict = keepRestrictions(entries.codex.rules.filter((r) => !r.includes('decision = "allow"')), prev.codex.rules.filter((r) => !r.includes('decision = "allow"')));
-  held.push(...allow.held.map((a) => `allow ${a}`), ...claudeHooks.held.map((h) => `Claude Code hook: ${h.command}`), ...claudeMcpNames.held.map((n) => `Claude Code MCP server ${n}`));
-  held.push(...codexHooks.held.map((h) => `Codex hook: ${h.command}`), ...codexMcpNames.held.map((n) => `Codex MCP server ${n}`), ...codexAllow.held.map((r) => `Codex rule ${r}`));
+  const codexRestrict = keepRestrictions(entries.codex.rules.filter((r) => !isAllowRule(r)), prev.codex.rules.filter((r) => !isAllowRule(r)));
 
   // Claude Code settings: permissions and hooks.
   if (

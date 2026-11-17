@@ -3,7 +3,8 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { homeOf, installPackage, project, read, run, runInput, runWith, skill, writeFiles } from './helpers.ts';
+import { pathToFileURL } from 'node:url';
+import { homeOf, installPackage, project, read, run, runInput, runNode, runWith, skill, writeFiles } from './helpers.ts';
 
 const MODEL = { AI_AGENT: 'claude-code_2-1-323_agent', CLAUDECODE: '1' };
 const EVENTS = '.harnesspm/events.jsonl';
@@ -212,7 +213,7 @@ test('agent events: a person sync writes fast, async hooks; a model run holds th
   const hooks = settings(dir).hooks;
   const handler = { type: 'command', command: `${bin} track --agent claude`, timeout: 10, async: true };
   assert.deepEqual(hooks.PostToolUse, [{ matcher: 'Read|Skill', hooks: [handler] }]);
-  assert.deepEqual(hooks.InstructionsLoaded, [{ matcher: 'path_glob_match', hooks: [handler] }]);
+  assert.deepEqual(hooks.InstructionsLoaded, [{ matcher: 'path_glob_match|nested_traversal|include', hooks: [handler] }]);
   assert.deepEqual(hooks.SessionStart, [{ hooks: [handler] }]);
   assert.deepEqual(json(path.join(dir, '.codex/hooks.json')).hooks, { SessionStart: [{ hooks: [{ ...handler, command: `${bin} track --agent codex` }] }] });
   assert.ok(fs.existsSync(path.join(dir, 'node_modules/.harnesspm/telemetry.json')));
@@ -279,4 +280,94 @@ test('the hook maps Claude Code payloads to units, sends no contents, and exits 
 
   // Bad input never fails the agent.
   for (const input of ['', 'not json', '[]']) assert.equal(runInput(dir, {}, input, 'track', '--agent', 'claude').status, 0);
+});
+
+test("a workspace block that Claude Code loads sends a read event for each always-on rule in it", () => {
+  const dir = project({}, { name: 'mono', private: true, workspaces: ['packages/*'] });
+  writeFiles(dir, {
+    'packages/web/package.json': JSON.stringify({ name: '@acme/web', dependencies: { '@acme/kit': '2' } }),
+    'packages/api/package.json': JSON.stringify({ name: '@acme/api' }),
+    'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, telemetry: { send: { file: EVENTS } } }),
+  });
+  kit(dir);
+  assert.equal(run(dir, 'sync').status, 0);
+  const root = fs.realpathSync(dir);
+  const web = path.join(root, 'packages/web');
+  const base = { session_id: 'sess-2', cwd: root };
+  const loaded = (file: string, reason: string, parent?: string) => ({ ...base, hook_event_name: 'InstructionsLoaded', file_path: file, load_reason: reason, ...(parent ? { parent_file_path: parent } : {}) });
+  const track = (payload: Record<string, unknown>): Record<string, any>[] => {
+    const before = events(dir).length;
+    assert.equal(runInput(dir, { AI_AGENT: 'claude-code_2-1-326_harness', CLAUDECODE: '1' }, JSON.stringify(payload), 'track', '--agent', 'claude').status, 0);
+    return events(dir).slice(before).map(({ schema, time, harnesspm, ...rest }) => rest);
+  };
+
+  // Claude Code loads the workspace's CLAUDE.md, then the AGENTS.md it imports: one event per always-on rule, not two.
+  assert.deepEqual(track(loaded(path.join(web, 'CLAUDE.md'), 'nested_traversal')), []);
+  assert.deepEqual(track(loaded(path.join(web, 'AGENTS.md'), 'include', path.join(web, 'CLAUDE.md'))), [
+    { type: 'read', project: 'mono', workspace: '.', caller: 'agent', agent: 'claude', session: 'sess-2', unit: 'kit:rules/usage', package: '@acme/kit', version: '2.1.0', via: 'auto' },
+  ]);
+  // The file-scoped rule is only a pointer line in the block, and the root block is loaded in every session.
+  assert.deepEqual(track(loaded(path.join(root, 'AGENTS.md'), 'include', path.join(root, 'CLAUDE.md'))), []);
+  // Reading the file with the Read tool, as the root's pointer asks, is a read too.
+  const read = track({ ...base, hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: { file_path: path.join(web, 'AGENTS.md') } });
+  assert.deepEqual(read.map((e) => [e.unit, e.via]), [['kit:rules/usage', 'tool']]);
+});
+
+test('events name the repository by its origin remote; a sync in CI sends no sync event', () => {
+  const dir = app({ send: { file: EVENTS } });
+  spawnSync('git', ['remote', 'add', 'origin', 'git@github.com:acme/app.git'], { cwd: dir });
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.equal(events(dir).at(-1)!.repository, 'github.com/acme/app');
+  assert.equal(JSON.parse(read(dir, 'node_modules/.harnesspm/telemetry.json')).repository, 'github.com/acme/app', 'hooks read it from the index');
+  run(dir, 'run', 'kit:probe');
+  assert.equal(events(dir).at(-1)!.repository, 'github.com/acme/app');
+  runInput(dir, {}, JSON.stringify({ hook_event_name: 'SessionStart', source: 'startup', session_id: 's', cwd: fs.realpathSync(dir) }), 'track', '--agent', 'claude');
+  assert.deepEqual([events(dir).at(-1)!.type, events(dir).at(-1)!.repository], ['session', 'github.com/acme/app']);
+
+  // Every CI job runs an install, and so a sync: none of them sends a sync event.
+  const before = events(dir).length;
+  assert.equal(runWith(dir, { CI: 'true' }, 'sync').status, 0);
+  assert.equal(events(dir).length, before);
+  const ci = runWith(dir, { CI: 'true' }, 'run', 'kit:probe');
+  assert.equal(ci.status, 0);
+  assert.equal(events(dir).at(-1)!.caller, 'ci', 'other events from CI are still sent');
+});
+
+test("a project's own tool reports its runs through @tenphi/harnesspm/telemetry, with the same switch and opt-outs", () => {
+  const dir = app({ events: ['run'], send: { file: EVENTS } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const api = pathToFileURL(path.join(import.meta.dirname, '..', 'src', 'telemetry-api.ts')).href;
+  writeFiles(dir, {
+    'scripts/probe.mjs': [
+      `import { reportRun } from ${JSON.stringify(api)};`,
+      `reportRun({ unit: 'kit:scripts/probe', fields: { mode: 'fast', unit: 'other', caller: 'person' }, duration: 12.4, exit: 0 });`,
+      `reportRun({ unit: 'not a unit' });`,
+      `console.log('done');`,
+    ].join('\n'),
+  });
+  const tool = (env: Record<string, string> = {}) => runNode(path.join(dir, 'scripts'), env, undefined, path.join(dir, 'scripts/probe.mjs'));
+  const first = tool();
+  assert.deepEqual([first.status, first.stdout, first.stderr], [0, 'done\n', ''], 'it never prints or throws');
+  const [event] = events(dir);
+  const { schema, time, harnesspm, ...fields } = event!;
+  assert.equal(schema, 'harnesspm.event/1');
+  assert.deepEqual(fields, { type: 'run', project: 'app', workspace: '.', caller: 'person', unit: 'kit:scripts/probe', mode: 'fast', exit: 0, duration: 12 }, 'its own fields never replace common ones');
+  assert.match(read(dir, 'node_modules/.harnesspm/telemetry.log'), /reportRun: "not a unit" is not a unit ID/);
+
+  tool(MODEL);
+  assert.deepEqual([events(dir).at(-1)!.caller, events(dir).at(-1)!.agent], ['agent', 'claude']);
+  const count = events(dir).length;
+  tool({ DO_NOT_TRACK: '1' });
+  assert.equal(events(dir).length, count, 'DO_NOT_TRACK stops it');
+  // A handler that a person has not recorded is held for the tool too.
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, telemetry: { events: ['run'], send: { file: 'other.jsonl' } } }) });
+  tool();
+  assert.equal(events(dir).length, count);
+  assert.deepEqual(events(dir, 'other.jsonl'), []);
+});
+
+test('package.json exports the telemetry entry and package.json, and nothing else', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'));
+  assert.deepEqual(pkg.exports, { './telemetry': { types: './dist/telemetry-api.d.ts', default: './dist/telemetry-api.js' }, './package.json': './package.json' });
+  assert.ok(fs.existsSync(path.join(import.meta.dirname, '..', 'src', 'telemetry-api.ts')), 'the build writes dist/telemetry-api.js from it');
 });

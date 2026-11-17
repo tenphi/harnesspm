@@ -19,7 +19,7 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending ([06-trust.md](06-trust.md#62-trusting-a-package)). With `CI=true`, it writes only the per-machine outputs and leaves the committed ones to `sync --check` ([06-trust.md](06-trust.md#64-ci)). |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --write` | Writes the committed outputs with `CI=true` too, for a job that commits them. `init`, `approve` and `new` always write them. |
-| `harnesspm status` | Layers, packages, versions, pending trust, changes that added harnesses make to the repository's units, always-on size per agent, and whether telemetry is on, held or off on this machine. Points to `doctor` when a per-machine file has a problem. |
+| `harnesspm status` | Layers, packages, versions, pending trust, entries an agent's sync would hold back (the list `sync` prints), changes that added harnesses make to the repository's units, always-on size per agent, managed blocks that Codex does not reach ([4.9](04-outputs.md#49-size-limits)), and whether telemetry is on, held or off on this machine. Points to `doctor` when a per-machine file has a problem. |
 | `harnesspm doctor` | Checks that the repository is ready for harnesses, its own and a person's. It changes nothing. Each problem names the command that fixes it. Exits `1` when a check fails; warnings, such as pending trust, do not fail. See [10.5](#105-doctor). |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). Works for every unit ID ([2.8](02-package-format.md#28-unit-ids)). For a script, also the command that runs it; for a script, hook, MCP server or sub-agent of a dependency, whether its package is trusted. |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
@@ -42,7 +42,7 @@ node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}c
 4. `node -e`, `||` and parentheses work in sh, Windows cmd and Yarn's own shell. `|| true` would not: cmd has no `true` command.
 5. Older versions of `init` wrote the hook as plain `harnesspm sync`, which fails such an install. `init` replaces that form, alone or after ` && `, and `doctor` warns about it. A script that runs `harnesspm sync` in any other form stays as it is.
 
-The `node -e` part resolves `@tenphi/harnesspm/package.json` from the project folder. So if the package ever gets an `exports` field, that field MUST export `./package.json`.
+The `node -e` part resolves `@tenphi/harnesspm/package.json` from the project folder. So the package's `exports` field MUST export `./package.json`. It does, next to `./telemetry` ([14.9](14-telemetry.md#149-events-from-a-projects-own-tools)).
 
 `harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. `harnesspm track --agent <agent>` is the command of harnesspm's own telemetry hooks ([14.4](14-telemetry.md#144-agent-events)). People do not need either.
 
@@ -88,8 +88,8 @@ $ npx harnesspm status
 | --- | --- | --- |
 | 🔒 Local files | Every per-machine file on disk is ignored by git and not tracked. The files are the ones harnesspm lists in `.git/info/exclude`, plus `harnesspm.local.json`, `CLAUDE.local.md`, `.claude/settings.local.json` and a telemetry file. Git answers, so `.gitignore`, `.git/info/exclude` and a global excludes file all count. | A file is tracked (fix: `git rm --cached`), or not ignored (fix: `sync` for a file harnesspm writes, otherwise a `.gitignore` entry). Outside a git repository it only warns. |
 | ➕ Harnesses of your own | The clone's exclude file can be written. Each added harness is on this machine. | The exclude file cannot be written, or an added harness is missing. |
-| 📦 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place. `AGENTS.md` fits in Codex's 32 KiB. | A committed output or the lock is out of date. Three problems only warn: missing per-machine outputs, because `sync` writes them; an `AGENTS.md` over 32 KiB; and an [install hook](#the-install-hook) in the old form, which fails an install without dev dependencies. |
-| 🛡️ Trust | Entries that wait for trust or for a person, and a held telemetry handler. | Never: these are warnings ([10.4](#104-exit-codes)). |
+| 📦 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place. `AGENTS.md` fits in Codex's 32 KiB, and Codex reaches every managed block ([4.9](04-outputs.md#49-size-limits)). | A committed output or the lock is out of date. Four problems only warn: missing per-machine outputs, because `sync` writes them; an `AGENTS.md` over 32 KiB; a managed block that Codex never reads, or reads only in part; and an [install hook](#the-install-hook) in the old form, which fails an install without dev dependencies. |
+| 🛡️ Trust | Entries that wait for trust or for a person, with a held telemetry handler: the list that `sync` prints. | Never: these are warnings ([10.4](#104-exit-codes)). |
 
 ```text
 $ npx harnesspm doctor

@@ -14,7 +14,7 @@ description: Use the repository's harness and your own added harness in Claude C
 
 A cloud session starts from a clean clone. The committed block in `AGENTS.md` is there at once. The per-machine outputs, such as skills, hooks and allow rules, appear when the install runs `harnesspm sync`, as on a laptop.
 
-Run the install in the environment's setup script. When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. Rules, docs and skills still work.
+Run the install in the environment's setup script. When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` point to the setup script when they hold entries back.
 
 ## Your own harness
 

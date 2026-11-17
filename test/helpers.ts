@@ -81,10 +81,15 @@ export function runWith(cwd: string, env: Record<string, string>, ...args: strin
 
 /** Runs the CLI with `input` on stdin, as an agent's hook does. */
 export function runInput(cwd: string, env: Record<string, string>, input: string | undefined, ...args: string[]): RunResult {
+  return runNode(cwd, env, input, CLI, ...args);
+}
+
+/** Runs a Node.js script as a person, with the test's home folder and none of the agents' or CI's markers. */
+export function runNode(cwd: string, env: Record<string, string>, input: string | undefined, script: string, ...args: string[]): RunResult {
   const home = homeOf(cwd);
   const clean: Record<string, string | undefined> = { ...process.env, CI: '', AI_AGENT: '', CLAUDECODE: '', DO_NOT_TRACK: '', HOME: home };
-  for (const key of ['HARNESSPM_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CLAUDE_CODE_SESSION_ID', 'CODEX_CI', 'CODEX_TOOL_CALL_ID']) delete clean[key];
-  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...clean, ...env }, ...(input !== undefined ? { input } : {}) });
+  for (const key of ['HARNESSPM_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_REMOTE', 'CODEX_CI', 'CODEX_TOOL_CALL_ID']) delete clean[key];
+  const result = spawnSync(process.execPath, [script, ...args], { cwd, encoding: 'utf8', env: { ...clean, ...env }, ...(input !== undefined ? { input } : {}) });
   return { status: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
 }
 

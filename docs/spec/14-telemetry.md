@@ -3,7 +3,8 @@
 **In short**
 
 - Telemetry is off. A team turns it on in `harnesspm.json` with `telemetry`: which events to send, and a handler that gets them, either a command or a file. harnesspm has no vendor code.
-- harnesspm sends what it sees: script runs, MCP server starts, `sync` and `why`. With agent events on, its own hooks also report when Claude Code reads a harness file or loads a skill, and when a session starts.
+- harnesspm sends what it sees: script runs, MCP server starts, `sync` and `why`. With agent events on, its own hooks also report when Claude Code reads a harness file, loads a workspace's rules or a skill, and when a session starts.
+- A project's own tools send `run` events through the same handler with `reportRun` from `@tenphi/harnesspm/telemetry` ([14.9](#149-events-from-a-projects-own-tools)).
 - Events never hold arguments, file contents or prompts. Sending never slows down or fails a command.
 - A handler gets events only as a person's `sync` recorded it in the lock. A person opts out with `DO_NOT_TRACK=1` or `"telemetry": false` in `harnesspm.local.json`.
 
@@ -33,9 +34,9 @@ harnesspm adds a handler file inside the project to `.git/info/exclude` when it 
 | --- | --- | --- |
 | `run` | `harnesspm run` finishes a script. A hook's script is a `run` with caller `hook`. | `unit`, `package`, `version`, `exit`, `duration` (ms) |
 | `mcp` | `harnesspm mcp` starts an MCP server. | `unit`, `package`, `version` |
-| `sync` | `harnesspm sync` writes the outputs. `--check` sends nothing. | `packages` (name and version), `added`, `removed` and `changed` (unit IDs since the last lock), `pending` (packages whose executable units wait for trust) |
+| `sync` | `harnesspm sync` writes the outputs. `--check` and runs with `CI=true` send nothing: every CI job runs an install, and so a sync. | `packages` (name and version), `added`, `removed` and `changed` (unit IDs since the last lock), `pending` (packages whose executable units wait for trust) |
 | `why` | `harnesspm why` finds a unit. | `unit`, `package`, `version` |
-| `read` | Agent event: the agent reads a file of a unit, or loads a file-scoped rule by itself. | `unit`, `package`, `version`, `via` (`tool` or `auto`), `page` for docs (the path inside the docs folder) |
+| `read` | Agent event: the agent reads a file of a unit, or loads a file-scoped rule or a workspace's managed block by itself. A block sends one event for each always-on rule in it. | `unit`, `package`, `version`, `via` (`tool` or `auto`), `page` for docs (the path inside the docs folder) |
 | `skill` | Agent event: the agent loads a skill. | `unit`, `package`, `version` |
 | `session` | Agent event: a session starts or resumes. | `source` (`startup`, `resume`, `clear`, `compact`, `fork`) |
 
@@ -47,6 +48,7 @@ Every event has these fields:
 | `type` | One of the types above. |
 | `time` | ISO 8601, UTC. |
 | `project` | The `name` in the root `package.json`. |
+| `repository` | The repository's `origin` remote as `<host>/<path>`, such as `github.com/acme/app`, when it has one. It names the repository also where `project` is a placeholder, as the root of a monorepo often is. |
 | `workspace` | The workspace folder from the root, or `.` for the root. |
 | `harnesspm` | The harnesspm version. |
 | `caller` | `person`; `agent` when the agent's model ran it ([6.2](06-trust.md#62-trusting-a-package), rule 4); `hook` when the agent ran it through a hook or an MCP server; `ci` when `CI=true`. |
@@ -54,12 +56,12 @@ Every event has these fields:
 | `session` | The agent's session ID, when known. |
 
 ```json
-{"schema":"harnesspm.event/1","type":"run","time":"2026-11-13T10:00:00.000Z","project":"app","workspace":".","harnesspm":"0.2.0","caller":"agent","agent":"claude","session":"77c89d39-1164-4bc0-b046-7a3e9bc97863","unit":"uikit:scripts/probe","package":"@cube-dev/ui-kit","version":"0.206.1","exit":0,"duration":812}
+{"schema":"harnesspm.event/1","type":"run","time":"2026-11-13T10:00:00.000Z","project":"app","repository":"github.com/acme/app","workspace":".","harnesspm":"0.2.0","caller":"agent","agent":"claude","session":"77c89d39-1164-4bc0-b046-7a3e9bc97863","unit":"uikit:scripts/probe","package":"@cube-dev/ui-kit","version":"0.206.1","exit":0,"duration":812}
 ```
 
 Rules:
 
-1. An event MUST NOT hold script arguments, file contents, prompts, tool output or absolute paths.
+1. An event MUST NOT hold script arguments, file contents, prompts, tool output or absolute paths. This covers the fields that a project's own tool adds ([14.9](#149-events-from-a-projects-own-tools)).
 2. Events cover the dependency and project layers only. Units of added harnesses belong to a person, so they never reach the team's handler.
 3. Units are named by their IDs ([2.8](02-package-format.md#28-unit-ids)). A file that is not part of a unit sends nothing.
 
@@ -76,18 +78,20 @@ Rules:
 
 | Agent | Hooks harnesspm writes | What harnesspm reads from the hook's JSON |
 | --- | --- | --- |
-| Claude Code | `PostToolUse` with the matcher `Read\|Skill`, `InstructionsLoaded` with the matcher `path_glob_match`, `SessionStart`. All are `"async": true`. | `tool_input.file_path` of `Read`; `tool_input.skill` of `Skill`; `file_path` of a file-scoped rule that Claude Code loads through its `.claude/rules/` link; `source` and `session_id` |
+| Claude Code | `PostToolUse` with the matcher `Read\|Skill`, `InstructionsLoaded` with the matcher `path_glob_match\|nested_traversal\|include`, `SessionStart`. All are `"async": true`. | `tool_input.file_path` of `Read`; `tool_input.skill` of `Skill`; `file_path` of a file-scoped rule that Claude Code loads through its `.claude/rules/` link, or of a workspace's `AGENTS.md`; `source` and `session_id` |
 | Codex | `SessionStart`, `"async": true` | `source` and `session_id` |
 
 Codex reads files and skills through shell commands. harnesspm cannot map a shell command to a unit reliably, so Codex sends no `read` or `skill` events. Codex also runs a project hook only after a person reviews it in `/hooks` ([research](../research/agent-capabilities.md#codex)).
 
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
-1. It is `<project>/node_modules/.bin/harnesspm track --agent <agent>`, an absolute path in a per-machine file. npx costs about 0.4 seconds per call. Without a local binary, harnesspm writes `npx harnesspm track …`.
-2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to a unit with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package.
-3. It hands the event off as in [14.3](#143-sending), and exits `0` at once without printing.
+1. It is `<project>/node_modules/.bin/harnesspm track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without a local binary, or on Windows, harnesspm writes `npx harnesspm track …`.
+2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules in its managed block; and the repository, so a hook never asks git.
+3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
-Not seen: reads through other tools, such as `cat` in a shell or a search, and rules that the agent gets in its main instructions, such as always-on rules.
+A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](../research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends them with `via: tool`.
+
+Not seen: reads through other tools, such as `cat` in a shell or a search, and the rules in the root block, which the agent gets in every session.
 
 ## 14.5 Trust
 
@@ -150,3 +154,25 @@ Reporting is the project's own rule, not a harnesspm feature. A team that wants 
 Add it with `npx harnesspm new rule reporting-harness-problems`, which writes `harness/dev.harnesspm/rules/reporting-harness-problems.md` in the project's own harness, paste the text, and run `npx harnesspm sync`. The agent files the ticket with its own tools, such as the tracker's MCP server. A tracker the agent cannot reach can be a file, such as `harness-reports.md`, that a person reads. An unattended run asks before it runs `npx harnesspm why`, so a team that runs agents that way allows `Bash(npx harnesspm why *)` in its Claude Code settings.
 
 In a headless Claude Code run, such a rule led the agent to report a failing harness tool with the `why` output, without being asked ([research](../research/agent-capabilities.md#claude-code)).
+
+## 14.9 Events from a project's own tools
+
+A project often tells agents to use tools that are not harnesspm scripts, such as a `yarn probe` script or a file in `scripts/`. Moving each into the project's harness would change the command that every doc and agent uses. So the tool reports its runs itself:
+
+```js
+import { reportRun } from '@tenphi/harnesspm/telemetry';
+
+reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `unit` | yes | An ID in the form of [2.8](02-package-format.md#28-unit-ids), such as `app:scripts/probe`. The tool does not have to be a unit of the harness. |
+| `fields` | no | The tool's own fields. Rule 1 of [14.2](#142-events) applies: no arguments, file contents, prompts, tool output or absolute paths. A field with the name of a common field, or of `unit`, `package`, `version`, `exit` or `duration`, is left out. |
+| `cwd` | no | Where the tool runs. The project is the nearest folder above it with `harnesspm.json`. Default: the current folder. |
+| `duration` | no | Milliseconds. |
+| `exit` | no | The tool's exit code. |
+
+`reportRun` sends a `run` event as `harnesspm run` does: the same handler, the same `events` switch, every opt-out ([14.6](#146-opting-out)), nothing while the handler is held ([14.5](#145-trust)), and the same `caller`, `agent` and `session`. It names the unit's package and version when the index of [14.4](#144-agent-events) knows its plugin. It never throws, never prints and never waits: a command handler gets the event in a detached process, so a tool can call it right before `process.exit()`. Problems go into `telemetry.log`, as in [14.3](#143-sending).
+
+The package's `exports` field has this entry, `./telemetry`, and `./package.json`. Other files of the package are internal.

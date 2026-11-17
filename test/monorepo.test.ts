@@ -43,6 +43,8 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   const root = read(dir, 'AGENTS.md');
   assert.match(root, /### Style \(lint:rules\/style\)/, 'shared by every workspace');
   assert.doesNotMatch(root, /uikit|server:|ui:rules/);
+  // An agent that works through the shell never loads a workspace's block, so the always-on root names them (#23).
+  assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
 
   const web = read(dir, 'packages/web/AGENTS.md');
   assert.match(web, /## @cube-dev\/ui-kit 1\.0\.0/);
@@ -81,6 +83,7 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   run(dir, 'sync');
   assert.ok(!fs.existsSync(path.join(dir, 'packages/api/AGENTS.md')));
   assert.ok(!fs.existsSync(path.join(dir, '.claude/skills/server-deploy')));
+  assert.match(read(dir, 'AGENTS.md'), /in their `AGENTS\.md`: `packages\/ui`, `packages\/web`\./, 'the root names only workspaces with a block');
 });
 
 test('a workspace that another workspace depends on is the project\'s own code, so it is trusted', () => {
