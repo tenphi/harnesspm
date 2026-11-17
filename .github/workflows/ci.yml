@@ -78,8 +78,9 @@ jobs:
           node --version
           node dist/cli.js --help
           node dist/cli.js check
+          node dist/cli.js sync --check
 
       # The public entry that a project's own tools import (spec 14.9), resolved through "exports".
       - name: Load the public telemetry entry
-        run: node --input-type=module -e "import { reportRun } from '@tenphi/harnesspm/telemetry'; reportRun({ unit: 'ci:scripts/check' }); console.log(typeof reportRun)"
-          node dist/cli.js sync --check
+        run: |
+          node --input-type=module -e "import { reportRun } from '@tenphi/harnesspm/telemetry'; reportRun({ unit: 'ci:scripts/check' }); console.log(typeof reportRun)"
