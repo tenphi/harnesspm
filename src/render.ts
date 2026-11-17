@@ -71,12 +71,12 @@ export function renderSections(sections: Section[], paths: PathFor): string {
 }
 
 /**
- * Whether a hook matcher matches a tool name, as Claude Code reads it: letters, digits, `_`, `-`, spaces, `,` and `|`
- * make a list of exact names; anything else is a regular expression that may match anywhere
- * (research/agent-capabilities.md, Claude Code hooks).
+ * Whether a hook matcher matches a tool name, as each agent reads it (research/agent-capabilities.md). Claude Code:
+ * letters, digits, `_`, `-`, spaces, `,` and `|` make a list of exact names; anything else is a regular expression.
+ * Codex: always a regular expression. Both match anywhere in the name.
  */
-function matcherHits(matcher: string, tool: string): boolean {
-  if (/^[\w\s,|-]*$/.test(matcher)) return matcher.split(/[|,]/).some((name) => name.trim() === tool);
+function matcherHits(agent: 'claude' | 'codex', matcher: string, tool: string): boolean {
+  if (agent === 'claude' && /^[\w\s,|-]*$/.test(matcher)) return matcher.split(/[|,]/).some((name) => name.trim() === tool);
   try {
     return new RegExp(matcher).test(tool);
   } catch {
@@ -84,15 +84,15 @@ function matcherHits(matcher: string, tool: string): boolean {
   }
 }
 
-/** File-edit tools: Claude Code's and Codex's. */
-const EDIT_TOOLS = { claude: ['Edit', 'Write', 'MultiEdit'], codex: ['apply_patch'] } as const;
+/** File-edit tools: Claude Code's, and the names that Codex matches for its `apply_patch` edits. */
+const EDIT_TOOLS = { claude: ['Edit', 'Write', 'MultiEdit'], codex: ['apply_patch', 'Edit', 'Write'] } as const;
 
 /** A hook that runs on the agent's file edits. An edit through a shell command, such as `sed`, skips it. */
 function checksEdits(hook: FinalHook): boolean {
   if (hook.event !== 'PreToolUse' && hook.event !== 'PostToolUse') return false;
   return (['claude', 'codex'] as const).some((agent) => {
     const matcher = hook.matchers[agent];
-    return matcher !== undefined && matcher !== '' && matcher !== '*' && EDIT_TOOLS[agent].some((tool) => matcherHits(matcher, tool));
+    return matcher !== undefined && matcher !== '' && matcher !== '*' && EDIT_TOOLS[agent].some((tool) => matcherHits(agent, matcher, tool));
   });
 }
 
@@ -142,18 +142,16 @@ export function renderBlock(res: Resolution, paths: PathFor, runPrefix?: (pkg: R
 /** Puts the block into a Markdown file. Text outside the block never changes. */
 export function upsertBlock(existing: string | undefined, block: string): string {
   if (existing === undefined || existing.trim() === '') return `${block}\n`;
-  const start = existing.indexOf(BEGIN_PREFIX);
-  const end = existing.indexOf(BLOCK_END, start);
-  if (start >= 0 && end > start) return existing.slice(0, start) + block + existing.slice(end + BLOCK_END.length);
+  const range = blockRange(existing);
+  if (range) return existing.slice(0, range[0]) + block + existing.slice(range[1]);
   return `${existing.replace(/\s+$/, '')}\n\n${block}\n`;
 }
 
 /** Removes the block. Returns undefined when nothing else is left in the file. */
 export function removeBlock(existing: string | undefined, leftover: RegExp = /^\s*$/): string | undefined {
   if (existing === undefined) return undefined;
-  const start = existing.indexOf(BEGIN_PREFIX);
-  const end = existing.indexOf(BLOCK_END, start);
-  const rest = start >= 0 && end > start ? existing.slice(0, start).replace(/\s+$/, '') + existing.slice(end + BLOCK_END.length) : existing;
+  const range = blockRange(existing);
+  const rest = range ? existing.slice(0, range[0]).replace(/\s+$/, '') + existing.slice(range[1]) : existing;
   if (leftover.test(rest)) return undefined;
   return `${rest.replace(/\s+$/, '')}\n`;
 }
@@ -171,12 +169,10 @@ export function blockRange(text: string | undefined): [number, number] | undefin
  * wrote without them, or one that a formatter changed, compares equal to the current form.
  */
 export function extractBlock(text: string | undefined): string | undefined {
-  if (text === undefined) return undefined;
-  const start = text.indexOf(BEGIN_PREFIX);
-  const end = text.indexOf(BLOCK_END, start);
-  if (start < 0 || end <= start) return undefined;
-  return text
-    .slice(start, end + BLOCK_END.length)
+  const range = blockRange(text);
+  if (!range) return undefined;
+  return text!
+    .slice(range[0], range[1])
     .replace(/^([^\n]*-->)\n(?:[ \t]*\n)+/, '$1\n')
     .replace(/\n(?:[ \t]*\n)+(<!-- END:harnesspm -->)$/, '\n$1');
 }

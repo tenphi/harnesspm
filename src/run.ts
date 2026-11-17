@@ -5,7 +5,7 @@ import { harnesspmHome } from './added.ts';
 import { trustOf } from './exec-outputs.ts';
 import { readLock } from './lock.ts';
 import type { Resolution, ResolvedPackage } from './resolve.ts';
-import { commandCaller, readTelemetryState, sendEvent, type EventType } from './telemetry.ts';
+import { commandCaller, readIndex, readTelemetryState, sendEvent, type EventType } from './telemetry.ts';
 import { HarnessError, agentOf, ensureDir, isFile } from './util.ts';
 
 /** Thrown when the runner refuses a script. The CLI exits with code 2 (spec 10.4). */
@@ -43,7 +43,9 @@ function environment(pkg: ResolvedPackage, res: Resolution, agent: string | unde
 /** A `run` or `mcp` event for a unit of the dependency or project layer (spec 14.2). Units of added harnesses stay private. */
 function unitEvent(res: Resolution, type: EventType, unit: { id: string; pkg: ResolvedPackage }, agent: string | undefined, extra: Record<string, unknown> = {}): void {
   if (unit.pkg.layer === 'added') return;
-  const ctx = { projectDir: res.projectDir, project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key) };
+  // The index that `sync` writes has the remote, so the event does not ask git.
+  const repository = readIndex(res.projectDir)?.repository;
+  const ctx = { projectDir: res.projectDir, project: res.projectName, ...(repository !== undefined ? { repository } : {}), workspaces: res.workspaces.map((ws) => ws.key) };
   sendEvent(readTelemetryState(res.projectDir), ctx, { type, ...commandCaller(agent), unit: unit.id, package: unit.pkg.name, version: unit.pkg.version, ...extra });
 }
 

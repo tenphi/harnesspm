@@ -68,9 +68,9 @@ Rules:
 ## 14.3 Sending
 
 - **File handler:** harnesspm appends one line.
-- **Command handler:** harnesspm starts a detached process and returns at once. That process runs the command from the project root, with the event as JSON on stdin and the same environment, for at most 10 seconds. Each event starts the command once. For many events, prefer a file and ship it on a schedule.
+- **Command handler:** harnesspm starts a detached process and returns at once. That process runs the command from the project root, with the event as JSON on stdin and the same environment, for at most 10 seconds. Each event starts the command once. The events of one hook run share one detached process, which runs the command for each in turn. For many events, prefer a file and ship it on a schedule.
 - Telemetry MUST NOT change the result or the exit code of a command, and MUST NOT make it wait. harnesspm notes failures in `node_modules/.harnesspm/telemetry.log` on that machine and prints nothing.
-- harnesspm does not retry, batch or sample. A handler can.
+- harnesspm does not retry or sample, and a command gets one event at a time. A handler can batch.
 
 ## 14.4 Agent events
 
@@ -89,7 +89,7 @@ A hook MUST never make the agent wait. The hooks are asynchronous, and the comma
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules in its managed block; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
-A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](../research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends them with `via: tool`.
+A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](../research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends nothing for the block: Claude Code loads the folder's `CLAUDE.md` when the agent opens a file there, and that load sends the rules. So each rule counts once.
 
 Not seen: reads through other tools, such as `cat` in a shell or a search, and the rules in the root block, which the agent gets in every session.
 

@@ -442,7 +442,8 @@ function telemetryIndexFor(
   const repository = remoteKey(res.projectDir);
   const index: TelemetryIndex = {
     project: res.projectName,
-    ...(repository !== undefined ? { repository } : {}),
+    // Empty when there is no remote, so no event asks git again.
+    repository: repository ?? '',
     workspaces: res.workspaces.map((ws) => ws.key),
     packages: {},
     files: {},

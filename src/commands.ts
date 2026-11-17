@@ -45,8 +45,8 @@ const plural = (count: number, word: string, many = `${word}s`): string => `${co
  * Where a person grants what an agent could not. A Claude Code cloud session has no terminal of the person's, and its
  * container goes away, so there the setup script runs the command, before each new session starts (spec 9).
  */
-const CLOUD_STEP = "In a Claude Code cloud session, ask the person to run the install, or their own `npx -y @tenphi/harnesspm add <source>`, in the environment's setup script. New sessions then start with these entries.";
-const grantStep = (inTerminal: string): string => (inCloudSession() ? CLOUD_STEP : inTerminal);
+const cloudStep = (what: string, them: string): string => `In a Claude Code cloud session, ask the person to run ${what} in the environment's setup script. New sessions then start with ${them}.`;
+const grantStep = (inTerminal: string): string => (inCloudSession() ? cloudStep('the install, or their own `npx -y @tenphi/harnesspm add <source>`,', 'these entries') : inTerminal);
 
 const heldList = (held: string[]): string => `${plural(held.length, 'entry', 'entries')} that an agent cannot grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''})`;
 
@@ -288,7 +288,7 @@ function writableDirs(): string[] {
 function settingsAfterChange(out: Output, hook: boolean): void {
   if (caller() === 'model') {
     out.log('⏳ The SessionStart hook and write access to the harness folder are pending: an agent cannot grant them.');
-    out.log(`   ${inCloudSession() ? "In a Claude Code cloud session, ask the person to run the same command in the environment's setup script. New sessions then start with them." : 'Ask the person to run the same command in their own terminal.'}`);
+    out.log(`   ${inCloudSession() ? cloudStep('the same command', 'them') : 'Ask the person to run the same command in their own terminal.'}`);
     return;
   }
   const anyUser = readList(configFileFor('user', '')).length > 0;
@@ -362,15 +362,19 @@ const CODEX_OVER = "Codex's 32 KiB limit: Codex reads only the first 32 KiB";
 const kib = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
 
 /**
- * Managed blocks that Codex misses, in full or in part (spec 4.9). Codex joins one file per folder, from the root down
- * to the folder it starts in: `AGENTS.override.md` when there is one, else `AGENTS.md`. Only file bytes count. The root
- * block at the top of its file is left out: the size warning for the root `AGENTS.md` already covers it.
+ * Managed blocks that Codex misses, in full or in part (spec 4.9). Codex joins one file per folder, from its project
+ * root, the git root, down to the folder it starts in: `AGENTS.override.md` when there is one, else `AGENTS.md`. Only
+ * file bytes count. The root block at the very start is left out: the size warning for the root `AGENTS.md` covers it.
  */
 function codexMisses(projectDirInput: string, plan: Plan): string[] {
   const committed = plan.committed;
   if (!committed) return [];
   // Workspace folders are real paths, so the root is one too.
   const projectDir = fs.realpathSync(projectDirInput);
+  // harnesspm.json can sit below the git root. Codex counts the AGENTS.md files above it too.
+  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: projectDir, encoding: 'utf8' });
+  const gitRoot = top.status === 0 && top.stdout.trim() !== '' ? fs.realpathSync(top.stdout.trim()) : projectDir;
+  const inside = (dir: string): boolean => dir === gitRoot || dir.startsWith(gitRoot + path.sep);
   const planned = new Map<string, string | undefined>([[projectDir, committed.agentsMd], ...committed.workspaces.map((ws) => [ws.dir, ws.agentsMd] as const)]);
   const bytesIn = (dir: string): number => {
     const text = readTextIfExists(path.join(dir, 'AGENTS.override.md')) ?? (planned.has(dir) ? planned.get(dir) : readTextIfExists(path.join(dir, 'AGENTS.md')));
@@ -386,14 +390,14 @@ function codexMisses(projectDirInput: string, plan: Plan): string[] {
       continue;
     }
     let above = 0;
-    for (let up = path.dirname(dir); dir !== projectDir && up.startsWith(projectDir); up = path.dirname(up)) {
+    for (let up = path.dirname(dir); dir !== gitRoot && inside(up); up = path.dirname(up)) {
       above += bytesIn(up);
-      if (up === projectDir) break;
+      if (up === gitRoot) break;
     }
     const before = Buffer.byteLength(text.slice(0, range[0]));
     const start = above + before;
     const end = start + Buffer.byteLength(text.slice(range[0], range[1]));
-    if (end <= CODEX_LIMIT || (dir === projectDir && before === 0 && start < CODEX_LIMIT)) continue;
+    if (end <= CODEX_LIMIT || (dir === projectDir && start === 0)) continue;
     const steps = [
       ...(before > 0 ? ['move the block to the top of its file, where sync keeps it'] : []),
       ...(above > 0 ? ['shorten the AGENTS.md files above it'] : []),

@@ -201,36 +201,56 @@ function excludeFromGit(projectDir: string, file: string): void {
 
 const DELIVER = fileURLToPath(new URL(`./deliver${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url));
 
-/** Hands one event to the handler without waiting for it (spec 14.3). */
-function deliver(projectDir: string, send: Send, event: Record<string, unknown>): void {
-  const line = JSON.stringify(event);
+/**
+ * Hands events to the handler without waiting for it (spec 14.3). A command handler gets them in one detached process,
+ * which runs the command once for each event, so a hook that sends many events starts one process.
+ */
+function deliver(projectDir: string, send: Send, events: Record<string, unknown>[]): void {
+  const lines = events.map((event) => JSON.stringify(event));
+  if (lines.length === 0) return;
   if (typeof send !== 'string') {
     const file = path.resolve(projectDir, send.file);
     const fresh = !fs.existsSync(file);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, `${line}\n`);
+    fs.appendFileSync(file, `${lines.join('\n')}\n`);
     if (fresh) excludeFromGit(projectDir, file);
     return;
   }
-  if (line.length > MAX_EVENT) throw new Error(`a ${String(event['type'])} event of ${line.length} bytes is too large to send`);
-  const child = spawn(process.execPath, [DELIVER], {
-    cwd: projectDir,
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, HARNESSPM_EVENT: line, HARNESSPM_HANDLER: send },
-  });
-  child.on('error', (error) => note(projectDir, `handler: ${error.message}`));
-  child.unref();
+  const big = events.findIndex((_, i) => lines[i]!.length > MAX_EVENT);
+  if (big >= 0) throw new Error(`a ${String(events[big]!['type'])} event of ${lines[big]!.length} bytes is too large to send`);
+  // One environment variable holds the events, one per line. Keep it under MAX_EVENT, so it fits the system's limit.
+  const chunks: string[][] = [];
+  for (const line of lines) {
+    const last = chunks.at(-1);
+    if (last && last.join('\n').length + 1 + line.length <= MAX_EVENT) last.push(line);
+    else chunks.push([line]);
+  }
+  for (const chunk of chunks) {
+    const child = spawn(process.execPath, [DELIVER], {
+      cwd: projectDir,
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, HARNESSPM_EVENT: chunk.join('\n'), HARNESSPM_HANDLER: send },
+    });
+    child.on('error', (error) => note(projectDir, `handler: ${error.message}`));
+    child.unref();
+  }
 }
 
 /** Sends one event when telemetry is on and wants this type. Never throws, never waits. */
 export function sendEvent(state: TelemetryState, ctx: EventContext, fields: EventFields, cwd = process.cwd()): void {
-  if (state.send === undefined || !state.events.has(fields.type)) return;
+  sendEvents(state, ctx, [fields], cwd);
+}
+
+/** Sends the events that telemetry wants, in one hand-off. Never throws, never waits. */
+export function sendEvents(state: TelemetryState, ctx: EventContext, list: EventFields[], cwd = process.cwd()): void {
+  const wanted = list.filter((fields) => state.events.has(fields.type));
+  if (state.send === undefined || wanted.length === 0) return;
   try {
-    const known = ctx.repository !== undefined ? ctx : { ...ctx, repository: remoteKey(ctx.projectDir) };
-    deliver(ctx.projectDir, state.send, makeEvent(known, fields, cwd));
+    const known = ctx.repository !== undefined ? ctx : { ...ctx, repository: remoteKey(ctx.projectDir) ?? '' };
+    deliver(ctx.projectDir, state.send, wanted.map((fields) => makeEvent(known, fields, cwd)));
   } catch (error) {
-    note(ctx.projectDir, `${fields.type} event: ${(error as Error).message}`);
+    note(ctx.projectDir, `${wanted.map((fields) => fields.type).join(', ')} event: ${(error as Error).message}`);
   }
 }
 
@@ -305,16 +325,18 @@ export function agentEvents(payload: Record<string, unknown>, index: TelemetryIn
   let found: { unit: string; page?: string }[];
   let type: EventType;
   let via: string | undefined;
-  const ofFile = (file: string): { unit: string; page?: string }[] => {
+  const ofFile = (file: string, blocks: boolean): { unit: string; page?: string }[] => {
     const one = unitOfFile(index, file, cwd);
-    return one ? [one] : blockUnits(index, file, cwd).map((unit) => ({ unit }));
+    return one ? [one] : blocks ? blockUnits(index, file, cwd).map((unit) => ({ unit })) : [];
   };
   if (hook === 'PostToolUse' && payload['tool_name'] === 'Read' && typeof input['file_path'] === 'string') {
-    [found, type, via] = [ofFile(input['file_path']), 'read', 'tool'];
+    // A Read of a workspace's AGENTS.md sends nothing for its block: the Read makes Claude Code load that folder's
+    // CLAUDE.md and its import, and that load sends the block's rules, so each is counted once.
+    [found, type, via] = [ofFile(input['file_path'], false), 'read', 'tool'];
   } else if (hook === 'InstructionsLoaded' && typeof payload['file_path'] === 'string') {
     // A workspace's CLAUDE.md loads with `nested_traversal`, and the AGENTS.md it imports with `include`. The index
     // lists only AGENTS.md, so one load sends each rule once.
-    [found, type, via] = [ofFile(payload['file_path']), 'read', 'auto'];
+    [found, type, via] = [ofFile(payload['file_path'], true), 'read', 'auto'];
   } else if (hook === 'PostToolUse' && payload['tool_name'] === 'Skill' && typeof input['skill'] === 'string') {
     const unit = index.skills[input['skill']];
     [found, type] = [unit !== undefined ? [{ unit }] : [], 'skill'];
@@ -354,7 +376,7 @@ export function track(args: string[]): number {
     const session = typeof payload['session_id'] === 'string' ? payload['session_id'] : undefined;
     // The index has the remote, so a hook never waits for git.
     const ctx: EventContext = { projectDir, project: index.project, repository: index.repository ?? '', workspaces: index.workspaces };
-    for (const { type, ...rest } of agentEvents(payload, index)) sendEvent(state, ctx, { type, caller: 'agent', agent, session, ...rest }, cwd);
+    sendEvents(state, ctx, agentEvents(payload, index).map(({ type, ...rest }) => ({ type, caller: 'agent', agent, session, ...rest })), cwd);
   } catch (error) {
     if (projectDir !== undefined) note(projectDir, `track: ${(error as Error).message}`);
   }

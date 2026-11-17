@@ -132,6 +132,16 @@ test('a command handler gets each event as JSON on stdin, and the command does n
   assert.match(waitFor(path.join(dir, 'node_modules/.harnesspm/telemetry.log')), /handler `exit 7` exited with 7/);
 });
 
+test('one hand-off with several events runs the command once for each, in one process', () => {
+  const dir = project();
+  writeFiles(dir, { 'handler.mjs': "import * as fs from 'node:fs';\nlet s = '';\nfor await (const c of process.stdin) s += c;\nfs.appendFileSync('got.jsonl', s);\n" });
+  const deliver = path.join(import.meta.dirname, '..', 'src', 'deliver.ts');
+  const lines = [JSON.stringify({ type: 'read', unit: 'kit:rules/a' }), JSON.stringify({ type: 'read', unit: 'kit:rules/b' })];
+  const result = spawnSync(process.execPath, [deliver], { cwd: dir, env: { ...process.env, HARNESSPM_EVENT: lines.join('\n'), HARNESSPM_HANDLER: 'node handler.mjs' }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(read(dir, 'got.jsonl').trim().split('\n'), lines);
+});
+
 test('a handler that exits without reading the event is logged with its exit code, not EPIPE', () => {
   // An event larger than a pipe buffer makes the race certain: the shell exits before the event is written.
   const dir = project();
@@ -308,9 +318,9 @@ test("a workspace block that Claude Code loads sends a read event for each alway
   ]);
   // The file-scoped rule is only a pointer line in the block, and the root block is loaded in every session.
   assert.deepEqual(track(loaded(path.join(root, 'AGENTS.md'), 'include', path.join(root, 'CLAUDE.md'))), []);
-  // Reading the file with the Read tool, as the root's pointer asks, is a read too.
-  const read = track({ ...base, hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: { file_path: path.join(web, 'AGENTS.md') } });
-  assert.deepEqual(read.map((e) => [e.unit, e.via]), [['kit:rules/usage', 'tool']]);
+  // A Read of the file, as the root's pointer asks, makes Claude Code load the folder's CLAUDE.md and its import, which
+  // send the events above. The Read itself sends none, so each rule counts once.
+  assert.deepEqual(track({ ...base, hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: { file_path: path.join(web, 'AGENTS.md') } }), []);
 });
 
 test('events name the repository by its origin remote; a sync in CI sends no sync event', () => {

@@ -142,6 +142,18 @@ test('status and doctor name each managed block that Codex never reaches, along 
   assert.match(after.stderr, /Codex never reads the harness block in packages\/web\/AGENTS\.md/);
 });
 
+test('status counts the AGENTS.md files above a project that sits below the git root, as Codex does', () => {
+  const repo = project({}, {}, false);
+  const notes = Array.from({ length: 450 }, (_, i) => `- Note ${i}: ${'hand-written guidance for this repository '.repeat(2)}`).join('\n');
+  writeFiles(repo, { 'AGENTS.md': `# Repository notes\n\n${notes}\n` });
+  const dir = path.join(repo, 'tools', 'app');
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'app', version: '1.0.0', devDependencies: { '@acme/kit': '1' } }), 'harnesspm.json': '{}\n' });
+  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Forms\n\nUse the Form component.\n' } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const above = (fs.statSync(path.join(repo, 'AGENTS.md')).size / 1024).toFixed(1);
+  assert.match(run(dir, 'status').stderr, new RegExp(`Codex never reads the harness block in AGENTS\\.md: it starts at ${above} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it`));
+});
+
 test('doctor: outside a git repository it warns and does not fail', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-nogit-'));
   writeFiles(dir, { 'package.json': '{ "name": "app", "version": "1.0.0" }\n', 'harnesspm.json': '{}\n' });

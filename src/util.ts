@@ -16,6 +16,9 @@ export interface Runner {
   argv: string[];
 }
 
+/** A runner through npx, such as `npx -y @tenphi/harnesspm`. */
+export const npxRunner = (prefix: string): Runner => ({ shell: prefix, argv: prefix.split(' ') });
+
 /** A word for sh: as it is when it is safe, else in single quotes. */
 export function shellWord(word: string): string {
   return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", "'\\''")}'`;
@@ -29,7 +32,7 @@ export function shellWord(word: string): string {
  */
 export function runner(projectDir: string, fallback: string): Runner {
   const bin = path.join(projectDir, 'node_modules', '.bin', 'harnesspm');
-  if (process.platform === 'win32' || !isFile(bin)) return { shell: fallback, argv: fallback.split(' ') };
+  if (process.platform === 'win32' || !isFile(bin)) return npxRunner(fallback);
   return { shell: shellWord(bin), argv: [bin] };
 }
 

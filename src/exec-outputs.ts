@@ -223,8 +223,13 @@ function writeOwned(stateFile: string, state: StateFile): void {
 
 const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${h.command}`;
 
-/** What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`. */
-const hookTask = (command: string): string => command.replace(/^.*?\s(?=(?:run|track) --agent )/, 'harnesspm ');
+/**
+ * What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`.
+ * The prefix is one of the forms that `runner` writes, matched as whole shell words: `npx harnesspm`,
+ * `npx -y @tenphi/harnesspm`, or the project's binary, quoted when its path needs it.
+ */
+const RUNNER_PREFIX = /^(?:npx harnesspm|npx -y @tenphi\/harnesspm|[\w@%+=:,./-]*\/node_modules\/\.bin\/harnesspm|'(?:[^']|'\\'')*\/node_modules\/\.bin\/harnesspm') /;
+const hookTask = (command: string): string => command.replace(RUNNER_PREFIX, 'harnesspm ');
 
 /** What a hook grants. A new runner prefix, such as the local binary in place of npx, grants nothing new. */
 const grantKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${hookTask(h.command)}`;

@@ -108,7 +108,7 @@ Use Form.useController.
 | On-demand rule | `- <description>: read <file> (<ID>)` |
 | Docs | `- Docs: <index> (<ID>)`. The index is the package's own `llms.txt`, or the one harnesspm generates in `node_modules/.harnesspm/docs/<plugin name>/`. |
 | Script with a `description`, from the project or a trusted package | ``- Script: `npx harnesspm run <plugin name>:<script>` — <description> (<ID>)`` |
-| Hooks that check file edits, from the project or a trusted package | ``- Edit files with your file tools, not shell commands such as `sed`, so the hook that checks each edit runs (<IDs>)``, once per package. A hook counts when it runs before or after a tool and its matcher names an edit tool: `Edit`, `Write` or `MultiEdit` for Claude Code, `apply_patch` for Codex. An edit through the shell skips it. |
+| Hooks that check file edits, from the project or a trusted package | ``- Edit files with your file tools, not shell commands such as `sed`, so the hook that checks each edit runs (<IDs>)``, once per package. A hook counts when it runs before or after a tool and its matcher, read as each agent reads it, matches an edit tool: `Edit`, `Write` or `MultiEdit` for Claude Code, `apply_patch`, `Edit` or `Write` for Codex. A matcher that matches every tool does not count. An edit through the shell skips it. |
 | Workspaces with blocks of their own, in the root block of a monorepo | A `## Workspaces` section first, naming each folder ([4.5](#45-monorepos)) |
 
 Every heading and line of a unit carries its ID, so an agent can find the source with `harnesspm why`.
@@ -132,7 +132,7 @@ Both agents have plugin systems. harnesspm does not generate plugins in v1, beca
 
 `harnesspm status` reports the always-on size per agent, warns near a limit, and says when `AGENTS.md` is over Codex's. `harnesspm doctor` warns under Outputs when `AGENTS.md` is over 32 KiB, because Codex then reads only its first 32 KiB.
 
-Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from the root down to the folder it starts in, and only the files' bytes count toward the limit ([research](../research/agent-capabilities.md#codex)). So `status` and `doctor` also name each managed block that Codex never reads, or reads only in part, with where it starts or ends in the joined files:
+Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from its project root, usually the git root, down to the folder it starts in, and only the files' bytes count toward the limit ([research](../research/agent-capabilities.md#codex)). So `status` and `doctor` also name each managed block that Codex never reads, or reads only in part, with where it starts or ends in the joined files:
 
 - a root block after long hand-written text;
 - a workspace block below a long root `AGENTS.md`;

@@ -7,7 +7,7 @@ import { agentsHome, claudeHome, claudeJsonFile, codexHome } from './homes.ts';
 import { pathTools } from './outputs.ts';
 import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from './render.ts';
 import { resolve, type Resolution } from './resolve.ts';
-import { NPX_ANY, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
+import { NPX_ANY, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
 export const HOOK_COMMAND = `${NPX_ANY} sync`;
 
@@ -74,7 +74,7 @@ function userEntries(res: Resolution): ExecEntries {
     claudeAgents: path.join(claudeHome(), 'agents'),
     codexAgents: path.join(codexHome(), 'agents'),
     npx: () => NPX_ANY,
-    runner: () => ({ shell: NPX_ANY, argv: NPX_ANY.split(' ') }),
+    runner: () => npxRunner(NPX_ANY),
   });
 }
 
