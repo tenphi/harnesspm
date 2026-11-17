@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+### Patch Changes
+
+- [#31](https://github.com/tenphi/harnesspm/pull/31) [`8449c71`](https://github.com/tenphi/harnesspm/commit/8449c71afddb966d5f26d4e0d6602414ef6ff9ea) Thanks [@tenphi](https://github.com/tenphi)! - Hooks and MCP servers start harnesspm as `node <project>/node_modules/@tenphi/harnesspm/dist/cli.js`, and the package ships `dist/cli.js` as executable, so hooks keep working after Yarn 4 upgrades harnesspm in place.
+
 ## 0.5.0
 
 ### Minor Changes
