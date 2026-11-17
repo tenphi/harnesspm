@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { homeOf, installPackage, PLUGIN_SCHEMA, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
+import { homeOf, installCli, installPackage, PLUGIN_SCHEMA, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
 
 const PROBE = `const out = { args: process.argv.slice(2), root: process.env.PLUGIN_ROOT, data: process.env.PLUGIN_DATA, agent: process.env.HARNESSPM_AGENT, project: process.env.HARNESSPM_PROJECT_DIR };
 console.log(JSON.stringify(out));
@@ -194,26 +194,34 @@ test('rule 4: a model run adds no allow rules, hooks or MCP servers, and keeps t
 const MODEL = { AI_AGENT: 'claude-code_2-1-326_agent', CLAUDECODE: '1' };
 const heldCount = (text: string): number => Number(/(\d+) entr(?:y|ies) that an agent cannot grant/.exec(text)?.[1] ?? 0);
 
-test('hooks and MCP servers start through the local binary; allow rules keep the npx form', () => {
+test('hooks and MCP servers start the installed CLI file with node; allow rules keep the npx form', () => {
   const dir = app(true);
   assert.equal(run(dir, 'sync').status, 0);
   const settingsFile = path.join(dir, '.claude/settings.local.json');
-  assert.equal(json(settingsFile).hooks.PostToolUse[0].hooks[0].command, 'npx harnesspm run --agent claude kit:check-styles', 'without a local binary, npx');
+  const codexHooks = path.join(dir, '.codex/hooks.json');
+  assert.equal(json(settingsFile).hooks.PostToolUse[0].hooks[0].command, 'npx harnesspm run --agent claude kit:check-styles', 'without an installed harnesspm, npx');
 
-  // An install adds the binary. Even a model run switches to it: the hook runs the same script, so it grants nothing new.
-  writeFiles(dir, { 'node_modules/.bin/harnesspm': '#!/bin/sh\n' });
-  const bin = path.join(fs.realpathSync(dir), 'node_modules/.bin/harnesspm');
+  // harnesspm 0.5.0 wrote the project's `.bin/harnesspm`, which fails when Yarn 4 drops its executable bit (#30).
+  const root = fs.realpathSync(dir);
+  const oldBin = path.join(root, 'node_modules/.bin/harnesspm');
+  for (const file of [settingsFile, codexHooks, path.join(root, '.git/harnesspm/state.json')]) {
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('npx harnesspm run --agent', `${oldBin} run --agent`));
+  }
+
+  // An install adds harnesspm, whose CLI file runs with node whatever its mode. Even a model run switches to it: the hook
+  // runs the same script, so it grants nothing new.
+  const cli = installCli(dir);
   const model = runWith(dir, MODEL, 'sync');
   assert.equal(model.status, 0, model.stderr);
   assert.doesNotMatch(model.stdout, /held back/);
   const settings = json(settingsFile);
-  assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: `${bin} run --agent claude kit:check-styles`, timeout: 30 }] }]);
-  assert.equal(settings.hooks.Notification[0].hooks[0].command, `${bin} run --agent claude kit:check-styles`);
+  assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: `node ${cli} run --agent claude kit:check-styles`, timeout: 30 }] }]);
+  assert.equal(settings.hooks.Notification[0].hooks[0].command, `node ${cli} run --agent claude kit:check-styles`);
   assert.ok(settings.permissions.allow.includes('Bash(npx harnesspm run kit:probe *)'), 'an allow rule matches what the agent types');
-  assert.deepEqual(claudeJson(dir).projects[fs.realpathSync(dir)].mcpServers['kit-docs'], { type: 'stdio', command: bin, args: ['mcp', '--agent', 'claude', 'kit:docs'] });
-  assert.equal(json(path.join(dir, '.codex/hooks.json')).hooks.PostToolUse[0].hooks[0].command, `${bin} run --agent codex kit:check-styles`);
+  assert.deepEqual(claudeJson(dir).projects[root].mcpServers['kit-docs'], { type: 'stdio', command: 'node', args: [cli, 'mcp', '--agent', 'claude', 'kit:docs'] });
+  assert.equal(json(codexHooks).hooks.PostToolUse[0].hooks[0].command, `node ${cli} run --agent codex kit:check-styles`);
   assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["npx","harnesspm","run","kit:probe"\], decision = "allow"\)/);
-  assert.match(read(dir, '.codex/config.toml'), new RegExp(`command = "${bin.replaceAll('/', '\\/')}"\nargs = \\["mcp", "--agent", "codex", "kit:docs"\\]`));
+  assert.match(read(dir, '.codex/config.toml'), new RegExp(`command = "node"\nargs = \\["${cli.replaceAll('/', '\\/')}", "mcp", "--agent", "codex", "kit:docs"\\]`));
 });
 
 test('sync, status and doctor count the same held-back entries, Codex rules and the telemetry handler too', () => {

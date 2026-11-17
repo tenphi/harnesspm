@@ -83,7 +83,20 @@ The integrity of `@tenphi/glaze` 3.1.0 was the same `sha512-…` in all three. W
 | `node node_modules/@tenphi/harnesspm/dist/cli.js run kit:probe` | about 150 ms |
 | `npx harnesspm run kit:probe` | about 440 ms |
 
-`npx` adds about 290 ms, which a hook pays on every matching tool call. Two ways to cut it, not taken yet: write hook commands with `node_modules/.bin/harnesspm` instead of `npx harnesspm`, and let `run` read an index that `sync` writes instead of resolving every package.
+`npx` adds about 290 ms, which a hook pays on every matching tool call. Two ways to cut it: write hook commands without npx, and let `run` read an index that `sync` writes instead of resolving every package. 0.5.0 took the first with `node_modules/.bin/harnesspm`; 0.5.1 runs `node node_modules/@tenphi/harnesspm/dist/cli.js` instead, because of the file mode below. The second is not taken yet.
+
+## The CLI file's mode
+
+A hook that runs `node_modules/.bin/harnesspm` needs `dist/cli.js` to be executable. `node <file>` does not.
+
+| Install | `dist/cli.js` | `node_modules/.bin/harnesspm --version` | |
+| --- | --- | --- | --- |
+| Yarn 4.9.1, `nodeLinker: node-modules`, fresh 0.4.4 | `rwxr-xr-x` | works | 🔍 |
+| The same, upgraded in place to 0.5.0, whose tarball has `dist/cli.js` as `0644` | `rw-r--r--` | `Permission denied`, exit 126 | 🔍 |
+| The same 0.5.0 project, upgraded in place to a tarball with `dist/cli.js` as `0755` | `rwxr-xr-x` | works | 🔍 |
+| npm, a tarball with `0755` | `npm pack` keeps the mode | | 🔍 |
+
+Yarn 4 writes the package's files with the tarball's modes on an upgrade in place, and skips its chmod because the `.bin` link already points at the same path. So the build makes `dist/cli.js` executable, and hooks and MCP servers start it with `node`. Observed Nov 2026 ([#30](https://github.com/tenphi/harnesspm/issues/30)).
 
 ## Package name
 

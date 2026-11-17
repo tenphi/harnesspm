@@ -73,8 +73,10 @@ jobs:
         with:
           node-version: 20
 
+      # The tarball keeps the mode, and Yarn 4 writes it on an upgrade in place (research/package-managers.md).
       - name: Run the built CLI
         run: |
+          test -x dist/cli.js
           node --version
           node dist/cli.js --help
           node dist/cli.js check

@@ -44,7 +44,7 @@
     "agent-plugins"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "sync": "node src/cli.ts sync",
