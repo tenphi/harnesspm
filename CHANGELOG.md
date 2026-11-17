@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - `status` and `doctor` name each managed block that Codex never reads, or reads only in part, such as a workspace block below a long root `AGENTS.md`.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - The root block of a monorepo names the workspaces that have harness rules of their own, and a trusted hook that checks file edits gets a line asking agents to edit with their file tools.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - New `@tenphi/harnesspm/telemetry` entry with `reportRun`, so a project's own tools send `run` events to the same handler. The package now has an `exports` field, so deep imports of internal files no longer resolve.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - Telemetry: loading a workspace's rules sends `read` events, events carry a `repository` field from the `origin` remote, and a sync in CI sends no `sync` event.
+
+### Patch Changes
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - In a Claude Code cloud session, held-back entries point to the environment's setup script instead of asking for a terminal the person does not have.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - `status` and `doctor` list the same held-back entries as `sync`, now with Codex allow rules and a held telemetry handler, so the counts match.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`8febc83`](https://github.com/tenphi/harnesspm/commit/8febc8398ce14be9066b78a8292710a90468b1bb) Thanks [@tenphi](https://github.com/tenphi)! - Hooks and stdio MCP servers start through the project's own `node_modules/.bin/harnesspm` when it exists, not through npx, which saves about 0.4 s on every hooked tool call. Allow rules keep the npx form.
+
+- [#28](https://github.com/tenphi/harnesspm/pull/28) [`7830b5c`](https://github.com/tenphi/harnesspm/commit/7830b5c760f2211bc17a4cebfd069fb2bb9668f4) Thanks [@tenphi](https://github.com/tenphi)! - `status` and `doctor` count the `AGENTS.md` files above a project that sits below the git root, a workspace's rules count once per load, one hook run starts one telemetry handler process, and the edit-hook line reads Codex matchers as regular expressions.
+
 ## 0.4.4
 
 ### Patch Changes
