@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+### Patch Changes
+
+- [#34](https://github.com/tenphi/harnesspm/pull/34) [`c0f7a2b`](https://github.com/tenphi/harnesspm/commit/c0f7a2ba0a78d424d8af708c40a802b327b54d9f) Thanks [@tenphi](https://github.com/tenphi)! - In a Claude Code cloud session, `sync`, `status` and `doctor` now print the exact line for the environment's setup script when they hold entries back, such as `cd /home/user/app && npm ci`, and the cloud docs give a setup script that works.
+
 ## 0.5.1
 
 ### Patch Changes
