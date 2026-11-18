@@ -57,7 +57,7 @@ A person's notes describe how repositories relate, such as "UI Kit builds on Tas
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.4](09-cloud.md#94-what-a-probe-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled so far:
+Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.5](09-cloud.md#95-what-real-sessions-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled so far:
 
 - Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
 - Codex marks commands its model runs with `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, so rule 4 in [6.2](06-trust.md#62-trusting-a-package) covers Codex too.

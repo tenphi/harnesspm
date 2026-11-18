@@ -122,7 +122,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S9 | A person adds a harness on top, such as their team's or their own | `npx harnesspm add <source>`, once per machine. |
 | S10 | A person keeps workflow and context outside project repositories | Rules and notes in their own added harness, with project entries. |
 | S11 | An agent improves a harness | Edits the source that `harnesspm why` names, then saves under the owner's rules. |
-| S12 | A person works in a Claude Code cloud session | The same `add` in the environment's setup script, or asked of the agent. |
+| S12 | A person works in a Claude Code cloud session | The project's install in the environment's setup script, by absolute path. For an added harness, the same `add` there, or asked of the agent. |
 | S13 | A job reads the harness without an install, such as a review bot | `npx -y @tenphi/harnesspm fetch`. |
 | S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx harnesspm sync`. |
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |

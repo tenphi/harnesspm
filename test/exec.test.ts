@@ -246,17 +246,29 @@ test('sync, status and doctor count the same held-back entries, Codex rules and 
   assert.match(run(dir, 'doctor').stdout, /✅ Nothing waits for trust/);
 });
 
-test('in a Claude Code cloud session, held-back entries point to the setup script, not a terminal', () => {
+test('in a Claude Code cloud session, held-back entries point to the setup script, with the install by absolute path', () => {
   const dir = app(true);
   const cloud = { ...MODEL, CLAUDE_CODE_REMOTE: 'true' };
-  const setup = /In a Claude Code cloud session, ask the person to run the install, or their own `npx -y @tenphi\/harnesspm add <source>`, in the environment's setup script\. New sessions then start with these entries\./;
+  const setup = (install: string): string => `In a Claude Code cloud session, ask the person to run ${install}, or their own \`npx -y @tenphi/harnesspm add <source>\`, in the environment's setup script. New sessions then start with these entries.`;
+  // Without a lockfile, the install is not known.
   const sync = runWith(dir, cloud, 'sync');
   assert.match(sync.stdout, /held back: 12 entries/);
-  assert.match(sync.stdout, setup);
+  assert.ok(sync.stdout.includes(setup('the install')), sync.stdout);
   assert.doesNotMatch(sync.stdout, /own terminal/);
+
+  // The setup script does not start in the clone, so the line names the project's folder.
+  writeFiles(dir, { 'package-lock.json': JSON.stringify({ lockfileVersion: 3, packages: {} }) });
+  const npm = setup(`\`cd ${dir} && npm ci\``);
+  assert.ok(runWith(dir, cloud, 'sync').stdout.includes(npm));
   const doctor = runWith(dir, cloud, 'doctor');
-  assert.match(doctor.stdout, setup);
+  assert.ok(doctor.stdout.includes(npm), doctor.stdout);
   assert.doesNotMatch(doctor.stdout, /own terminal/);
+
+  // A pinned package manager needs corepack, from a host the default network access reaches.
+  fs.rmSync(path.join(dir, 'package-lock.json'));
+  writeFiles(dir, { 'yarn.lock': '', 'package.json': JSON.stringify({ ...json(path.join(dir, 'package.json')), packageManager: 'yarn@4.5.3' }) });
+  const status = runWith(dir, cloud, 'status').stdout;
+  assert.ok(status.includes(setup(`\`cd ${dir} && corepack enable && COREPACK_NPM_REGISTRY=https://registry.npmjs.org yarn install\``)), status);
 });
 
 test('a trusted hook that checks file edits gets a line in the block; an untrusted one does not', () => {
