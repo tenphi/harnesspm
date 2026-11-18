@@ -66,6 +66,10 @@ Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md)
 - Telemetry's agent events work in a headless Claude Code run, and a project rule built from the template in [14.8](14-telemetry.md#148-reporting-harness-problems) led the agent to report a failing harness tool with `harnesspm why` output, unprompted ([research](../research/agent-capabilities.md#claude-code)).
 - A headless Claude Code run uses what harnesspm writes: hooks, allow and deny rules, local-scope MCP servers, sub-agents, and skills linked from inside or outside the repository ([research](../research/agent-capabilities.md#claude-code)). Codex outputs are checked only against its source and docs, because no Codex CLI was available.
 
+### 13.13 The reviewed state in hook runs
+
+A hook run may add entries ([6.2](06-trust.md#62-trusting-a-package), rule 4). So the `SessionStart` hook that `harnesspm add` installs ([7.5](07-added.md#75-applying-in-every-repository)) grants what the working tree holds, including an agent's edit from an earlier session. Checks 1 and 2 of the reviewed state could apply to hook runs too, but that changes what a hook run may grant. **Signal:** an agent's own harness edit is granted through that hook in a real session. **Then:** apply the reviewed-state check to the repository's entries in hook runs.
+
 ## 13.12 Removed in review
 
 | Removed | Why | Comes back if |

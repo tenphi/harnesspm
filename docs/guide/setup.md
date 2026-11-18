@@ -85,7 +85,7 @@ A package can ship scripts, hooks and MCP servers. They run only when your proje
 Trust is the person's decision, in two steps:
 
 1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself.
-2. The person runs `npx harnesspm approve` in their own terminal. It writes the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending, and `approve` refuses an agent.
+2. The person runs `npx harnesspm approve` in their own terminal. It writes the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
 
 Step 1 looks like this:
 

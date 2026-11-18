@@ -539,15 +539,20 @@ export interface ApplyResult {
   changed: string[];
   /** Entries a model run could not add (spec 6.2, rule 4). */
   held: string[];
+  /** True when some of them come from the repository's layers, not from added harnesses. */
+  teamHeld: boolean;
 }
 
 /**
  * Writes the plan. Returns the project-relative paths that changed and the entries held back.
  * `committed: false` writes only the per-machine outputs, as a sync with `CI=true` does (spec 6.4).
+ * `reviewed: true` lets a model run write the repository's entries, because they are as a person reviewed them (spec
+ * 6.2, rule 4). Entries of added harnesses still wait for a person.
  */
-export function applyPlan(projectDir: string, plan: Plan, options: { committed?: boolean } = {}): ApplyResult {
+export function applyPlan(projectDir: string, plan: Plan, options: { committed?: boolean; reviewed?: boolean } = {}): ApplyResult {
   const changed: string[] = [];
   const held: string[] = [];
+  let teamHeld = false;
   const note = (file: string, did: boolean): void => {
     if (did) changed.push(relPosix(projectDir, file));
   };
@@ -557,16 +562,17 @@ export function applyPlan(projectDir: string, plan: Plan, options: { committed?:
   for (const [linkPath, target] of plan.links) note(linkPath, linkIfChanged(linkPath, target));
 
   // Executable entries in shared files, before the excludes so that every written file is listed.
-  const widen = caller() !== 'model';
+  const person = caller() !== 'model';
   const targets = repoTargets(projectDir, plan);
   const teamExcludes = plan.teamExcludes ? [...plan.teamExcludes] : undefined;
   const addedExcludes = [...plan.addedExcludes];
   let codexMcp: Record<string, Record<string, unknown>> = {};
   for (const [group, entries, into] of [['team', plan.exec.team, teamExcludes], ['added', plan.exec.added, addedExcludes]] as const) {
     if (!entries) continue;
-    const applied = applyEntries(group, entries, targets, widen);
+    const applied = applyEntries(group, entries, targets, person || (group === 'team' && options.reviewed === true));
     for (const file of applied.changed) changed.push(file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
     held.push(...applied.held);
+    if (group === 'team' && applied.held.length > 0) teamHeld = true;
     codexMcp = applied.codexMcp;
     for (const file of applied.files) if (file.startsWith(projectDir + path.sep)) into?.push(`/${relPosix(projectDir, file)}`);
   }
@@ -644,7 +650,7 @@ export function applyPlan(projectDir: string, plan: Plan, options: { committed?:
     fs.rmSync(localFile);
     changed.push('CLAUDE.local.md');
   }
-  return { changed, held };
+  return { changed, held, teamHeld };
 }
 
 /** Compares the committed outputs with the plan (spec 6.4). Returns the differences. */

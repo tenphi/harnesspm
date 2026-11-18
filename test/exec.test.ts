@@ -271,6 +271,98 @@ test('in a Claude Code cloud session, held-back entries point to the setup scrip
   assert.ok(status.includes(setup(`\`cd ${dir} && corepack enable && COREPACK_NPM_REGISTRY=https://registry.npmjs.org yarn install\``)), status);
 });
 
+const git = (dir: string, ...args: string[]): void => {
+  const result = spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+};
+
+/**
+ * A teammate's change merged: the default branch records the kit's hooks, MCP servers and allow rules in the lock.
+ * This machine has none of them yet. The first sync is a model run, so it writes the lock but holds every entry.
+ */
+function merged(): string {
+  const dir = app(true);
+  writeFiles(dir, { '.gitignore': 'node_modules/\n' });
+  const first = runWith(dir, MODEL, 'sync').stdout;
+  assert.match(first, /held back: 12 entries that an agent cannot grant \(.*\), because origin\/HEAD is not set \(`git remote set-head origin --auto` sets it\)\./);
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-qm', 'Add the kit');
+  git(dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(dir, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+  return dir;
+}
+
+test('a model run writes the entries that the default branch records, also on a branch that contains them', () => {
+  for (const branch of [false, true]) {
+    const dir = merged();
+    if (branch) {
+      git(dir, 'checkout', '-qb', 'feature');
+      writeFiles(dir, { 'README.md': 'A change on the branch.\n' });
+      git(dir, 'add', '-A');
+      git(dir, 'commit', '-qm', 'Work on the branch');
+    }
+    // Before the sync, status and doctor say that any sync writes them.
+    assert.match(runWith(dir, MODEL, 'status').stdout, /⏳ not written yet: 12 entries that origin\/main records \(.*\)\. Run `npx harnesspm sync`\./);
+    assert.match(runWith(dir, MODEL, 'doctor').stdout, /12 entries that origin\/main records \(.*\) are not written yet\. Run `npx harnesspm sync`\./);
+    const sync = runWith(dir, MODEL, 'sync');
+    assert.equal(sync.status, 0, sync.stderr);
+    assert.doesNotMatch(sync.stdout, /held back/);
+    const settings = json(path.join(dir, '.claude/settings.local.json'));
+    assert.ok(settings.hooks.PostToolUse.length > 0, 'the hook is written');
+    assert.ok(settings.permissions.allow.includes('mcp__kit-docs'), 'the MCP server is allowed');
+    assert.ok(claudeJson(dir).projects[dir].mcpServers['kit-docs'], 'the MCP server is written');
+    for (const command of ['status', 'doctor']) assert.doesNotMatch(runWith(dir, MODEL, command).stdout, /held back|not written yet|cannot grant/);
+  }
+});
+
+test('a model run holds back what differs from the default branch, and says what differs', () => {
+  const held = (dir: string, env: Record<string, string> = MODEL): string => {
+    const sync = runWith(dir, env, 'sync');
+    assert.equal(sync.status, 0, sync.stderr);
+    assert.match(sync.stdout, /held back: 12 entries/);
+    assert.ok(!fs.existsSync(path.join(dir, '.claude/settings.local.json')) || json(path.join(dir, '.claude/settings.local.json')).hooks === undefined, 'no hook is written');
+    return sync.stdout;
+  };
+  const because = (reason: string): RegExp => new RegExp(`12 entries that an agent cannot grant \\(.*\\), because ${reason}\\.`);
+
+  // The agent's own edit of harnesspm.json, not committed: status and doctor name it too.
+  let dir = merged();
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true, '@acme/other': true } }) });
+  assert.match(held(dir), because('harnesspm.json differs from origin/main'));
+  assert.match(runWith(dir, MODEL, 'status').stdout, because('harnesspm.json differs from origin/main'));
+  assert.match(runWith(dir, {}, 'doctor').stdout, because('harnesspm.json differs from origin/main'));
+
+  // The same edit, committed on the agent's branch.
+  dir = merged();
+  git(dir, 'checkout', '-qb', 'agent');
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true, '@acme/other': true } }) });
+  git(dir, 'commit', '-qam', 'Trust more');
+  assert.match(held(dir), because('harnesspm.json differs from origin/main'));
+
+  // New, untracked files in the project's harness/. Then, once they are merged, a changed one.
+  dir = merged();
+  writeFiles(dir, { 'harness/plugin.json': JSON.stringify({ $schema: PLUGIN_SCHEMA, name: 'app' }), 'harness/dev.harnesspm/rules/style.md': '# Style\n\nWrite short lines.\n' });
+  assert.match(held(dir), because('harness/dev.harnesspm/rules/style.md and 1 more file differ from origin/main'));
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-qm', 'Add the project harness');
+  git(dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  writeFiles(dir, { 'harness/dev.harnesspm/rules/style.md': '# Style\n\nWrite long lines.\n' });
+  assert.match(held(dir), because('harness/dev.harnesspm/rules/style.md differs from origin/main'));
+
+  // An install that the lock does not record, such as `pnpm add <pkg>@next`.
+  dir = merged();
+  installPackage(dir, '@acme/kit', kitFiles('1.1.0'));
+  assert.match(held(dir), because('the installed packages do not match harnesspm\\.lock\\.json'));
+
+  // A Codex run holds back as before: its sandbox keeps .codex/ read-only.
+  dir = merged();
+  assert.doesNotMatch(held(dir, { CODEX_CI: '1' }), /because/);
+
+  // A person's run writes everything, as before.
+  dir = merged();
+  assert.doesNotMatch(run(dir, 'sync').stdout, /held back/);
+});
+
 test('a trusted hook that checks file edits gets a line in the block; an untrusted one does not', () => {
   const dir = app();
   assert.equal(run(dir, 'sync').status, 0);

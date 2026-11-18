@@ -100,7 +100,8 @@ npx harnesspm why tasty:rules/state-maps
 | **Lock** | `harnesspm.lock.json`: the committed record of harness packages and unit hashes. |
 | **Executable unit** | A script, hook, MCP server or allow permission. Needs trust. |
 | **Trust** | A project's consent, in `harnesspm.json`, for a package's executable units to run. |
-| **Pending** | An executable unit that harnesspm does not write yet: its package is not trusted, a `"pin"` package has a new version, or the agent's model started the run. |
+| **Pending** | An executable unit that harnesspm does not write yet: its package is not trusted, a `"pin"` package has a new version, or the agent's model started the run outside the reviewed state. |
+| **Reviewed state** | The repository's trust inputs as the remote default branch has them, with the lock that the install reproduces. A run by the agent's model may write what it records. |
 | **Event** | A record of one harness interaction, such as a script run or an agent reading a rule. Sent only when the project turns on telemetry. |
 | **Handler** | The command or file that gets a project's events. Named in `harnesspm.json`, and active only as a person's sync recorded it in the lock. |
 | **Telemetry** | The events a project collects about how agents and people use its harness. Off unless the project turns it on. |
@@ -127,6 +128,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx harnesspm sync`. |
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
 | S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx harnesspm doctor`. |
+| S17 | A teammate's merged change adds a hook, an MCP server or an allow rule | Nothing. The next install writes it on every machine, also when an agent runs the install. |
 
 ## 1.7 What is committed
 

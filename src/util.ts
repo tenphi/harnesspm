@@ -215,8 +215,13 @@ export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
   if (agent.endsWith('_agent')) return 'model';
   if (agent.endsWith('_harness')) return 'hook';
   if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
-  if (env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '') return 'model';
+  if (codexRun(env)) return 'model';
   return 'person';
+}
+
+/** True when Codex's model runs the command: Codex marks only those (spec 6.2, rule 4). */
+export function codexRun(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env['CODEX_CI'] === '1' || (env['CODEX_TOOL_CALL_ID'] ?? '') !== '';
 }
 
 /** True in a Claude Code cloud session, where the person has no terminal of their own (spec 9). */
