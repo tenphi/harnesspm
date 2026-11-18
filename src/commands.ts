@@ -46,15 +46,19 @@ const plural = (count: number, word: string, many = `${word}s`): string => `${co
  * container goes away, so there the setup script runs the command, before each new session starts (spec 9).
  */
 const cloudStep = (what: string, them: string): string => `In a Claude Code cloud session, ask the person to run ${what} in the environment's setup script. New sessions then start with ${them}.`;
-const grantStep = (inTerminal: string): string => (inCloudSession() ? cloudStep('the install, or their own `npx -y @tenphi/harnesspm add <source>`,', 'these entries') : inTerminal);
+function grantStep(projectDir: string, inTerminal: string): string {
+  if (!inCloudSession()) return inTerminal;
+  const line = setupLine(projectDir);
+  return cloudStep(`${line !== undefined ? `\`${line}\`` : 'the install'}, or their own \`npx -y @tenphi/harnesspm add <source>\`,`, 'these entries');
+}
 
 const heldList = (held: string[]): string => `${plural(held.length, 'entry', 'entries')} that an agent cannot grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''})`;
 
-function printPending(out: Output, report: UserReport): void {
+function printPending(out: Output, report: UserReport, projectDir: string): void {
   for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
   if (report.held.length > 0) {
     out.log(`⏳ held back: ${heldList(report.held)}.`);
-    out.log(`   ${grantStep(`Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`)}`);
+    out.log(`   ${grantStep(projectDir, `Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`)}`);
   }
 }
 
@@ -146,7 +150,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir));
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   printWarnings(out, warnings);
-  printPending(out, report);
+  printPending(out, report, projectDir);
   if (options.quiet) return 0;
   if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(full.rules.length, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
@@ -207,8 +211,32 @@ function dependsOnHarnesspm(pkg: unknown): boolean {
   });
 }
 
-/** Lockfiles that an install changes. `init` names the one the project has with the files to commit. */
-const LOCKFILES = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb'];
+/** Lockfiles that an install changes, with the install that each one asks for. */
+const INSTALLS: Record<string, string> = {
+  'package-lock.json': 'npm ci',
+  'npm-shrinkwrap.json': 'npm ci',
+  'pnpm-lock.yaml': 'pnpm install',
+  'yarn.lock': 'yarn install',
+  'bun.lock': 'bun install',
+  'bun.lockb': 'bun install',
+};
+/** `init` names the lockfile the project has with the files to commit. */
+const LOCKFILES = Object.keys(INSTALLS);
+
+/**
+ * The project's install for a Claude Code cloud environment's setup script (spec 9.1), or undefined when it is not
+ * known. It names the project by its absolute path, because the setup script does not start in the clone. A pinned
+ * package manager needs corepack, and the default network access does not reach corepack's host for Yarn, so corepack
+ * downloads from the npm registry.
+ */
+function setupLine(projectDir: string): string | undefined {
+  const lock = LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
+  if (lock === undefined || !isFile(path.join(projectDir, CONFIG_FILE))) return undefined;
+  const pkg = readJsonIfExists(path.join(projectDir, 'package.json'));
+  const corepack = isRecord(pkg) && typeof pkg['packageManager'] === 'string' ? 'corepack enable && COREPACK_NPM_REGISTRY=https://registry.npmjs.org ' : '';
+  const dir = /^[\w./-]+$/.test(projectDir) ? projectDir : `'${projectDir.replaceAll("'", "'\\''")}'`;
+  return `cd ${dir} && ${corepack}${INSTALLS[lock]}`;
+}
 
 /** The committed files (spec 1.7) that git sees as new or changed, in a fixed order. Empty outside git. */
 function filesToCommit(projectDir: string): string[] {
@@ -458,7 +486,7 @@ export function status(cwd: string, out: Output): number {
   out.log(`➕ added         ${resolved.added.length > 0 ? resolved.added.map(describeAdded).join(' · ') : 'none'}`);
 
   const { plan, report } = preview(projectDir, resolved);
-  printPending(out, report);
+  printPending(out, report, projectDir);
   if (resolved.team) {
     const changes = resolved.team.rules.filter((r) => resolved.full.rules.find((f) => f.id === r.id)?.text !== r.text).map((r) => r.id);
     if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
@@ -569,7 +597,7 @@ export function doctor(cwd: string, out: Output): number {
   const trust: Finding[] = [];
   // Each pending entry already says how to turn it on: trust the package, or approve a pinned version.
   for (const p of new Set(report.pending)) trust.push({ level: 'warn', text: `Off: ${p}` });
-  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report.held)}. ${grantStep(`Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
+  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report.held)}. ${grantStep(projectDir, `Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
   const telemetry = readTelemetryState(projectDir);
   // A held handler is in the list above, as `sync` lists it.
   const heldHandler = plan?.telemetryHeld !== undefined;

@@ -7,14 +7,38 @@ description: Use the repository's harness and your own added harness in Claude C
 **In short**
 
 - Claude Code cloud sessions are supported. Codex Cloud is not supported yet; Codex on your computer is.
-- The repository's harness appears when the project's install runs `harnesspm sync`. Run the install in the environment's setup script.
+- The repository's harness appears when the project's install runs `harnesspm sync`. Run the install in the environment's setup script, by absolute path: `cd /home/user/<repo> && npm ci`.
+- A failing setup script stops every new session of the environment. Keep optional steps from failing it.
 - Add your own harness with one command in the setup script of your own environment, or ask the agent to run it.
 
 ## The repository's harness
 
 A cloud session starts from a clean clone. The committed block in `AGENTS.md` is there at once. The per-machine outputs, such as skills, hooks and allow rules, appear when the install runs `harnesspm sync`, as on a laptop.
 
-Run the install in the environment's setup script. When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` point to the setup script when they hold entries back.
+Run the install in the environment's setup script:
+
+```bash
+cd /home/user/<repo> && npm ci
+```
+
+The setup script does not start in the clone, so name the clone by its absolute path. A path relative to the repository is not found, the script fails, and no new session of the environment starts. So:
+
+- Add `|| true` to optional steps.
+- When the environment also serves other repositories, start the script with `[ -d /home/user/<repo> ] || exit 0`.
+- When `package.json` pins the package manager in `packageManager`, run `corepack enable` first. Default network access does not reach corepack's host for Yarn, so put `COREPACK_NPM_REGISTRY=https://registry.npmjs.org` before the install.
+
+To check, start a new session and run `npx harnesspm status`: it shows no "held back" line. Hooks that the install writes work from that first session. Later sessions start from a saved snapshot, and the script runs again after you change it.
+
+When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` print the line for the setup script when they hold entries back.
+
+### For a team
+
+Environments are personal, unless an organization Owner shares one. So each person sets the setup script in their own environment. Commit a script that starts with `cd /home/user/<repo>`, and give people the lines to paste:
+
+```bash
+[ -d /home/user/<repo> ] || exit 0
+bash /home/user/<repo>/scripts/cloud-setup.sh
+```
 
 ## Your own harness
 
@@ -47,5 +71,5 @@ The agent changes your harness the usual way ([Change upstream units](./change-u
 
 ## More
 
-- [Cloud sessions](https://github.com/tenphi/harnesspm/blob/main/docs/spec/09-cloud.md) in the specification, including what a probe confirmed there.
+- [Cloud sessions](https://github.com/tenphi/harnesspm/blob/main/docs/spec/09-cloud.md) in the specification, including what real sessions confirmed there.
 - [Agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud-sessions) in the research notes: the source of each fact about the agents.

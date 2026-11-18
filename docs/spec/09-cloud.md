@@ -3,11 +3,26 @@
 **In short**
 
 - v1 supports **Claude Code cloud sessions**. Codex Cloud is not supported in v1 ([13.12](13-open-questions.md#1312-removed-in-review)); Codex on a person's computer is.
-- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script: when the agent runs it, new hooks, MCP servers and allow rules stay pending ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` say this when they hold entries back, instead of asking for a terminal.
+- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script, by absolute path ([9.1](#91-the-repositorys-harness)): when the agent runs it, new hooks, MCP servers and allow rules stay pending ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` print that line when they hold entries back, instead of asking for a terminal.
 - Added harnesses need one command in the container: in the setup script of the person's own environment, or asked of the agent.
 - Improving an added harness from the cloud needs push access to its repository. Without it, the agent shows the change in the session.
 
-## 9.1 Adding harnesses
+## 9.1 The repository's harness
+
+```bash
+cd /home/user/<repo> && npm ci
+```
+
+- **By absolute path.** The setup script does not start in the clone, so a path relative to the repository is not found.
+- **A failing script stops the environment.** When the setup script fails, no new session of the environment starts. Optional steps end with `|| true`. An environment that also serves other repositories skips them with `[ -d /home/user/<repo> ] || exit 0`.
+- **A pinned package manager** (`packageManager` in `package.json`) needs `corepack enable` before the install. Default network access does not reach corepack's host for Yarn; `COREPACK_NPM_REGISTRY=https://registry.npmjs.org` does.
+- **In every person's environment.** Environments are personal unless an organization Owner shares one. A team commits its script and gives people the lines to paste.
+
+The install runs as a person's would, before Claude Code starts, so nothing is held back, and its hooks work from the first session ([9.5](#95-what-real-sessions-confirmed)). To check, `harnesspm status` in a new session shows no held-back line.
+
+When a cloud session holds entries back, `sync`, `status` and `doctor` print this line for the project: its absolute path, and the install that its lockfile asks for, with corepack when `packageManager` is set. Without a lockfile or `harnesspm.json`, they name "the install".
+
+## 9.2 Adding harnesses
 
 ```bash
 npx -y @tenphi/harnesspm add github:alex/harness
@@ -26,7 +41,7 @@ In a setup script, `harnesspm add` adds the harness with user scope and installs
 
 A `~/.claude/settings.json` written by the setup script is read in cloud sessions: its `env` values and deny rules apply. Deny rules are the way to restrict a cloud session.
 
-## 9.2 Private sources
+## 9.3 Private sources
 
 | Source | How to reach it |
 | --- | --- |
@@ -36,12 +51,15 @@ A `~/.claude/settings.json` written by the setup script is read in cloud session
 
 Never write tokens into setup scripts or environment variables: anyone who uses the environment can read them.
 
-## 9.3 Improving from the cloud
+## 9.4 Improving from the cloud
 
 The flow is the one in [08-improving.md](08-improving.md). Pushing needs the added harness's repository attached to the session with push access.
 
 A cloud container is discarded later. When the agent cannot push, it shows the full change in the session, so the person can apply it elsewhere.
 
-## 9.4 What a probe confirmed
+## 9.5 What real sessions confirmed
 
-In November 2026 a probe confirmed in Claude Code cloud sessions every output that added harnesses use: user-level rules, skills and settings written by a setup script, `CLAUDE.local.md` and `.claude/settings.local.json` written by a `SessionStart` hook, hooks, MCP servers from the cached snapshot, and skills added during a session. Details are in [research/agent-capabilities.md](../research/agent-capabilities.md#cloud-sessions). They are to be checked again ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
+In November 2026 Claude Code cloud sessions confirmed both paths. Details are in [research/agent-capabilities.md](../research/agent-capabilities.md#cloud-sessions). They are to be checked again ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
+
+- **Added harnesses**, in a probe: every output they use. User-level rules, skills and settings written by a setup script, `CLAUDE.local.md` and `.claude/settings.local.json` written by a `SessionStart` hook, hooks, MCP servers from the cached snapshot, and skills added during a session.
+- **The repository's harness**, in a rollout in a large Yarn 4 monorepo. The setup script's install wrote the hooks and held nothing back, and a package's edit hook ran in the first session. A setup script named by a relative path failed, and no new session started.
