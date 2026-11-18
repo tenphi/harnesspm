@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+### Minor Changes
+
+- [#37](https://github.com/tenphi/harnesspm/pull/37) [`d95e966`](https://github.com/tenphi/harnesspm/commit/d95e96674973bf2ef0fab4c04fc1abd810ff9b99) Thanks [@tenphi](https://github.com/tenphi)! - When an agent runs the install, harnesspm now writes the hooks, MCP servers and allow rules that the default branch already records, so a teammate's merged change reaches every machine with no step. The agent's own edits still wait for a person, and the held-back line now says what differs, such as `harnesspm.json differs from origin/main`.
+
 ## 0.5.2
 
 ### Patch Changes
