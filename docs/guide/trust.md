@@ -8,7 +8,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 
 - Rules, docs, skills and sub-agents are text and need no trust. Scripts, hooks, MCP servers and allow rules do.
 - A project trusts a package in `harnesspm.json`. Trust never passes through `extends`.
-- An agent cannot grant itself permissions through harnesspm. New tools from a run the agent started wait for a person.
+- An agent cannot grant itself permissions through harnesspm. New tools from a run the agent started wait for a person, unless a person already reviewed and merged them.
 - `harnesspm.lock.json` and `npx harnesspm sync --check` in CI make every change reviewable.
 
 ## What needs trust
@@ -58,14 +58,16 @@ Deny and ask rules from any package pass through, because they only restrict. Ev
 
 ## An agent cannot grant itself permissions
 
-When the agent's model runs harnesspm, for example through an install the model starts, harnesspm adds no new allow rules, hooks or MCP servers. They wait, and `sync` says so:
+When the agent's model runs harnesspm, for example through an install the model starts, harnesspm adds no new allow rules, hooks or MCP servers that nobody reviewed. They wait, and `sync` says why:
 
 ```text
-⏳ held back: 3 entries that an agent cannot grant (allow Skill(harnesspm-export); allow Skill(harnesspm-import); allow Skill(harnesspm-improve)).
+⏳ held back: 3 entries that an agent cannot grant (allow Skill(harnesspm-export); allow Skill(harnesspm-import); allow Skill(harnesspm-improve)), because harnesspm.json differs from origin/main.
    Ask the person to run `npx -y @tenphi/harnesspm sync` or `npx -y @tenphi/harnesspm approve` in their own terminal.
 ```
 
-This example is from a repository whose own harness has three skills. A run with nothing new to add prints no such line. `status` and `doctor` list the same entries. In a Claude Code cloud session, the second line names the environment's setup script instead, with the line to put there, such as `cd /home/user/app && npm ci`, because nobody has a terminal there.
+This example is from a repository where the agent has just set up harnesspm, and whose own harness has three skills. A run with nothing new to add prints no such line. `status` and `doctor` list the same entries. In a Claude Code cloud session, the second line names the environment's setup script instead, with the line to put there, such as `cd /home/user/app && npm ci`, because nobody has a terminal there.
+
+A change that a person already reviewed needs no step. When a teammate's merged pull request adds a hook, the agent's next install writes it. The repository is then in its reviewed state: `harnesspm.json`, the lock and the harness files are as the default branch has them, and the install reproduces the lock. The agent's own edits, committed or not, and an install that the lock does not record still wait, and the line says what differs. The check reads `origin/HEAD`; `git remote set-head origin --auto` sets it when a clone lacks it.
 
 harnesspm tells a model run from the markers that Claude Code and Codex set on commands their models run. A hook runs from settings a person wrote, so a hook may add entries. The markers stop accidents, such as an install that the model starts. A model that unsets them on purpose is not stopped. See [trusting a package](https://github.com/tenphi/harnesspm/blob/main/docs/spec/06-trust.md#62-trusting-a-package) for the exact markers.
 

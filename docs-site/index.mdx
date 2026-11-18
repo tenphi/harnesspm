@@ -139,7 +139,7 @@ Your project has the last word on every unit. One `harnesspm.json` holds your ch
 - A **patch** changes one section of a rule and keeps the rest. When an upgrade changes that section, `sync` warns you. **exclude** drops a unit or a whole package. **replace** swaps a unit for your own file.
 - Rules, docs and skills work at once. Scripts, hooks and MCP servers run only for packages you trust. Trusting `@acme/ui` does not trust `@acme/colors`.
 - `"pin"` keeps a new version's tools off until you run `npx harnesspm approve`.
-- When an agent runs harnesspm, new hooks, MCP servers and allow rules wait for a person.
+- When an agent runs harnesspm, new hooks, MCP servers and allow rules wait until a person reviews and merges them.
 - Rules are instructions to your agent. Review their changes in the pull request, like code.
 
 `why` shows where any unit comes from and every change made to it. Here, the colors rule has a patch from `@acme/ui` and the app's own:

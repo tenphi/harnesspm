@@ -22,12 +22,13 @@ import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
+import { reviewedState, type Reviewed } from './reviewed.ts';
 import { runMcp, runScript } from './run.ts';
 import { alwaysOnText, blockRange } from './render.ts';
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -52,12 +53,15 @@ function grantStep(projectDir: string, inTerminal: string): string {
   return cloudStep(`${line !== undefined ? `\`${line}\`` : 'the install'}, or their own \`npx -y @tenphi/harnesspm add <source>\`,`, 'these entries');
 }
 
-const heldList = (held: string[]): string => `${plural(held.length, 'entry', 'entries')} that an agent cannot grant (${held.slice(0, 3).join('; ')}${held.length > 3 ? '; …' : ''})`;
+const firstThree = (items: string[]): string => `${items.slice(0, 3).join('; ')}${items.length > 3 ? '; …' : ''}`;
+const heldList = (report: UserReport): string => `${plural(report.held.length, 'entry', 'entries')} that an agent cannot grant (${firstThree(report.held)})${report.why !== undefined ? `, because ${report.why}` : ''}`;
+const unwrittenList = ({ entries, branch }: NonNullable<UserReport['unwritten']>): string => `${plural(entries.length, 'entry', 'entries')} that ${branch} records (${firstThree(entries)})`;
 
 function printPending(out: Output, report: UserReport, projectDir: string): void {
   for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
+  if (report.unwritten) out.log(`⏳ not written yet: ${unwrittenList(report.unwritten)}. Run \`${NPX_LOCAL} sync\`.`);
   if (report.held.length > 0) {
-    out.log(`⏳ held back: ${heldList(report.held)}.`);
+    out.log(`⏳ held back: ${heldList(report)}.`);
     out.log(`   ${grantStep(projectDir, `Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`)}`);
   }
 }
@@ -139,12 +143,15 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   const keepCommitted = process.env['CI'] === 'true' && options.write !== true;
   let keptCommitted = false;
   if (mode !== 'none') {
-    const plan = computePlan(resolved.team, full, { widen: caller() !== 'model' });
+    const model = caller() === 'model';
+    const plan = computePlan(resolved.team, full, { widen: !model });
     warnings.push(...plan.warnings);
     keptCommitted = keepCommitted && plan.committed !== undefined;
-    const applied = applyPlan(projectDir, plan, { committed: !keepCommitted });
+    const reviewed = model ? reviewedFor(projectDir, resolved.team, plan) : undefined;
+    const applied = applyPlan(projectDir, plan, { committed: !keepCommitted, reviewed: reviewed?.ok === true });
     changed.push(...applied.changed);
     report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
+    if (reviewed?.ok === false && (applied.teamHeld || plan.telemetryHeld !== undefined)) report.why = reviewed.reason;
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
   }
   if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir));
@@ -439,8 +446,19 @@ function codexMisses(projectDirInput: string, plan: Plan): string[] {
 }
 
 /**
- * What a sync by the agent's model would leave pending and hold back now (spec 6.2, rule 4). `status` and `doctor`
- * show it; `sync` reports the same list from what it wrote, so the count matches everywhere.
+ * Whether a model run may write the repository's entries, because they are as a person reviewed them (spec 6.2,
+ * rule 4). Undefined when there is nothing to hold, and in a Codex run, whose sandbox keeps `.codex/` read-only.
+ */
+function reviewedFor(projectDir: string, team: Resolution | undefined, plan: Plan): Reviewed | undefined {
+  if (team === undefined || plan.committed === undefined || plan.exec.team === undefined || codexRun()) return undefined;
+  if (plan.telemetryHeld === undefined && heldEntries('team', plan.exec.team, repoStateFile(projectDir)).length === 0) return undefined;
+  return reviewedState(projectDir, team, plan.committed.lock);
+}
+
+/**
+ * What a sync by the agent's model would leave pending and hold back now (spec 6.2, rule 4), and what any sync would
+ * write because it is in the reviewed state. `status` and `doctor` show it; `sync` reports the same list from what it
+ * wrote, so the count matches everywhere.
  */
 function preview(projectDir: string, resolved: Resolved): { plan?: Plan; report: UserReport } {
   const plan = resolved.mode !== 'none' ? computePlan(resolved.team, resolved.full, { widen: false }) : undefined;
@@ -449,7 +467,12 @@ function preview(projectDir: string, resolved: Resolved): { plan?: Plan; report:
     const stateFile = repoStateFile(projectDir);
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
     report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []));
-    report.held.push(...(plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : []), ...heldEntries('added', plan.exec.added, stateFile));
+    const team = plan.exec.team ? heldEntries('team', plan.exec.team, stateFile) : [];
+    const reviewed = reviewedFor(projectDir, resolved.team, plan);
+    if (reviewed?.ok === true && team.length > 0) report.unwritten = { entries: team, branch: reviewed.branch };
+    else report.held.push(...team);
+    if (reviewed?.ok === false && report.held.length > 0) report.why = reviewed.reason;
+    report.held.push(...heldEntries('added', plan.exec.added, stateFile));
   }
   if (process.env['CI'] !== 'true') report.held.push(...userHeld(resolved.added));
   return { ...(plan ? { plan } : {}), report };
@@ -597,7 +620,8 @@ export function doctor(cwd: string, out: Output): number {
   const trust: Finding[] = [];
   // Each pending entry already says how to turn it on: trust the package, or approve a pinned version.
   for (const p of new Set(report.pending)) trust.push({ level: 'warn', text: `Off: ${p}` });
-  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report.held)}. ${grantStep(projectDir, `Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
+  if (report.unwritten) trust.push({ level: 'warn', text: `${unwrittenList(report.unwritten)} are not written yet. Run \`${sync}\`.` });
+  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report)}. ${grantStep(projectDir, `Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
   const telemetry = readTelemetryState(projectDir);
   // A held handler is in the list above, as `sync` lists it.
   const heldHandler = plan?.telemetryHeld !== undefined;

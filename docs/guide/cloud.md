@@ -29,7 +29,7 @@ The setup script does not start in the clone, so name the clone by its absolute 
 
 To check, start a new session and run `npx harnesspm status`: it shows no "held back" line. Hooks that the install writes work from that first session. Later sessions start from a saved snapshot, and the script runs again after you change it.
 
-When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` print the line for the setup script when they hold entries back.
+When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. What the default branch records is the exception, but only when the clone has `origin/HEAD`, and cloud clones have none. So that the agent's later installs, such as after a pull, write what is merged, add `git -C /home/user/<repo> remote set-head origin main || true` to the setup script, with your default branch. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` print the line for the setup script when they hold entries back.
 
 ### For a team
 

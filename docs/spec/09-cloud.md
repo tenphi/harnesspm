@@ -3,7 +3,7 @@
 **In short**
 
 - v1 supports **Claude Code cloud sessions**. Codex Cloud is not supported in v1 ([13.12](13-open-questions.md#1312-removed-in-review)); Codex on a person's computer is.
-- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script, by absolute path ([9.1](#91-the-repositorys-harness)): when the agent runs it, new hooks, MCP servers and allow rules stay pending ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` print that line when they hold entries back, instead of asking for a terminal.
+- A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script, by absolute path ([9.1](#91-the-repositorys-harness)): when the agent runs it, new hooks, MCP servers and allow rules stay pending outside the reviewed state ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` print that line when they hold entries back, instead of asking for a terminal.
 - Added harnesses need one command in the container: in the setup script of the person's own environment, or asked of the agent.
 - Improving an added harness from the cloud needs push access to its repository. Without it, the agent shows the change in the session.
 
@@ -19,6 +19,8 @@ cd /home/user/<repo> && npm ci
 - **In every person's environment.** Environments are personal unless an organization Owner shares one. A team commits its script and gives people the lines to paste.
 
 The install runs as a person's would, before Claude Code starts, so nothing is held back, and its hooks work from the first session ([9.5](#95-what-real-sessions-confirmed)). To check, `harnesspm status` in a new session shows no held-back line.
+
+A later install by the agent, such as after a pull, writes what the default branch records only when the clone has `origin/HEAD` ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). The cloud clones seen so far had none ([research](../research/agent-capabilities.md#cloud-sessions)). The setup script can set it without network: `git -C /home/user/<repo> remote set-head origin main || true`, with the repository's default branch.
 
 When a cloud session holds entries back, `sync`, `status` and `doctor` print this line for the project: its absolute path, and the install that its lockfile asks for, with corepack when `packageManager` is set. Without a lockfile or `harnesspm.json`, they name "the install".
 

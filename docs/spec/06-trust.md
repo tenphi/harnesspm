@@ -4,7 +4,7 @@
 
 - Text units (rules, docs, skills, sub-agents) need no trust. Executable units and allow rules do.
 - A project trusts a package in `harnesspm.json`. Adding a harness on top is the person trusting it. Trust never passes through `extends`.
-- An agent never grants permissions through harnesspm: new allow rules, hooks and MCP servers wait for a person.
+- An agent never grants permissions through harnesspm: new allow rules, hooks and MCP servers wait for a person. The exception is what a person already reviewed: an agent's install writes what the default branch records.
 - `harnesspm.lock.json` records every unit's hash, so pull requests show what changed.
 
 ## 6.1 What needs trust
@@ -40,15 +40,21 @@ Rules:
 1. Trust MUST NOT pass through `extends`. Trusting UI Kit does not trust Tasty.
 2. `harnesspm add` is the person's trust decision for that harness. Added harnesses need no `trust` entry.
 3. `harnesspm run` checks the lock before running a script, so the rules also hold when an agent calls a script directly.
-4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts. Agents keep the model from granting itself permissions, and harnesspm must not be a way around that.
+4. harnesspm MUST NOT add or widen allow rules, hooks or MCP servers when the agent's model runs it, for example through an install the model starts, unless a person already reviewed them. Agents keep the model from granting itself permissions, and harnesspm must not be a way around that.
    - Claude Code marks who runs a command: `AI_AGENT` ends in `_agent` for commands the model runs and in `_harness` for hooks and MCP servers. Setup scripts get neither. harnesspm treats `_agent`, or `CLAUDECODE=1` without `AI_AGENT`, as a model run.
    - Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` in commands the model runs, and in neither hooks nor commands a person runs. harnesspm treats either as a model run. Codex's workspace-write sandbox also keeps `.codex/` and `~/.codex` read-only for model runs ([research](../research/agent-capabilities.md#codex)).
    - These markers are advisory: a model can unset them. They stop accidents, such as an install the model starts, not a model that works around them.
    - A hook runs from settings a person wrote, so a hook run may add entries.
-   - A model run keeps the entries a person granted before, and never removes a deny or ask rule. Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, or a setup script or a hook runs harnesspm. Text units, skill links and other removals are written as usual.
+   - A model run keeps the entries a person granted before, and never removes a deny or ask rule. Held-back entries stay pending until a person runs `harnesspm sync` or `harnesspm approve`, a setup script or a hook runs harnesspm, or the repository is in its reviewed state. Text units, skill links and other removals are written as usual.
+   - **Reviewed state.** A model run writes the repository's entries as a person's run does when the repository is in its reviewed state, that is, when all of these hold. Then a teammate's merged change reaches every machine with the next install, and the agent's own edits still wait for review.
+     1. The trust inputs are the same as at the merge base of `HEAD` and the remote default branch (`origin/HEAD`): `harnesspm.json`, `harnesspm.lock.json`, the project's `harness/` and `harnesspm/patches/`, and each workspace's `harness/` and `harnesspm/patches/`. An uncommitted change, a commit on the branch, or an untracked file there fails the check.
+     2. The sync computes the committed lock, so every unit hash, package version and `"pin"` approval is what the review saw. An install that the lock does not record, such as `pnpm add <pkg>@next`, fails the check.
+     3. It covers only the repository's layers. Added harnesses are not locked, and a person grants them with `add` (rule 2).
+   - The check reads local refs only, so it costs a few git commands and no network. A stale `origin/HEAD` means an older reviewed state. Like the markers, it is advisory: a model can move a ref. It assumes that changes reach the default branch only through review.
+   - Without `origin/HEAD` (`git remote set-head origin --auto` sets it), and in a Codex run, a model run holds back as before. Codex's sandbox keeps `.codex/` read-only, and Codex asks a person to review each new hook anyway.
    - A hook whose command changes only in its prefix, such as `node` with the installed CLI file in place of npx ([5.2](05-executables.md#52-hooks)), runs the same script. A model run writes it too.
    - A model run also keeps the telemetry handler that the lock has. A new or changed handler is held the same way ([14.5](14-telemetry.md#145-trust)).
-   - `sync` lists the entries it held back. `status` and `doctor` list the same entries, counted the same way, with a held telemetry handler first. Outside a cloud session, they ask the person to run `sync` or `approve` in their own terminal. In a Claude Code cloud session (`CLAUDE_CODE_REMOTE=true`), the person has no terminal there, so they print the line for the environment's setup script instead ([9.1](09-cloud.md#91-the-repositorys-harness)).
+   - `sync` lists the entries it held back, and why the repository is not in its reviewed state, such as `harnesspm.json differs from origin/main` or `the installed packages do not match harnesspm.lock.json`. So the person knows whether a review or an install is due. `status` and `doctor` list the same entries, counted the same way, with a held telemetry handler first. When the repository is in its reviewed state but this machine lacks entries, they say that a sync writes them. Outside a cloud session, they ask the person to run `sync` or `approve` in their own terminal. In a Claude Code cloud session (`CLAUDE_CODE_REMOTE=true`), the person has no terminal there, so they print the line for the environment's setup script instead ([9.1](09-cloud.md#91-the-repositorys-harness)).
 
 ## 6.3 The lock
 

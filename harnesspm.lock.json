@@ -9,7 +9,7 @@
   "units": {
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "4e93fda73503b140"
+      "hash": "70a14bd8bdb9d091"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",
@@ -25,7 +25,7 @@
     },
     "harnesspm:skills/harnesspm-import": {
       "kind": "skills",
-      "hash": "fe75b74bd8e0b63e"
+      "hash": "8e7aa9e64aa32bc2"
     },
     "harnesspm:skills/harnesspm-improve": {
       "kind": "skills",
