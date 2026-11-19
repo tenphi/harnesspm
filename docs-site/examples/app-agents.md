@@ -1,4 +1,4 @@
-## @acme/colors 2.1.0 (via @acme/ui)
+## @acme/colors (via @acme/ui)
 
 ### Acme Colors (acme-colors:rules/usage)
 
@@ -10,7 +10,7 @@
 - Docs: node_modules/.harnesspm/docs/acme-colors/llms.txt (acme-colors:docs)
 - Script: `npx harnesspm run acme-colors:contrast` — Measure the WCAG contrast of a text color on a background (acme-colors:scripts/contrast)
 …
-## @acme/ui 4.2.0
+## @acme/ui
 
 ### Acme UI (acme-ui:rules/usage)
 …

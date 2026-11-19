@@ -45,11 +45,18 @@ A job that does not install dependencies, such as a review bot, runs `npx -y @te
 - `npm install <pkg>`, `npm uninstall <pkg>`, `pnpm add <pkg>` and `pnpm remove <pkg>` run no scripts. Run `npx harnesspm sync` after them.
 - Yarn 4 runs `postinstall` but not `prepare`. In a published package, where `init` uses `prepare`, run `yarn harnesspm sync` after installs. See [package managers](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md).
 
-The pull request shows the change. The block names each package's version, and the lock records every unit's hash:
+The pull request shows the change. The lock records each package's version and every unit's hash. The block names no versions, so it changes only when a rule, a doc or a tool does. Here `@acme/ui` 4.3.0 changed only its `tokens` script:
 
 ```diff
--## @acme/ui 4.2.0
-+## @acme/ui 4.3.0
+     "@acme/ui": {
+-      "version": "4.2.0",
++      "version": "4.3.0",
+       "plugin": "acme-ui"
+ …
+     "acme-ui:scripts/tokens": {
+       "kind": "scripts",
+-      "hash": "54ba39c0298593bc"
++      "hash": "45e6351947d862a9"
 ```
 
 When an upgrade changes a section that your patch replaces or removes, `sync` warns and names the section, because your patch may be out of date.

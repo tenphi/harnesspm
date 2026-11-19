@@ -37,7 +37,7 @@ test('S3: sync writes the block, links and lock for a dependency chain', () => {
   const result = run(dir, 'sync');
   assert.equal(result.status, 0, result.stderr);
   const agents = read(dir, 'AGENTS.md');
-  assert.ok(agents.indexOf('## @tenphi/tasty 3.17.1 (via @cube-dev/ui-kit)') < agents.indexOf('## @cube-dev/ui-kit 0.206.1'), 'upstream first');
+  assert.ok(agents.indexOf('## @tenphi/tasty (via @cube-dev/ui-kit)\n') < agents.indexOf('## @cube-dev/ui-kit\n'), 'upstream first');
   assert.match(agents, /### Style values \(tasty:rules\/style-values\)\n\nNever put dynamic values into styles\./);
   assert.match(agents, /- When editing `\*\*\/\*\.tsx`, read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/state-maps\.md — How to write state maps \(tasty:rules\/state-maps\)/);
   assert.match(agents, /- Legacy tokens, for old code: read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/legacy\.md \(tasty:rules\/legacy\)/);
@@ -67,6 +67,20 @@ test('S3: sync writes the block, links and lock for a dependency chain', () => {
 
   assert.match(run(dir, 'sync').stdout, /Nothing changed/, 'a second sync is a no-op');
   assert.equal(run(dir, 'sync', '--check').status, 0);
+});
+
+test('a version bump that keeps the harness the same changes only the lock', () => {
+  const dir = chain();
+  assert.equal(run(dir, 'sync').status, 0);
+  const before = read(dir, 'AGENTS.md');
+  assert.doesNotMatch(before, /3\.17\.1|0\.206\.1/, 'no versions in the block');
+
+  installPackage(path.join(dir, 'node_modules/@cube-dev/ui-kit'), '@tenphi/tasty', { plugin: 'tasty', version: '3.18.0', harness: TASTY_RULES, repository: 'https://github.com/tenphi/tasty' });
+  assert.notEqual(run(dir, 'sync', '--check').status, 0, 'the lock records the version');
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(dir, 'AGENTS.md'), before);
+  assert.equal(JSON.parse(read(dir, 'harnesspm.lock.json')).packages['@tenphi/tasty'].version, '3.18.0');
 });
 
 test('S5: an upgrade shows up in the committed files, and --check fails until sync', () => {
@@ -281,7 +295,8 @@ test('one version per package: a direct dependency wins over a nested copy', () 
   installPackage(dir, '@tenphi/tasty', { plugin: 'tasty', version: '2.0.0', harness: { 'dev.harnesspm/rules/old.md': '# Old\n\nVersion two.\n' } });
   const result = run(dir, 'sync');
   assert.match(result.stderr, /@tenphi\/tasty: found versions .*using 2\.0\.0/);
-  assert.match(read(dir, 'AGENTS.md'), /## @tenphi\/tasty 2\.0\.0\n/);
+  assert.match(read(dir, 'AGENTS.md'), /## @tenphi\/tasty\n\n### Old \(tasty:rules\/old\)\n\nVersion two\./);
+  assert.equal(JSON.parse(read(dir, 'harnesspm.lock.json')).packages['@tenphi/tasty'].version, '2.0.0');
 });
 
 test('the same plugin name in two packages stops sync', () => {

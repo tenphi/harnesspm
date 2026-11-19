@@ -2,7 +2,7 @@
 
 **In short**
 
-- Text units (rules, docs, skills, sub-agents) need no trust. Executable units and allow rules do.
+- Text units (rules, docs, skills, sub-agents) need no trust. Executable units, allow rules, and the keys in skills and sub-agents that run code or skip a prompt do.
 - A project trusts a package in `harnesspm.json`. Adding a harness on top is the person trusting it. Trust never passes through `extends`.
 - An agent never grants permissions through harnesspm: new allow rules, hooks and MCP servers wait for a person. The exception is what a person already reviewed: an agent's install writes what the default branch records.
 - `harnesspm.lock.json` records every unit's hash, so pull requests show what changed.
@@ -12,6 +12,7 @@
 | Unit | Needs trust? | Why |
 | --- | --- | --- |
 | Rules, docs, sub-agent definitions, skills | No | Text. The agent still asks before running commands, unless a permission allows them. |
+| Keys in a sub-agent or a `SKILL.md` that run code or skip a prompt: `hooks`, `mcpServers` and `permissionMode` in a Claude Code sub-agent, `sandbox_mode` and `approval_policy` in a Codex one, `allowed-tools` and `hooks` in a skill | **Yes** | Claude Code runs a project sub-agent's hooks and MCP servers once the folder is trusted, and applies a skill's `allowed-tools` even in a folder nobody trusted. It ignores the same sub-agent keys in plugins, for security ([research](../research/agent-capabilities.md#skills-sub-agents-mcp-memory)). For an untrusted package, a sub-agent is written without them, and a skill is linked as a generated copy without them ([4.3](04-outputs.md#43-project-outputs)). `sync` names each key it leaves out. |
 | The `Skill(<name>)` allow rule that lets an unattended session run a skill | **Yes** | It removes a prompt. Written only for skills from the project, an added harness or a trusted package. |
 | Scripts, hooks, MCP servers | **Yes** | They run code, some of them automatically. |
 | Allow permissions | **Yes** | They remove a prompt. |
@@ -83,4 +84,5 @@ With `CI=true`, `sync` also leaves the committed outputs as they are. An install
 
 - **A trusted package is compromised.** `true` follows new versions. The lock diff and normal dependency review are the protection. Use `"pin"` for packages the team does not control.
 - **Prompt injection in text units.** Rules and skills are instructions. Review them like code.
+- **Commands in an untrusted skill.** A `` !`command` `` in a `SKILL.md` runs when the skill loads, if the person's permission rules allow it. Without `allowed-tools`, a command they don't allow stops the skill, except in auto mode, where the agent's own check decides ([research](../research/agent-capabilities.md#skills-sub-agents-mcp-memory)).
 - **An agent ignores a rule.** harnesspm delivers instructions. Hooks and deny permissions can enforce some of them.

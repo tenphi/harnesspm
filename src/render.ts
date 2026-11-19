@@ -38,7 +38,8 @@ export function packageHeading(pkg: ResolvedPackage): string {
     if (pkg.entry) return `## ${pkg.plugin}: entry for this repository (${spec})`;
     return `## ${pkg.plugin} (${spec}, ${pkg.scope} scope)`;
   }
-  return `## ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`;
+  // No version: a bump that keeps the harness the same changes no committed Markdown. The lock records it (spec 4.6).
+  return `## ${pkg.name}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`;
 }
 
 export function alwaysOnText(rule: FinalRule, label = rule.id): string {

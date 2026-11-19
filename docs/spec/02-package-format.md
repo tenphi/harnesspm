@@ -189,7 +189,7 @@ Review the change like an owner. Do not edit files.
 | `claude:` | copied into the frontmatter | ignored |
 | `codex:` | ignored | copied into the TOML file |
 
-Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key. Keys that widen what the agent may do (`permissionMode` for Claude Code, `sandbox_mode` and `approval_policy` for Codex) are written only for the project, added harnesses and trusted packages.
+Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key. Keys that widen what the agent may do are written only for the project, added harnesses and trusted packages ([6.1](06-trust.md#61-what-needs-trust)): `permissionMode`, `hooks` and `mcpServers` for Claude Code, which ignores the same keys in plugin sub-agents for security ([research](../research/agent-capabilities.md#skills-sub-agents-mcp-memory)), and `sandbox_mode` and `approval_policy` for Codex.
 
 ## 2.7 Docs
 

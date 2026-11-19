@@ -187,8 +187,14 @@ export function discoverExecUnits(pkg: HarnessPackage, problems: string[]): Exec
   return { scripts, hooks, mcp, ...(permissions ? { permissions } : {}), agents };
 }
 
-/** Sub-agent keys that widen what the agent may do. Written only for trusted owners. */
+/**
+ * Sub-agent keys that widen what the agent may do. Written only for trusted owners (spec 2.6). Claude Code's list is
+ * the one it ignores in plugin sub-agents, for security.
+ */
 export const WIDENING_AGENT_KEYS: Record<Agent, string[]> = {
-  claude: ['permissionMode'],
+  claude: ['permissionMode', 'hooks', 'mcpServers'],
   codex: ['sandbox_mode', 'approval_policy'],
 };
+
+/** SKILL.md keys that widen what the agent may do. An untrusted package's skill gets a copy without them (spec 6.1). */
+export const WIDENING_SKILL_KEYS = ['allowed-tools', 'hooks'];
