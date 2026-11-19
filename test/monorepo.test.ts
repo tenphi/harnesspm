@@ -47,7 +47,7 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
 
   const web = read(dir, 'packages/web/AGENTS.md');
-  assert.match(web, /## @cube-dev\/ui-kit 1\.0\.0/);
+  assert.match(web, /## @cube-dev\/ui-kit\n/);
   assert.match(web, /read \.\.\/\.\.\/node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/harness\/dev\.harnesspm\/rules\/forms\.md/, 'paths are relative to the workspace');
   assert.match(web, /### Tokens \(ui:rules\/tokens\)/, 'a workspace dependency brings its harness');
   assert.match(web, /Tasty three\./);

@@ -71,7 +71,7 @@ Docs are one pointer line each, and skills load when needed, so the always-on te
 
 ## Upgrade the package, upgrade the rules
 
-Your agent's knowledge of a library updates when the library does. Rules, docs and tools come from the version in `node_modules`. Nothing is copied, so nothing drifts. The managed block and the lock are committed, so the pull request shows what changed. Here is an upgrade of `@acme/ui` from 4.2.0 to 4.3.0, which changed its `tokens` script:
+Your agent's knowledge of a library updates when the library does. Rules, docs and tools come from the version in `node_modules`. Nothing is copied, so nothing drifts. The managed block and the lock are committed, so the pull request shows what changed. Here is an upgrade of `@acme/ui` from 4.2.0 to 4.3.0, which changed only its `tokens` script, so only the lock changed:
 
 <CodeGroup
   label="An upgrade in review"
@@ -79,12 +79,7 @@ Your agent's knowledge of a library updates when the library does. Rules, docs a
     {
       label: 'harnesspm.lock.json',
       language: 'diff',
-      code: '     "acme-ui:scripts/tokens": {\n       "kind": "scripts",\n-      "hash": "54ba39c0298593bc"\n+      "hash": "45e6351947d862a9"\n     }',
-    },
-    {
-      label: 'AGENTS.md',
-      language: 'diff',
-      code: '-## @acme/ui 4.2.0\n+## @acme/ui 4.3.0\n \n ### Acme UI (acme-ui:rules/usage)',
+      code: '     "@acme/ui": {\n-      "version": "4.2.0",\n+      "version": "4.3.0",\n       "plugin": "acme-ui"\n …\n     "acme-ui:scripts/tokens": {\n       "kind": "scripts",\n-      "hash": "54ba39c0298593bc"\n+      "hash": "45e6351947d862a9"\n     }',
     },
   ]}
 />

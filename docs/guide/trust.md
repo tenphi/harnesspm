@@ -6,7 +6,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 
 **In short**
 
-- Rules, docs, skills and sub-agents are text and need no trust. Scripts, hooks, MCP servers and allow rules do.
+- Rules, docs, skills and sub-agents are text and need no trust. Scripts, hooks, MCP servers and allow rules do, and so do the keys in skills and sub-agents that run code or skip a prompt.
 - A project trusts a package in `harnesspm.json`. Trust never passes through `extends`.
 - An agent cannot grant itself permissions through harnesspm. New tools from a run the agent started wait for a person, unless a person already reviewed and merged them.
 - `harnesspm.lock.json` and `npx harnesspm sync --check` in CI make every change reviewable.
@@ -16,6 +16,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 | Unit | Needs trust | Why |
 | --- | --- | --- |
 | Rules, docs, skills, sub-agents | No | Text. The agent still asks before it runs commands. |
+| Keys in skills and sub-agents that run code or skip a prompt, such as a skill's `allowed-tools` and `hooks` | Yes | Until you trust the package, harnesspm writes its skills and sub-agents without them, as Claude Code does for plugins. `sync` names each key it leaves out. |
 | Scripts, hooks, MCP servers | Yes | They run code, some of them automatically. |
 | Allow rules, including `Skill(<name>)` | Yes | They remove a prompt. |
 | Deny and ask rules | No | They only restrict. |
