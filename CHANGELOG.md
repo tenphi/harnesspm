@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+### Minor Changes
+
+- [#39](https://github.com/tenphi/harnesspm/pull/39) [`9968789`](https://github.com/tenphi/harnesspm/commit/996878997b6fbb1f2467c9353d3772c78473583d) Thanks [@tenphi](https://github.com/tenphi)! - Until a package is trusted, its sub-agents are written without Claude Code's `hooks` and `mcpServers`, as `permissionMode` already was, and a skill of its that sets `allowed-tools` or `hooks` is linked as a copy without them. Claude Code ignores the same sub-agent keys in plugins for security. `sync` names each key it leaves out.
+
+- [#39](https://github.com/tenphi/harnesspm/pull/39) [`9968789`](https://github.com/tenphi/harnesspm/commit/996878997b6fbb1f2467c9353d3772c78473583d) Thanks [@tenphi](https://github.com/tenphi)! - Package headings in the managed block no longer name the version, so an upgrade that keeps a package's harness the same changes only `harnesspm.lock.json`. Run `npx harnesspm sync` once and commit the updated `AGENTS.md` files.
+
 ## 0.6.0
 
 ### Minor Changes
