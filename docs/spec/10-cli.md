@@ -3,13 +3,14 @@
 **In short**
 
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs that do not install dependencies use `fetch`.
+- From outside a project, such as a repository that cloned it, add `-C <dir>` before the command. `help` lists the project's tools, rules and skills.
 - Authors use `check` and `new`.
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
 
-The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. Use `npx harnesspm …` in a project that depends on it. Use `npx -y @tenphi/harnesspm …` anywhere else, so npx downloads the package by its full name. Outputs follow the same split, and an allow rule always has the prefix of the command it allows.
+The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. `npx -y @tenphi/harnesspm …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Tool lines in the managed block use this form ([4.6](04-outputs.md#46-managed-blocks)). `npx harnesspm …` works only in a project that depends on harnesspm, and messages there may use it. An allow rule always has the prefix of the command it allows.
 
-`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
+`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's harness ([below](#the-project-in-help)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
 
 ## 10.1 Projects
 
@@ -23,8 +24,35 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 | `harnesspm doctor` | Checks that the repository is ready for harnesses, its own and a person's. It changes nothing. Each problem names the command that fixes it. Exits `1` when a check fails; warnings, such as pending trust, do not fail. See [10.5](#105-doctor). |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). Works for every unit ID ([2.8](02-package-format.md#28-unit-ids)). For a script, also the command that runs it; for a script, hook, MCP server or sub-agent of a dependency, whether its package is trusted. |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
-| `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)). Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. |
-| `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install, and checks their integrity ([04-outputs.md](04-outputs.md#42-stable-package-paths)). For review bots and CI jobs that do not install dependencies. |
+| `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)) in the caller's folder. Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. Without an install, it runs the script from the [fetched packages](01-overview.md#15-terms). When there are none, it says so and names `fetch` and the install, not `No script`. |
+| `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install, and checks their integrity ([04-outputs.md](04-outputs.md#42-stable-package-paths)). For review bots and CI jobs that do not install dependencies, and for a clone that an agent uses without installing it. |
+| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's harness ([below](#the-project-in-help)). |
+
+### `-C <dir>`
+
+`-C <dir>` goes before the command, as in `git -C`: harnesspm acts as if it started in `<dir>`. It works with every command, such as `help`, `fetch`, `run`, `mcp`, `why`, `status` and `doctor`.
+
+```bash
+npx -y @tenphi/harnesspm -C work/app help
+npx -y @tenphi/harnesspm -C work/app run uikit:colors surface
+```
+
+- `run` keeps the caller's folder for the script, so file arguments stay valid. `HARNESSPM_PROJECT_DIR` is the named project.
+- The `run` event goes to the named project's telemetry handler.
+- Hooks and allow rules of the named project do not apply: the agent reads them only from the folder its session starts in ([research](../research/agent-capabilities.md#outside-the-start-folder)).
+- harnesspm runs as the version npx started. It does not hand off to the named project's installed copy.
+
+### The project in `help`
+
+Inside a project, or with `-C`, `help` ends with a "This project" section. It renders the sections of the managed blocks ([4.6](04-outputs.md#46-managed-blocks)) for the whole project, every workspace included:
+
+- scripts, with their descriptions and the command, `-C` included;
+- MCP servers;
+- rules: each always-on rule by title, the others with when to read them;
+- docs indexes;
+- skills, with the path of each `SKILL.md`.
+
+From outside the project, paths start at the caller's folder. `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
 
 Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 

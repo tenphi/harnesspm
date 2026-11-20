@@ -37,7 +37,22 @@ Every line in the block ends with the unit's ID, such as `acme-colors:rules/usag
 
 Package managers put packages in different places. harnesspm links each harness package to one stable path in `node_modules/.harnesspm/pkgs/`, and the block uses only these paths. So the same block works on every machine and with every package manager.
 
-A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths. The lock takes each package's integrity from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. With Yarn 4, `fetch` downloads without that check and says so for each package.
+A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths. It runs no package code. The lock takes each package's integrity from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. With Yarn 4, `fetch` downloads without that check and says so for each package.
+
+## From another folder
+
+An agent often works in a clone below its session's folder, such as `work/app`, when the repository it starts in tells it to clone what a task needs. The cloning repository needs nothing from harnesspm. The first line of the clone's managed block tells the agent what to do:
+
+```bash
+npx -y @tenphi/harnesspm -C work/app help                          # the clone's tools, rules, docs and skills
+npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run one, from the session's folder
+```
+
+- `-C <dir>` goes before the command, as in `git -C`. Every command takes it.
+- The script runs in the current folder, so file arguments stay valid. The `run` event goes to the clone's telemetry handler.
+- A clone that is not installed works too. `help` fetches its harness packages first; fetching only downloads and checks integrity. Self-contained scripts then run. A script that needs a package of the clone's install says so and names the install command.
+- The clone's hooks and allow rules do not apply: agents read them only from the folder the session starts in.
+- Keep the block near the top of `AGENTS.md`: agents often read only the first lines. `status` warns when the block starts past line 30.
 
 ## Upgrades
 

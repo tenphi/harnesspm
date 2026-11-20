@@ -1,3 +1,5 @@
+Working from outside this folder, for example in a repository that cloned it? Add `-C <path to this folder>`. `npx -y @tenphi/harnesspm -C <path> help` lists its tools, rules and skills.
+
 ## @acme/colors (via @acme/ui)
 
 ### Acme Colors (acme-colors:rules/usage)
@@ -8,7 +10,7 @@
 - Do not define a theme of your own. Acme UI ships one.
 …
 - Docs: node_modules/.harnesspm/docs/acme-colors/llms.txt (acme-colors:docs)
-- Script: `npx harnesspm run acme-colors:contrast` — Measure the WCAG contrast of a text color on a background (acme-colors:scripts/contrast)
+- Script: `npx -y @tenphi/harnesspm run acme-colors:contrast` — Measure the WCAG contrast of a text color on a background (acme-colors:scripts/contrast)
 …
 ## @acme/ui
 

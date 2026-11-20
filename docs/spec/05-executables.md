@@ -2,7 +2,7 @@
 
 **In short**
 
-- A package declares **scripts**. Agents and hooks run them through one command: `npx harnesspm run <plugin>:<script>`. MCP servers start through `npx harnesspm mcp <plugin>:<server>`.
+- A package declares **scripts**. Agents run them through one command: `npx -y @tenphi/harnesspm run <plugin>:<script>`, with `-C <dir>` from outside the project. Hooks use the same `run`. MCP servers start through `harnesspm mcp <plugin>:<server>`.
 - Hooks and MCP servers are written once and translated for each agent.
 - A package can allow only its own scripts. It can always restrict (deny, ask).
 - Nothing executable runs unless the project trusts the package ([06-trust.md](06-trust.md)).
@@ -32,24 +32,28 @@ A script is a file a package ships for agents, hooks or MCP servers to run.
 Every script runs through one command:
 
 ```bash
-npx harnesspm run uikit:probe -- --story Button
+npx -y @tenphi/harnesspm run uikit:probe -- --story Button
+npx -y @tenphi/harnesspm -C work/app run uikit:probe -- --story Button   # from outside the project
 ```
 
 The runner:
 
-1. finds the package through the stable path in `node_modules/.harnesspm/pkgs/`, so the installed version always runs;
+1. finds the package through the stable path in `node_modules/.harnesspm/pkgs/`, so the installed version always runs. A project without an install uses its [fetched packages](01-overview.md#15-terms) instead. When it has neither, the runner says so and names both `harnesspm fetch` and the project's install, never `No script`;
 2. refuses the script when its package is not trusted, when the installed version differs from the lock (run `harnesspm sync`), or when a `"pin"` package has a version nobody approved;
 3. picks the interpreter from the file: `node` for `.js`, `.mjs` and `.cjs`, `sh` for `.sh`, otherwise the file itself;
-4. sets these environment variables:
+4. runs the script in the caller's folder, also with `-C`, so file arguments stay valid;
+5. sets these environment variables:
 
 | Variable | Value |
 | --- | --- |
 | `PLUGIN_ROOT` | The package's `harness/` folder (same meaning as in Agent Plugins) |
 | `PLUGIN_DATA` | `~/.harnesspm/data/<plugin name>/`, kept across updates (same meaning as in Agent Plugins) |
-| `HARNESSPM_PROJECT_DIR` | The project root |
+| `HARNESSPM_PROJECT_DIR` | The project root: the project that `-C` names, or the one harnesspm started in |
 | `HARNESSPM_AGENT` | `claude`, `codex`, or empty when a person runs it. harnesspm puts it into the hook and MCP commands it writes, and reads the agent's marker for a script an agent runs ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). |
 
-The runner must start fast, because hooks call it on every matching tool call. With telemetry on, it sends a `run` event when the script ends ([14.2](14-telemetry.md#142-events)).
+The runner must start fast, because hooks call it on every matching tool call. With telemetry on, it sends a `run` event to the project's handler when the script ends ([14.2](14-telemetry.md#142-events)). With `-C`, that is the named project's handler.
+
+A fetched package has no dependencies of its own. A self-contained script runs from it. When a script there fails to load a package (Node.js's `ERR_MODULE_NOT_FOUND` or `MODULE_NOT_FOUND`), the runner passes the script's own error through and ends with a line that says the script needs the project's install, with the command. stdout streams as it is.
 
 Why a runner instead of file paths:
 
@@ -132,10 +136,10 @@ A dependency MUST NOT be able to grant itself broad rights. harnesspm writes all
 
 | Agent | Rule |
 | --- | --- |
-| Claude Code | `Bash(npx harnesspm run uikit:probe *)` in `permissions.allow` |
-| Codex | `prefix_rule(pattern=["npx", "harnesspm", "run", "uikit:probe"], decision="allow")` |
+| Claude Code | `Bash(npx -y @tenphi/harnesspm run uikit:probe *)` in `permissions.allow` |
+| Codex | `prefix_rule(pattern=["npx", "-y", "@tenphi/harnesspm", "run", "uikit:probe"], decision="allow")` |
 
-An allow rule keeps the npx form, also where hooks start the installed CLI file, because it must match the command the agent types.
+An allow rule keeps the npx form of the tool line ([4.6](04-outputs.md#46-managed-blocks)), also where hooks start the installed CLI file, because it must match the command the agent types. For a project's own and its dependencies' scripts, harnesspm also writes the rule for the earlier form, `npx harnesspm run uikit:probe`, while agents and skills still type it. The two forms run the same unit, so a model run that had one may write the other ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). From outside the project, with `-C`, no allow rule applies: the session's own settings decide.
 
 **Deny and ask rules** only restrict. They are written as command prefixes:
 

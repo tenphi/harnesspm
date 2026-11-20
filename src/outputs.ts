@@ -313,7 +313,8 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     const teamGenerated = new Map<string, string>();
     const teamLock = lock;
     const teamTools = pathTools(team, () => teamGen, teamGenerated, warnings);
-    const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? NPX_LOCAL : undefined);
+    // One command form inside the project and outside it, where `-C` is the only difference (spec 4.6, 10.1).
+    const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? NPX_ANY : undefined);
     // The root block holds what the root reaches and what every workspace shares (spec 3.6, 4.5).
     const keys = team.workspaces.map((ws) => ws.key);
     const shared = (pkg: ResolvedPackage): boolean => pkg.members.has('') || (keys.length > 0 && keys.every((k) => pkg.members.has(k)));
@@ -333,7 +334,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
       const content = renderSections(sectionsFor(team, own, wsPaths, prefix), wsPaths);
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
       const existing = readTextIfExists(agentsFile);
-      const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
+      const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content, true)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
       workspaces.push({ dir: ws.dir, agentsMd });
       if (content === '') continue;
       withBlocks.push(ws.key);
@@ -344,7 +345,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix), teamTools.paths)]
       .filter((part) => part !== undefined && part !== '')
       .join('\n\n');
-    const block = wrapBlock(rootContent !== '' ? rootContent : 'No harness units yet.');
+    const block = rootContent !== '' ? wrapBlock(rootContent, true) : wrapBlock('No harness units yet.');
     for (const [file, content] of teamGenerated) if (!generated.has(file)) generated.set(file, content);
     // The root CLAUDE.md silences every nested AGENTS.md in Claude Code, so each one gets its own import (spec 4.3, note 7).
     const claudeDirs = new Set([projectDir, ...workspaces.filter((ws) => ws.agentsMd !== undefined).map((ws) => ws.dir), ...nestedAgentsDirs(projectDir)]);
@@ -408,8 +409,9 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
   // Hooks and MCP servers start the project's installed CLI file with node when it has one (spec 5.2).
   const teamRunner = runner(projectDir, NPX_LOCAL);
   const addedRunner = runner(projectDir, NPX_ANY);
-  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => NPX_LOCAL, runner: () => teamRunner }) : undefined;
-  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => NPX_ANY, runner: () => addedRunner });
+  // Allow rules match the tool lines, `npx -y @tenphi/harnesspm run <unit>`, and for now the earlier `npx harnesspm run <unit>` too (spec 5.4).
+  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => [NPX_ANY, NPX_LOCAL], runner: () => teamRunner }) : undefined;
+  const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => [NPX_ANY], runner: () => addedRunner });
   warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
   // Telemetry's agent events (spec 14.4): harnesspm's own hooks, when the recorded handler and this machine allow them.

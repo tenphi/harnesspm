@@ -139,7 +139,7 @@ A script is registered in `plugin.json`:
 }
 ```
 
-- Agents run it as `npx harnesspm run my-lib:probe -- <args>`. The runner always runs the installed version.
+- Agents run it as `npx -y @tenphi/harnesspm run my-lib:probe -- <args>`, with `-C <dir>` from outside the project. The runner always runs the installed version. In a project without an install, it runs the script from the fetched package, which has none of your dependencies: a script that imports only Node.js's own modules works there too.
 - `description` shows the script to agents. Without it, only your hooks and MCP servers use it.
 - `allow: true` asks that agents may run it without a prompt. It takes effect only in projects that trust your package.
 

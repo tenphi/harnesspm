@@ -73,6 +73,20 @@ What Claude Code and Codex read, and where. Collected in November 2026. Agents c
 | Project MCP servers live in `.mcp.json` and need approval in interactive sessions. Local-scope servers live in `~/.claude.json` per project (`claude mcp add-json <name> '<json>' --scope local`). For one name, local beats project beats user. | ✅ | [MCP](https://code.claude.com/docs/en/mcp) |
 | Auto memory lives in `~/.claude/projects/<project>/memory/`. `autoMemoryDirectory` moves it and can be set in any settings scope. The first 200 lines or 25 KB of `MEMORY.md` load each session. | ✅ | [memory](https://code.claude.com/docs/en/memory) |
 
+### Outside the start folder
+
+An agent often works in a clone below the folder its session starts in, such as `work/app` ([spec 10.1, `-C`](../spec/10-cli.md#-c-dir)).
+
+| Fact | | Source |
+| --- | --- | --- |
+| Claude Code reads the shared `.claude/settings.json` from the session's primary working directory. It keeps `.claude/settings.local.json` at the root of the git repository it starts in. | ✅ | [settings, "Where Claude Code keeps the local file"](https://code.claude.com/docs/en/settings#where-claude-code-keeps-the-local-file-in-a-git-repository) |
+| Claude Code 2.1.328, headless runs from a parent folder with a synced project inside: settings were looked up only in the parent's `.claude/`, and the project contributed 0 hooks. With the project passed as `--add-dir`, there were still 0 hooks. | 🔍 | Debug logs, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41), [#43](https://github.com/tenphi/harnesspm/issues/43)) |
+| `CLAUDE.md` files in subfolders of the working folder load on demand, "once Claude reads, writes, or edits another file in that subdirectory". The docs add that a Bash command that counts as a read, "such as `cat` or `head` on a single file", counts too. | ✅ | [memory, "How CLAUDE.md files load"](https://code.claude.com/docs/en/memory#how-claude-md-files-load) |
+| Claude Code 2.1.328: a nested project's `CLAUDE.md`, the `AGENTS.md` it imports and its skills loaded at the first Read or Edit of a file inside it ("Dynamically discovered 34 skills"), not on a Bash `cd` or `cat`. This differs from the docs above: re-check with the version in use. | 🔍 | Debug logs, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41), [#43](https://github.com/tenphi/harnesspm/issues/43)) |
+| In transcripts of a job runner (Claude Agent SDK) whose workspace holds a clone of the project, agents read `AGENTS.md` files with `cat`, one of them as `cat AGENTS.md \| head -30`. In 11 runs, agents used the clone through Bash in all of them, and with Read or Edit in 4. In 99 runs, the project's hooks ran in none. | 🔍 | Job-runner transcripts, Oct–Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41)) |
+| From a folder that does not install harnesspm, `npx harnesspm run <unit>` fails inside npm with a 404: there is no local bin, and `harnesspm` is not a published package name. `npx -y @tenphi/harnesspm` runs the installed version inside a project that pins it (0.6.0) and downloads the latest outside (0.7.0). | 🔍 | npm 10.9.9, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41)) |
+| Run from fetched packages, without the project's install, `@tenphi/glaze`'s `color` and `contrast` scripts worked. Scripts that import packages the project installs did not: one missed `@tenphi/glaze`, one `react`, one `postcss-selector-parser`. | 🔍 | harnesspm 0.6.0, a clone with no install, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41)) |
+
 ### Plugins
 
 | Fact | | Source |

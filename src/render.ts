@@ -22,6 +22,8 @@ export interface Section {
   scripts?: string[];
   /** Lines about hooks that change how the agent should work, such as hooks that check file edits. */
   hooks?: string[];
+  /** More pointer lines, such as the MCP servers and skills that `help` lists. */
+  extra?: string[];
 }
 
 function withoutTitle(body: string): string {
@@ -57,14 +59,20 @@ export function pointerLine(rule: FinalRule, file: string): string {
   return `- ${rule.description}: read ${file} (${rule.id})`;
 }
 
-export function renderSections(sections: Section[], paths: PathFor): string {
+/**
+ * The text of sections. `brief` names each always-on rule in one line instead of its text, as `help` lists them: the
+ * text is in the managed block already.
+ */
+export function renderSections(sections: Section[], paths: PathFor, options: { brief?: boolean } = {}): string {
   const out: string[] = [];
   for (const section of sections) {
     const parts = [section.heading, ...(section.intro ?? [])];
-    for (const rule of section.rules.filter((r) => r.activation === 'always')) parts.push(alwaysOnText(rule));
-    const pointers = section.rules.filter((r) => r.activation !== 'always').map((r) => pointerLine(r, paths.rule(r)));
+    const always = section.rules.filter((r) => r.activation === 'always');
+    if (!options.brief) for (const rule of always) parts.push(alwaysOnText(rule));
+    const pointers = options.brief ? always.map((r) => `- Always on: ${r.title}, in the managed block of AGENTS.md (${r.id})`) : [];
+    pointers.push(...section.rules.filter((r) => r.activation !== 'always').map((r) => pointerLine(r, paths.rule(r))));
     if (section.docsIndex) pointers.push(`- Docs: ${section.docsIndex.path} (${section.docsIndex.id})`);
-    pointers.push(...(section.scripts ?? []), ...(section.hooks ?? []));
+    pointers.push(...(section.scripts ?? []), ...(section.hooks ?? []), ...(section.extra ?? []));
     if (pointers.length > 0) parts.push(pointers.join('\n'));
     if (parts.length > 1) out.push(parts.join('\n\n'));
   }
@@ -129,15 +137,24 @@ export function workspacesSection(keys: string[]): string | undefined {
   return `## Workspaces\n\nThese folders have harness rules of their own in their \`AGENTS.md\`: ${list}. Read a folder's \`AGENTS.md\` before you change files in it.`;
 }
 
-/** A blank line after BEGIN and before END keeps Markdown formatters such as Prettier from changing the block (spec 4.6). */
-export function wrapBlock(content: string): string {
-  return `${BLOCK_BEGIN}\n\n${content}\n\n${BLOCK_END}`;
+/**
+ * The first line of a committed block with units (spec 4.6). An agent in another folder, such as a repository that cloned
+ * this one, reads the top of AGENTS.md and learns how to reach the harness from there (spec 10.1, `-C`).
+ */
+export const OUTSIDE_LINE = 'Working from outside this folder, for example in a repository that cloned it? Add `-C <path to this folder>`. `npx -y @tenphi/harnesspm -C <path> help` lists its tools, rules and skills.';
+
+/**
+ * A blank line after BEGIN and before END keeps Markdown formatters such as Prettier from changing the block (spec 4.6).
+ * `outside` puts the outside line first.
+ */
+export function wrapBlock(content: string, outside = false): string {
+  return `${BLOCK_BEGIN}\n\n${outside ? `${OUTSIDE_LINE}\n\n` : ''}${content}\n\n${BLOCK_END}`;
 }
 
 /** The committed block: the dependency and project layers. */
 export function renderBlock(res: Resolution, paths: PathFor, runPrefix?: (pkg: ResolvedPackage) => string | undefined): string {
   const content = renderSections(sectionsFor(res, res.packages, paths, runPrefix), paths);
-  return wrapBlock(content !== '' ? content : 'No harness units yet.');
+  return content !== '' ? wrapBlock(content, true) : wrapBlock('No harness units yet.');
 }
 
 /** Puts the block into a Markdown file. Text outside the block never changes. */

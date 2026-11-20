@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import type { Output } from './commands.ts';
-import { HarnessError, readJson } from './util.ts';
+import * as path from 'node:path';
+import { HarnessError, isDir, readJson } from './util.ts';
 
 async function main(): Promise<void> {
   const commands = await import('./commands.ts');
   const { Refused } = await import('./run.ts');
   try {
-    process.exitCode = dispatch(process.argv.slice(2), commands);
+    process.exitCode = await dispatch(process.argv.slice(2), commands);
   } catch (error) {
     if (error instanceof HarnessError) {
       console.error(`harnesspm: ${error.message}`);
@@ -18,6 +19,11 @@ async function main(): Promise<void> {
 }
 
 const HELP = `harnesspm — the harness package manager
+
+Usage: harnesspm [-C <dir>] <command>
+  -C <dir>                       act on the project in <dir>, such as a repository you cloned. \`run\` keeps
+                                 the current folder for the script, so file arguments stay valid
+  harnesspm help                 these commands, and the project's tools, rules and skills
 
 Projects
   harnesspm init                 set up harnesspm in this project
@@ -74,7 +80,21 @@ const out: Output = {
   warn: (line) => console.error(line),
 };
 
-function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number {
+/**
+ * `-C <dir>` before the command: harnesspm acts as if it started in <dir>, as `git -C` does (spec 10.1). Returns the
+ * folder and the arguments after it.
+ */
+function projectFolder(argv: string[]): { cwd: string; named: boolean; argv: string[] } {
+  if (argv[0] !== '-C') return { cwd: process.cwd(), named: false, argv };
+  const dir = argv[1];
+  if (dir === undefined || dir === '') throw new HarnessError('Usage: harnesspm -C <dir> <command>');
+  const cwd = path.resolve(dir);
+  if (!isDir(cwd)) throw new HarnessError(`-C ${dir}: no such folder`);
+  return { cwd, named: true, argv: argv.slice(2) };
+}
+
+function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, projectHelp, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number | Promise<number> {
+  const { cwd, named, argv } = projectFolder(argvIn);
   const [command, ...rest] = argv;
   const isHelp = (arg: string | undefined): boolean => arg === '--help' || arg === '-h';
   // After `run <plugin>:<script>`, every argument goes to the script, `--help` too. Only a first `--help` is harnesspm's.
@@ -94,11 +114,10 @@ function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mc
     if (ref === undefined) throw new HarnessError(`Usage: harnesspm ${command} [--agent <claude|codex>] <plugin>:<name>${command === 'run' ? ' [-- args]' : ''}`);
     const args = rest.slice(i + 1);
     if (args[0] === '--') args.shift();
-    return command === 'run' ? run(process.cwd(), ref, args, agent) : mcp(process.cwd(), ref, agent);
+    return command === 'run' ? run(cwd, ref, args, agent) : mcp(cwd, ref, agent);
   }
   const flags = new Set(rest.filter((a) => a.startsWith('--')));
   const args = rest.filter((a) => !a.startsWith('--'));
-  const cwd = process.cwd();
   const unknown = (allowed: string[]): void => {
     for (const flag of flags) if (!allowed.includes(flag)) throw new HarnessError(`Unknown option ${flag} for ${command}`);
   };
@@ -154,13 +173,16 @@ function dispatch(argv: string[], { add, approve, check, doctor, fetch, init, mc
       return 0;
     }
     case 'help':
-      console.log(args[0] !== undefined ? commandHelp(args[0]) : HELP);
-      return 0;
     case undefined:
     case '--help':
     case '-h':
-      console.log(HELP);
-      return 0;
+      if (command === 'help' && args[0] !== undefined) {
+        console.log(commandHelp(args[0]));
+        return 0;
+      }
+      console.log(HELP.trimEnd());
+      // Inside a project, or with -C, the project's own harness follows.
+      return projectHelp(cwd, out, named);
     default:
       throw new HarnessError(`Unknown command "${command}". Run \`harnesspm help\`.`);
   }

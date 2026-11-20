@@ -50,30 +50,46 @@ function download(projectDir: string, name: string, spec: string, integrity: str
   }
 }
 
-export function fetchLocked(projectDir: string): FetchReport {
+/** Where `fetch` puts a package. */
+export const fetchedDir = (projectDir: string, name: string): string => path.join(projectDir, STATE_DIR, 'fetched', name);
+
+/**
+ * Where each harness package in the lock is on this machine: installed in the version the lock names, else fetched in
+ * that version. `missing` names the packages that are neither. Undefined when the project has no lock.
+ */
+export function locateLocked(projectDir: string): { located: Map<string, string>; missing: string[] } | undefined {
   const lock = readLock(projectDir);
-  if (!lock) throw new HarnessError('No harnesspm.lock.json here. Run `npx harnesspm sync` where the dependencies are installed, and commit the lock.');
-  const report: FetchReport = { fetched: [], reused: [], warnings: [] };
+  if (!lock) return undefined;
   const located = new Map<string, string>();
-  // A lock without integrity, such as one that harnesspm 0.3 wrote with pnpm, can still be checked against the package manager's lockfile.
-  const lookup = packageManagerLock(projectDir);
+  const missing: string[] = [];
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (entry.project || entry.version === undefined) continue;
     const installed = resolvePackageDir(name, projectDir);
     if (installed && installedVersion(installed) === entry.version) {
       located.set(name, installed);
-      report.reused.push(name);
-      continue;
-    }
-    const target = path.join(projectDir, STATE_DIR, 'fetched', name);
-    if (installedVersion(target) !== entry.version) {
-      const found = entry.integrity === undefined ? lookup(name, entry.version) : {};
-      const spec = entry.resolved ?? found.resolved ?? `${name}@${entry.version}`;
-      const integrity = entry.integrity ?? found.integrity;
-      if (integrity === undefined) report.warnings.push(`${name} ${entry.version}: no integrity in ${LOCK_FILE} or the package manager's lockfile, so the download is not checked`);
-      download(projectDir, name, spec, integrity, target);
-      report.fetched.push(`${name} ${entry.version}`);
-    } else report.reused.push(name);
+    } else if (installedVersion(fetchedDir(projectDir, name)) === entry.version) located.set(name, fetchedDir(projectDir, name));
+    else missing.push(name);
+  }
+  return { located, missing };
+}
+
+export function fetchLocked(projectDir: string): FetchReport {
+  const lock = readLock(projectDir);
+  if (!lock) throw new HarnessError('No harnesspm.lock.json here. Run `npx harnesspm sync` where the dependencies are installed, and commit the lock.');
+  const report: FetchReport = { fetched: [], reused: [], warnings: [] };
+  const { located } = locateLocked(projectDir)!;
+  report.reused.push(...located.keys());
+  // A lock without integrity, such as one that harnesspm 0.3 wrote with pnpm, can still be checked against the package manager's lockfile.
+  const lookup = packageManagerLock(projectDir);
+  for (const [name, entry] of Object.entries(lock.packages)) {
+    if (entry.project || entry.version === undefined || located.has(name)) continue;
+    const target = fetchedDir(projectDir, name);
+    const found = entry.integrity === undefined ? lookup(name, entry.version) : {};
+    const spec = entry.resolved ?? found.resolved ?? `${name}@${entry.version}`;
+    const integrity = entry.integrity ?? found.integrity;
+    if (integrity === undefined) report.warnings.push(`${name} ${entry.version}: no integrity in ${LOCK_FILE} or the package manager's lockfile, so the download is not checked`);
+    download(projectDir, name, spec, integrity, target);
+    report.fetched.push(`${name} ${entry.version}`);
     located.set(name, target);
   }
 

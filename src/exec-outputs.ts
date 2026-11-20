@@ -83,15 +83,16 @@ const bashRule = (words: string[]): string => `Bash(${words.join(' ')} *)`;
 const codexRule = (words: string[], decision: string): string => `prefix_rule(pattern = ${JSON.stringify(words)}, decision = "${decision}")`;
 
 /**
- * The entries that `packages` ask for. `npx` is the prefix that the agent types: `npx harnesspm` where the project
- * depends on harnesspm, `npx -y @tenphi/harnesspm` elsewhere. Allow rules use it, so they match the command. `runner`
+ * The entries that `packages` ask for. `npx` lists the prefixes that the agent types: `npx -y @tenphi/harnesspm`, and
+ * also the earlier `npx harnesspm` where the project depends on harnesspm. Allow rules use them, so they match the
+ * command. `runner`
  * starts hooks and MCP servers, which nobody types, so it can start the installed CLI file, which is faster (spec 5.2).
  */
 export function desiredEntries(
   res: Resolution,
   packages: Set<ResolvedPackage>,
   trust: (pkg: ResolvedPackage) => TrustState,
-  where: { claudeAgents: string; codexAgents: string; npx: (pkg: ResolvedPackage) => string; runner: (pkg: ResolvedPackage) => Runner },
+  where: { claudeAgents: string; codexAgents: string; npx: (pkg: ResolvedPackage) => string[]; runner: (pkg: ResolvedPackage) => Runner },
 ): ExecEntries {
   const entries = emptyEntries();
   const mine = <T extends { pkg: ResolvedPackage }>(units: T[]): T[] => units.filter((u) => packages.has(u.pkg));
@@ -109,10 +110,12 @@ export function desiredEntries(
       continue;
     }
     if (!script.allow) continue;
-    const words = [...where.npx(script.pkg).split(' '), 'run', `${script.pkg.plugin}:${script.name}`];
-    // `Bash(<prefix> *)` also matches the command without arguments (observed with Claude Code 2.1.322).
-    entries.claude.allow.push(bashRule(words));
-    entries.codex.rules.push(codexRule(words, 'allow'));
+    for (const npx of where.npx(script.pkg)) {
+      const words = [...npx.split(' '), 'run', `${script.pkg.plugin}:${script.name}`];
+      // `Bash(<prefix> *)` also matches the command without arguments (observed with Claude Code 2.1.322).
+      entries.claude.allow.push(bashRule(words));
+      entries.codex.rules.push(codexRule(words, 'allow'));
+    }
   }
   for (const hook of mine(res.hooks)) {
     if (!trust(hook.pkg).trusted) {
@@ -245,6 +248,12 @@ function limit<T>(wanted: T[], had: T[], key: (t: T) => string, widen: boolean):
 
 const isAllowRule = (rule: string): boolean => rule.includes('decision = "allow"');
 
+/**
+ * What an allow rule grants. The two npx prefixes run the same unit, so the form that tool lines use now,
+ * `npx -y @tenphi/harnesspm run`, grants nothing new where `npx harnesspm run` was allowed (spec 5.4).
+ */
+const allowKey = (rule: string): string => rule.replace(/npx -y @tenphi\/harnesspm run /, 'npx harnesspm run ').replace('["npx","-y","@tenphi/harnesspm","run",', '["npx","harnesspm","run",');
+
 /** A Codex rule as the words it matches, such as `npx harnesspm run kit:probe`. */
 function ruleWords(rule: string): string {
   try {
@@ -260,12 +269,12 @@ function ruleWords(rule: string): string {
  * `doctor` preview it, so all three list the same entries.
  */
 function widening(entries: ExecEntries, prev: Owned, widen: boolean) {
-  const allow = limit(entries.claude.allow, prev.claude.allow, (s) => s, widen);
+  const allow = limit(entries.claude.allow, prev.claude.allow, allowKey, widen);
   const claudeHooks = limit(entries.claude.hooks, prev.claude.hooks, grantKey, widen);
   const claudeMcpNames = limit(Object.keys(entries.claude.mcp), prev.claude.mcp, (s) => s, widen);
   const codexHooks = limit(entries.codex.hooks, prev.codex.hooks, grantKey, widen);
   const codexMcpNames = limit(Object.keys(entries.codex.mcp), Object.keys(prev.codex.mcp), (s) => s, widen);
-  const codexAllow = limit(entries.codex.rules.filter(isAllowRule), prev.codex.rules.filter(isAllowRule), (s) => s, widen);
+  const codexAllow = limit(entries.codex.rules.filter(isAllowRule), prev.codex.rules.filter(isAllowRule), allowKey, widen);
   const held = [
     ...allow.held.map((a) => `allow ${a}`),
     ...claudeHooks.held.map((h) => `Claude Code hook: ${hookTask(h.command)}`),

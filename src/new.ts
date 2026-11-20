@@ -150,7 +150,7 @@ export function createUnit(target: Target, kind: Kind, name: string): string[] {
       add(path.join(target.dir, NS, 'agents', `${name}.md`), `---\nname: ${name}\ndescription: What the sub-agent does. Use when ….\n---\n\nInstructions for the sub-agent.\n`);
       break;
     case 'script':
-      add(scriptFile(name), `// Run it with \`npx harnesspm run ${target.plugin}:${name} -- <args>\`.\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
+      add(scriptFile(name), `// Run it with \`npx -y @tenphi/harnesspm run ${target.plugin}:${name} -- <args>\`.\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
       declareScript(name, `What ${name} does`);
       break;
     case 'hook': {

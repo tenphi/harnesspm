@@ -20,15 +20,16 @@ import { loadHarnessPackage, NS } from './manifest.ts';
 import { heldEntries, trustOf } from './exec-outputs.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
-import { fetchLocked } from './fetch.ts';
+import { fetchLocked, locateLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { reviewedState, type Reviewed } from './reviewed.ts';
 import { runMcp, runScript } from './run.ts';
-import { alwaysOnText, blockRange } from './render.ts';
-import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution } from './resolve.ts';
+import { pathTools } from './outputs.ts';
+import { alwaysOnText, blockRange, renderSections, sectionsFor, type PathFor } from './render.ts';
+import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, realpath, relPosix, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -445,6 +446,26 @@ function codexMisses(projectDirInput: string, plan: Plan): string[] {
   return problems;
 }
 
+/** Agents often read only the top of AGENTS.md, such as with `head -30` (research/agent-capabilities.md). */
+const TOP_LINES = 30;
+
+/** Committed blocks that start past the first 30 lines of their file, so a partial read misses the outside line (spec 4.6). */
+function lateBlocks(projectDir: string, plan: Plan): string[] {
+  const committed = plan.committed;
+  if (!committed) return [];
+  const files: [string, string | undefined][] = [[projectDir, committed.agentsMd], ...committed.workspaces.map((ws) => [ws.dir, ws.agentsMd] as [string, string | undefined])];
+  const problems: string[] = [];
+  for (const [dir, text] of files) {
+    const range = blockRange(text);
+    if (text === undefined || range === undefined) continue;
+    const line = text.slice(0, range[0]).split('\n').length;
+    if (line <= TOP_LINES) continue;
+    const rel = relPosix(fs.realpathSync(projectDir), path.join(fs.realpathSync(dir), 'AGENTS.md'));
+    problems.push(`The harness block in ${rel} starts at line ${line}. Agents that read only the first ${TOP_LINES} lines, such as with \`head -30\`, miss it. Move the block to the top of its file, where sync keeps it.`);
+  }
+  return problems;
+}
+
 /**
  * Whether a model run may write the repository's entries, because they are as a person reviewed them (spec 6.2,
  * rule 4). Undefined when there is nothing to hold, and in a Codex run, whose sandbox keeps `.codex/` read-only.
@@ -519,7 +540,7 @@ export function status(cwd: string, out: Output): number {
     out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
     if (bytes > CODEX_LIMIT) out.warn(`⚠️  AGENTS.md is over ${CODEX_OVER}. Move details into on-demand rules or docs.`);
     else if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
-    for (const miss of codexMisses(projectDir, plan!)) out.warn(`⚠️  ${miss}`);
+    for (const miss of [...lateBlocks(projectDir, plan!), ...codexMisses(projectDir, plan!)]) out.warn(`⚠️  ${miss}`);
   }
   const telemetry = readTelemetryState(projectDir);
   if (telemetry.config) {
@@ -612,7 +633,7 @@ export function doctor(cwd: string, out: Output): number {
     }
     const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
     if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${kib(bytes)}, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
-    for (const miss of codexMisses(projectDir, plan)) outputs.push({ level: 'warn', text: miss });
+    for (const miss of [...lateBlocks(projectDir, plan), ...codexMisses(projectDir, plan)]) outputs.push({ level: 'warn', text: miss });
   }
   if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
 
@@ -681,7 +702,7 @@ export function why(cwd: string, id: string, out: Output): number {
   else row('owner', `dependency ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`);
   const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!));
   row('source', rel(source));
-  if (exec?.kind === 'scripts') row('run', `npx harnesspm run ${pkg.plugin}:${exec.name}`);
+  if (exec?.kind === 'scripts') row('run', `${toolCommand(res.projectDir)} run ${pkg.plugin}:${exec.name}`);
   // Deny and ask rules only restrict, so they need no trust (spec 6.1).
   if (exec && exec.kind !== 'permissions' && pkg.layer === 'dependencies') {
     const trust = res.config.trust[pkg.name];
@@ -716,14 +737,134 @@ function execSource(unit: FinalScript | FinalHook | FinalMcp | FinalAgent | Fina
   return path.join(unit.pkg.harnessDir, NS, unit.kind === 'hooks' ? 'hooks.json' : 'permissions.json');
 }
 
-export function run(cwd: string, ref: string, args: string[], agent: string | undefined): number {
+/** Whether the caller's own folder, where harnesspm started, is inside `projectDir`. */
+function callerInside(projectDir: string): boolean {
+  const caller = realpath(process.cwd());
+  const dir = realpath(projectDir);
+  return caller === dir || caller.startsWith(dir + path.sep);
+}
+
+/** The project's folder as the caller names it, for `-C` and `cd`. */
+const fromCaller = (projectDir: string): string => shellWord(path.relative(process.cwd(), projectDir) || '.');
+
+/** The command that runs the project's tools from where harnesspm started: with `-C` from outside it (spec 10.1). */
+export function toolCommand(projectDir: string): string {
+  return callerInside(projectDir) ? NPX_ANY : `${NPX_ANY} -C ${fromCaller(projectDir)}`;
+}
+
+/** The project's install, from the caller's folder. */
+function installCommand(projectDir: string): string {
+  const lock = LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
+  const install = lock !== undefined ? INSTALLS[lock]! : 'npm install';
+  return callerInside(projectDir) ? install : `cd ${fromCaller(projectDir)} && ${install}`;
+}
+
+interface ToolResolution {
+  res: Resolution;
+  /** False when the project uses harnesspm and its dependencies are not installed. */
+  installed: boolean;
+  /** Without an install: locked harness packages that are not fetched either. */
+  missing: string[];
+  /** Without an install: whether the project has a lock to fetch from. */
+  locked: boolean;
+}
+
+/**
+ * The project's units for `run`, `mcp` and `help` (spec 10.1). A project without an install uses the harness packages
+ * that `fetch` downloaded. With `fetch`, the packages that are missing are downloaded first.
+ */
+function resolveTools(projectDir: string, options: { fetch?: Output } = {}): ToolResolution {
+  const resolved = resolveAll(projectDir, { withAdded: true });
+  if (resolved.team || !isFile(path.join(projectDir, CONFIG_FILE))) return { res: resolved.full, installed: true, missing: [], locked: true };
+  let where = locateLocked(projectDir);
+  if (where === undefined) return { res: resolved.full, installed: false, missing: [], locked: false };
+  if (where.missing.length > 0 && options.fetch) {
+    const out = options.fetch;
+    out.warn(`harnesspm: ${relPosix(process.cwd(), projectDir) || '.'} has no install, so harnesspm fetches its harness packages first. Fetching runs no package code.`);
+    try {
+      fetch(projectDir, { log: out.warn, warn: out.warn });
+    } catch (error) {
+      if (!(error instanceof HarnessError)) throw error;
+      out.warn(`⚠️  ${error.message}`);
+    }
+    where = locateLocked(projectDir)!;
+  }
+  const located = where.located;
+  const res = resolve(projectDir, { added: resolved.added, locate: (name) => located.get(name) });
+  return { res, installed: false, missing: where.missing, locked: true };
+}
+
+/** Why a project without an install has no unit `ref`, or undefined when that is not the reason. */
+function notAvailable(projectDir: string, tools: ToolResolution, what: string): string | undefined {
+  if (tools.installed || (tools.locked && tools.missing.length === 0)) return undefined;
+  const fetchStep = tools.locked ? `Run \`${toolCommand(projectDir)} fetch\` to use the ${what} that need nothing else, or install the project with` : 'Install the project with';
+  return `${relPosix(process.cwd(), projectDir) || 'This project'} has no install and no fetched harness packages, so its ${what} are not available yet. ${fetchStep} \`${installCommand(projectDir)}\`.`;
+}
+
+export function run(cwd: string, ref: string, args: string[], agent: string | undefined): Promise<number> {
   const projectDir = findProjectDir(cwd);
-  return runScript(resolveAll(projectDir, { withAdded: true }).full, ref, args, agent);
+  const tools = resolveTools(projectDir);
+  if (!tools.res.scripts.some((s) => `${s.pkg.plugin}:${s.name}` === ref)) {
+    const reason = notAvailable(projectDir, tools, 'scripts');
+    if (reason !== undefined) throw new HarnessError(reason);
+  }
+  return runScript(tools.res, ref, args, agent, tools.installed ? {} : { install: installCommand(projectDir) });
 }
 
 export function mcp(cwd: string, ref: string, agent: string | undefined): number {
   const projectDir = findProjectDir(cwd);
-  return runMcp(resolveAll(projectDir, { withAdded: true }).full, ref, agent);
+  const tools = resolveTools(projectDir);
+  if (!tools.res.mcp.some((s) => `${s.pkg.plugin}:${s.name}` === ref)) {
+    const reason = notAvailable(projectDir, tools, 'MCP servers');
+    if (reason !== undefined) throw new HarnessError(reason);
+  }
+  return runMcp(tools.res, ref, agent);
+}
+
+/**
+ * The project's part of `help` (spec 10.1): its scripts, MCP servers, rules, docs indexes and skills, across its
+ * workspaces. It renders the sections of the managed blocks, with paths from the caller's folder. Without an install it
+ * reads the fetched packages, and fetches them first when there are none.
+ */
+export function projectHelp(cwd: string, out: Output, named: boolean): number {
+  const projectDir = findProjectDir(cwd);
+  if (!isFile(path.join(projectDir, CONFIG_FILE))) {
+    if (named) out.log(`\n${fromCaller(projectDir)} does not use harnesspm: it has no ${CONFIG_FILE}.`);
+    return 0;
+  }
+  const tools = resolveTools(projectDir, { fetch: out });
+  const team = tools.res;
+  const lock = readLock(projectDir);
+  const command = toolCommand(projectDir);
+  const trusted = (pkg: ResolvedPackage): boolean => trustOf(pkg, team, lock).trusted;
+  const { paths: projectPaths, display } = pathTools(team, () => path.join(projectDir, STATE_DIR), new Map(), []);
+  // Paths in the managed block are relative to the project. From outside it, they start at the caller's folder.
+  const base = callerInside(projectDir) ? undefined : path.relative(process.cwd(), projectDir);
+  const shown = (p: string): string => (base === undefined || path.isAbsolute(p) ? p : path.posix.join(base.split(path.sep).join('/'), p));
+  // A stable path under node_modules/.harnesspm exists after a sync or a fetch. Else the file's own path.
+  const existing = (p: string, file: string): string => (path.isAbsolute(p) || fs.existsSync(path.join(team.projectDir, p)) ? p : relPosix(team.projectDir, file));
+  const paths: PathFor = {
+    rule: (rule) => shown(existing(projectPaths.rule(rule), rule.source)),
+    docsIndex: (pkg) => {
+      const index = projectPaths.docsIndex(pkg);
+      return index === undefined ? undefined : shown(index);
+    },
+  };
+  const packages = team.packages.filter((p) => p.layer !== 'added');
+  const sections = sectionsFor(team, packages, paths, (pkg) => (trusted(pkg) ? command : undefined)).map((section, i) => {
+    const pkg = packages[i]!;
+    const mcpLines = trusted(pkg) ? team.mcp.filter((m) => m.pkg === pkg).map((m) => (m.config['type'] === 'stdio' ? `- MCP server: \`${command} mcp ${m.pkg.plugin}:${m.name}\` (${m.id})` : `- MCP server: ${String(m.config['url'])} (${m.id})`)) : [];
+    const skillLines = team.skills.filter((s) => s.pkg === pkg).map((s) => `- Skill: ${s.name}: read ${shown(existing(display(path.join(s.dir, 'SKILL.md')), path.join(s.dir, 'SKILL.md')))} (${s.id})`);
+    return { ...section, extra: [...mcpLines, ...skillLines] };
+  });
+  const body = renderSections(sections, paths, { brief: true });
+  out.log('');
+  out.log(`This project: ${team.projectName}${base !== undefined ? ` (${fromCaller(projectDir)})` : ''}`);
+  if (base !== undefined) out.log(`Paths start at the current folder. The tools run here too, with -C.`);
+  if (!tools.installed) out.log(tools.missing.length > 0 ? `⚠️  No install and no fetched harness packages: ${notAvailable(projectDir, tools, 'tools')}` : `No install: tools run from the fetched harness packages. A tool that needs another package says so; install the project with \`${installCommand(projectDir)}\`.`);
+  out.log('');
+  out.log(body !== '' ? body : 'No harness units yet.');
+  return 0;
 }
 
 /** Approves new versions of "pin" packages and writes what a model run left pending (spec 6.2). */

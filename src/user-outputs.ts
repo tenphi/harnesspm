@@ -77,7 +77,7 @@ function userEntries(res: Resolution): ExecEntries {
   return desiredEntries(res, new Set(res.packages), () => ({ trusted: true }), {
     claudeAgents: path.join(claudeHome(), 'agents'),
     codexAgents: path.join(codexHome(), 'agents'),
-    npx: () => NPX_ANY,
+    npx: () => [NPX_ANY],
     runner: () => npxRunner(NPX_ANY),
   });
 }
