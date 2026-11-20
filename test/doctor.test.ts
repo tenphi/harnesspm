@@ -94,8 +94,10 @@ test('doctor: an added harness that is not on this machine fails', () => {
 
 test("status and doctor: an AGENTS.md over Codex's 32 KiB limit is called over, not close", () => {
   const dir = project({ '@acme/kit': '1' });
-  const long = Array.from({ length: 400 }, (_, i) => `- Line ${i}: ${'a long always-on instruction '.repeat(3)}`).join('\n');
-  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/long.md': `# Long\n\n${long}\n` } });
+  // The block names rules in one line each, so hand-written text makes the file long. The block stays at the top.
+  const long = Array.from({ length: 400 }, (_, i) => `- Line ${i}: ${'a long hand-written instruction '.repeat(3)}`).join('\n');
+  writeFiles(dir, { 'AGENTS.md': `<!-- BEGIN:harnesspm -->\n<!-- END:harnesspm -->\n\n# Notes\n\n${long}\n` });
+  installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/long.md': '# Long\n\nShort.\n' } });
   assert.equal(run(dir, 'sync').status, 0);
   const size = (fs.statSync(path.join(dir, 'AGENTS.md')).size / 1024).toFixed(1);
   const status = run(dir, 'status');
@@ -125,8 +127,8 @@ test('status and doctor name each managed block that Codex never reaches, along 
 
   const status = run(dir, 'status');
   assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in AGENTS\\.md: it starts at ${(before / 1024).toFixed(1)} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, move the block to the top of its file, where sync keeps it, or move details into on-demand rules or docs\\.`));
-  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\.`));
-  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\./);
+  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\. Agents can still get what it holds with \`npx -y @tenphi/harnesspm help <package>\`\\.`));
+  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\. Agents can still get what it holds with `npx -y @tenphi\/harnesspm help <package>`\./);
   const doctor = run(dir, 'doctor');
   assert.equal(doctor.status, 0, 'warnings, not failures');
   assert.match(doctor.stdout, /📦 Outputs\n[^]*  ⚠️  Codex never reads the harness block in packages\/web\/AGENTS\.md/);

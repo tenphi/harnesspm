@@ -11,6 +11,8 @@ export type Layer = 'dependencies' | 'project' | 'added';
 export interface ScriptDef {
   file: string;
   description?: string;
+  /** The arguments and options the script takes, for `help <tool>` (spec 5.1). */
+  usage?: string;
   allow?: boolean;
 }
 
@@ -119,9 +121,11 @@ export function parseExtension(manifest: Record<string, unknown>, problems: stri
           problems.push(`script "${name}" needs a "file"`);
           continue;
         }
+        if (def['usage'] !== undefined && typeof def['usage'] !== 'string') problems.push(`script "${name}": "usage" must be a string`);
         scripts[name] = {
           file: def['file'],
           ...(typeof def['description'] === 'string' ? { description: def['description'] } : {}),
+          ...(typeof def['usage'] === 'string' && def['usage'].trim() !== '' ? { usage: def['usage'].trim() } : {}),
           ...(def['allow'] === true ? { allow: true } : {}),
         };
       }

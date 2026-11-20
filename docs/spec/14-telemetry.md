@@ -3,7 +3,7 @@
 **In short**
 
 - Telemetry is off. A team turns it on in `harnesspm.json` with `telemetry`: which events to send, and a handler that gets them, either a command or a file. harnesspm has no vendor code.
-- harnesspm sends what it sees: script runs, MCP server starts, `sync` and `why`. With agent events on, its own hooks also report when Claude Code reads a harness file, loads a workspace's rules or a skill, and when a session starts.
+- harnesspm sends what it sees: script runs, MCP server starts, `sync`, `why` and `help <target>`. With agent events on, its own hooks also report when Claude Code reads a harness file, loads a workspace's rules or a skill, and when a session starts.
 - A project's own tools send `run` events through the same handler with `reportRun` from `@tenphi/harnesspm/telemetry` ([14.9](#149-events-from-a-projects-own-tools)).
 - Events never hold arguments, file contents or prompts. Sending never slows down or fails a command.
 - A handler gets events only as a person's `sync` recorded it in the lock. A person opts out with `DO_NOT_TRACK=1` or `"telemetry": false` in `harnesspm.local.json`.
@@ -36,7 +36,8 @@ harnesspm adds a handler file inside the project to `.git/info/exclude` when it 
 | `mcp` | `harnesspm mcp` starts an MCP server. | `unit`, `package`, `version` |
 | `sync` | `harnesspm sync` writes the outputs. `--check` and runs with `CI=true` send nothing: every CI job runs an install, and so a sync. | `packages` (name and version), `added`, `removed` and `changed` (unit IDs since the last lock), `pending` (packages whose executable units wait for trust) |
 | `why` | `harnesspm why` finds a unit. | `unit`, `package`, `version` |
-| `read` | Agent event: the agent reads a file of a unit, or loads a file-scoped rule or a workspace's managed block by itself. A block sends one event for each always-on rule in it. | `unit`, `package`, `version`, `via` (`tool` or `auto`), `page` for docs (the path inside the docs folder) |
+| `help` | `harnesspm help <target>` prints a package, a rule or a tool ([10.1](10-cli.md#help-for-a-package-a-rule-or-a-tool)). It shows whether agents follow the managed block's pointers, now that the block names rules instead of holding their text. | `package`, `version`; `unit` for a rule or a tool, missing for a whole package |
+| `read` | Agent event: the agent reads a file of a unit, or loads a file-scoped rule or a workspace's managed block by itself. A block sends one event for each always-on rule it names: the agent saw the rule's line, not its text, which `help` prints. | `unit`, `package`, `version`, `via` (`tool` or `auto`), `page` for docs (the path inside the docs folder) |
 | `skill` | Agent event: the agent loads a skill. | `unit`, `package`, `version` |
 | `session` | Agent event: a session starts or resumes. | `source` (`startup`, `resume`, `clear`, `compact`, `fork`) |
 
@@ -86,7 +87,7 @@ Codex reads files and skills through shell commands. harnesspm cannot map a shel
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
 1. It is `node <project>/node_modules/@tenphi/harnesspm/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
-2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules in its managed block; and the repository, so a hook never asks git.
+2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules its managed block names; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
 A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](../research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends nothing for the block: Claude Code loads the folder's `CLAUDE.md` when the agent opens a file there, and that load sends the rules. So each rule counts once.

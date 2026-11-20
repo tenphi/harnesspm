@@ -49,6 +49,7 @@ harness/
         "tokens": {
           "file": "./dev.harnesspm/scripts/tokens.mjs",
           "description": "Find a color token by a part of its name, with its light and dark values",
+          "usage": "<part of a token name>",
           "allow": true
         }
       },
@@ -76,7 +77,7 @@ harness/
 | `replace` | object | Unit ID → a file that takes the unit's place. |
 | `patch` | object | Rule ID → a patch that changes some of its sections. |
 | `docs` | string | The docs folder, relative to `harness/`, inside the package. |
-| `scripts` | object | Script name → `{ file, description?, allow? }`. |
+| `scripts` | object | Script name → `{ file, description?, usage?, allow? }`. `usage` is the arguments and options, which `harnesspm help <plugin>:<script>` prints. |
 | `projects` | object | Git remote → a folder with units for that repository. Read only in added harnesses. |
 
 `harnesspm check` fails on an unknown field, so typos do not ship.

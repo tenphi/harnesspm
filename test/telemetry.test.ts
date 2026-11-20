@@ -71,7 +71,7 @@ test('telemetry config: send is required, events are checked, the lock records t
   const dir = app({ send: { file: EVENTS } });
   assert.equal(run(dir, 'sync').status, 0);
   assert.deepEqual(json(path.join(dir, 'harnesspm.lock.json')).telemetry, { send: { file: EVENTS } });
-  assert.match(run(dir, 'status').stdout, /📡 telemetry +run, mcp, sync, why, read, skill, session → file \.harnesspm\/events\.jsonl/);
+  assert.match(run(dir, 'status').stdout, /📡 telemetry +run, mcp, sync, why, help, read, skill, session → file \.harnesspm\/events\.jsonl/);
   const plain = app();
   assert.equal(run(plain, 'sync').status, 0);
   assert.equal(json(path.join(plain, 'harnesspm.lock.json')).telemetry, undefined, 'no telemetry, no lock entry');

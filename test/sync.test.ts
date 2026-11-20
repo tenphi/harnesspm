@@ -38,7 +38,11 @@ test('S3: sync writes the block, links and lock for a dependency chain', () => {
   assert.equal(result.status, 0, result.stderr);
   const agents = read(dir, 'AGENTS.md');
   assert.ok(agents.indexOf('## @tenphi/tasty (via @cube-dev/ui-kit)\n') < agents.indexOf('## @cube-dev/ui-kit\n'), 'upstream first');
-  assert.match(agents, /### Style values \(tasty:rules\/style-values\)\n\nNever put dynamic values into styles\./);
+  // Compact: one line per always-on rule, and `help <package>` prints its text (spec 4.6).
+  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\n- Every package of this harness: `npx -y @tenphi\/harnesspm help`\.[^\n]*\n- Run a tool: `npx -y @tenphi\/harnesspm run <tool> \[args\]`\. Its options: `npx -y @tenphi\/harnesspm help <tool>`\.\n- From outside this folder, add `-C <path to this folder>`[^\n]*\n\n## @tenphi\/tasty/);
+  assert.match(agents, /^- Always-on rule: Style values\. Read it with `help @tenphi\/tasty` \(tasty:rules\/style-values\)$/m);
+  assert.doesNotMatch(agents, /Never put dynamic values into styles/, 'the rule text is not inlined');
+  assert.match(run(dir, 'help', '@tenphi/tasty').stdout, /### Style values \(tasty:rules\/style-values\)\n\nAlways on\.\n\nNever put dynamic values into styles\./);
   assert.match(agents, /- When editing `\*\*\/\*\.tsx`, read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/state-maps\.md — How to write state maps \(tasty:rules\/state-maps\)/);
   assert.match(agents, /- Legacy tokens, for old code: read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/legacy\.md \(tasty:rules\/legacy\)/);
   assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/uikit\/llms\.txt \(uikit:docs\)/);
@@ -86,13 +90,21 @@ test('a version bump that keeps the harness the same changes only the lock', () 
 test('S5: an upgrade shows up in the committed files, and --check fails until sync', () => {
   const dir = chain();
   run(dir, 'sync');
+  const before = read(dir, 'AGENTS.md');
+  // A new text: the lock's unit hash changes. The block names the rule's sections only, so it stays the same.
   writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\nUse tokens only.\n' });
-  const check = run(dir, 'sync', '--check');
+  let check = run(dir, 'sync', '--check');
   assert.equal(check.status, 1);
-  assert.match(check.stdout, /AGENTS\.md: the harnesspm block is out of date/);
   assert.match(check.stdout, /harnesspm\.lock\.json is out of date/);
   run(dir, 'sync');
-  assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+  assert.equal(read(dir, 'AGENTS.md'), before);
+  assert.match(run(dir, 'help', 'tasty:rules/style-values').stdout, /Use tokens only\./);
+  // A new section: the block's summary changes too.
+  writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\n## Tokens only\n\nUse tokens only.\n' });
+  check = run(dir, 'sync', '--check');
+  assert.match(check.stdout, /AGENTS\.md: the harnesspm block is out of date/);
+  run(dir, 'sync');
+  assert.match(read(dir, 'AGENTS.md'), /- Always-on rule: Style values — Tokens only\. Read it with `help @tenphi\/tasty` \(tasty:rules\/style-values\)/);
 });
 
 test('with CI=true, sync leaves committed outputs to --check and still writes per-machine ones; --write writes them', () => {
@@ -100,7 +112,7 @@ test('with CI=true, sync leaves committed outputs to --check and still writes pe
   run(dir, 'sync');
   const committed = ['AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json'].map((file) => [file, read(dir, file)] as const);
   // A pull request upgrades a package and forgets to sync. The install's sync runs in CI.
-  writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\nUse tokens only.\n' });
+  writeFiles(dir, { 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty/harness/dev.harnesspm/rules/style-values.md': '# Style values\n\n## Tokens only\n\nUse tokens only.\n' });
   fs.rmSync(path.join(dir, 'node_modules/.harnesspm'), { recursive: true });
   fs.rmSync(path.join(dir, '.claude'), { recursive: true });
   const ci = runWith(dir, { CI: 'true' }, 'sync');
@@ -118,7 +130,7 @@ test('with CI=true, sync leaves committed outputs to --check and still writes pe
   const write = runWith(dir, { CI: 'true' }, 'sync', '--write');
   assert.equal(write.status, 0, write.stderr);
   assert.doesNotMatch(write.stdout, /^CI:/m);
-  assert.match(read(dir, 'AGENTS.md'), /Use tokens only\./);
+  assert.match(read(dir, 'AGENTS.md'), /Style values — Tokens only\./);
   assert.equal(runWith(dir, { CI: 'true' }, 'sync', '--check').status, 0);
   assert.match(run(dir, 'sync', '--check', '--write').stderr, /Use either --check or --write/);
 });
@@ -164,7 +176,7 @@ test('the block has a blank line after BEGIN and before END, so Prettier leaves 
   writeFiles(dir, { 'AGENTS.md': '# Team\n' });
   run(dir, 'sync');
   const agents = read(dir, 'AGENTS.md');
-  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\nWorking from outside this folder, [^\n]*\n\n## @tenphi\/tasty/);
+  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\n- Every package of this harness: [^]*\n\n## @tenphi\/tasty/);
   assert.match(agents, /\(uikit:docs\)\n\n<!-- END:harnesspm -->\n/);
 
   // A block that harnesspm 0.3 wrote, without the blank lines, is up to date until the next sync rewrites it once.
@@ -211,7 +223,8 @@ test('S4: the project patches, replaces and excludes upstream units', () => {
   assert.equal(result.status, 0, result.stderr);
   const agents = read(dir, 'AGENTS.md');
   assert.doesNotMatch(agents, /tasty:rules\/legacy/);
-  assert.match(agents, /### Forms \(uikit:rules\/forms\)\n\nUse our own form wrapper\./);
+  assert.match(agents, /- Always-on rule: Forms\. Read it with `help @cube-dev\/ui-kit` \(uikit:rules\/forms\)/);
+  assert.match(run(dir, 'help', '@cube-dev/ui-kit').stdout, /### Forms \(uikit:rules\/forms\)\n\nAlways on\. Changed by harnesspm\.json: this is the text agents get here\.\n\nUse our own form wrapper\./);
   assert.match(agents, /read node_modules\/\.harnesspm\/rules\/tasty\/state-maps\.md — How to write state maps \(tasty:rules\/state-maps\)/);
   const patched = read(dir, 'node_modules/.harnesspm/rules/tasty/state-maps.md');
   assert.match(patched, /## Order\n\nAlphabetical\./);
@@ -246,14 +259,14 @@ test('S2: a middle package changes what it passes on, and the project builds on 
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ patch: { 'tasty:rules/style-values': './agents/sv.patch.md' } }), 'agents/sv.patch.md': 'The app adds: no inline styles.\n' });
   run(dir, 'sync');
   const agents = read(dir, 'AGENTS.md');
-  assert.match(agents, /Use tokens\.\n\nUI Kit adds: use #tokens\.\n\nThe app adds: no inline styles\./, 'lower layer first');
+  assert.match(run(dir, 'help', 'tasty:rules/style-values').stdout, /Use tokens\.\n\nUI Kit adds: use #tokens\.\n\nThe app adds: no inline styles\./, 'lower layer first');
   assert.doesNotMatch(agents, /tasty:rules\/legacy/);
 
   // A replace from the project drops the middle package's patch, with a warning.
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ replace: { 'tasty:rules/style-values': './agents/sv.md' } }), 'agents/sv.md': '# Style values\n\nOurs.\n' });
   const result = run(dir, 'sync');
   assert.match(result.stderr, /the patch of tasty:rules\/style-values is dropped, because harnesspm\.json replaces the rule/);
-  assert.match(read(dir, 'AGENTS.md'), /### Style values \(tasty:rules\/style-values\)\n\nOurs\.\n/);
+  assert.match(run(dir, 'help', '@tenphi/tasty').stdout, /### Style values \(tasty:rules\/style-values\)\n\nAlways on\. Changed by harnesspm\.json: this is the text agents get here\.\n\nOurs\.\n/);
 });
 
 test('a package excluded by a middle package is dropped with what only it extends', () => {
@@ -295,7 +308,8 @@ test('one version per package: a direct dependency wins over a nested copy', () 
   installPackage(dir, '@tenphi/tasty', { plugin: 'tasty', version: '2.0.0', harness: { 'dev.harnesspm/rules/old.md': '# Old\n\nVersion two.\n' } });
   const result = run(dir, 'sync');
   assert.match(result.stderr, /@tenphi\/tasty: found versions .*using 2\.0\.0/);
-  assert.match(read(dir, 'AGENTS.md'), /## @tenphi\/tasty\n\n### Old \(tasty:rules\/old\)\n\nVersion two\./);
+  assert.match(read(dir, 'AGENTS.md'), /## @tenphi\/tasty\n\n- Always-on rule: Old\. Read it with `help @tenphi\/tasty` \(tasty:rules\/old\)/);
+  assert.match(run(dir, 'help', 'tasty:rules/old').stdout, /Version two\./);
   assert.equal(JSON.parse(read(dir, 'harnesspm.lock.json')).packages['@tenphi/tasty'].version, '2.0.0');
 });
 
@@ -347,7 +361,7 @@ test("the project's own harness resolves like a package, then harnesspm.json app
   });
   run(dir, 'sync');
   const agents = read(dir, 'AGENTS.md');
-  assert.match(agents, /## app \(this project\)\n\n### Release \(app:rules\/release\)/);
+  assert.match(agents, /## app \(this project\)\n\n- Always-on rule: Release\. Read it with `help app` \(app:rules\/release\)/);
   assert.doesNotMatch(agents, /tasty:rules\/legacy/, "the project harness's exclude applies here too");
   assert.equal(fs.readlinkSync(path.join(dir, '.claude/skills/app-deploy')), '../../harness/skills/app-deploy');
   assert.match(run(dir, 'why', 'app:rules/release').stdout, /editable +yes/);

@@ -11,7 +11,7 @@ description: Every harnesspm command and option, with exit codes.
 - `npx -y @tenphi/harnesspm …` works everywhere: in a project that depends on harnesspm, npx runs the installed version. `npx harnesspm …` works only there.
 - From another folder, such as a session above a clone, add `-C <dir>` before the command.
 
-The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's tools, rules, docs and skills. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
+The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's packages, and `help <package>`, `help <rule ID>` or `help <tool>` prints one in full. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
 
 ## Projects
 
@@ -27,7 +27,8 @@ The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. 
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and approves a `"pin"` package's new version. A person runs it. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script of a trusted package, at the version in the lock, in the current folder. Without an install, it runs the script from the fetched packages, and says what is missing when there are none. |
 | `harnesspm fetch` | Downloads only the harness packages in the lock and checks their integrity. Runs no package code. For jobs that do not install dependencies. |
-| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's scripts, MCP servers, rules, docs indexes and skills, across its workspaces. Fetches first when the project has neither an install nor fetched packages. |
+| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's packages, one line each, across its workspaces. Fetches first when the project has neither an install nor fetched packages. |
+| `harnesspm help <package \| rule ID \| tool>` | A package by its npm or plugin name: its rules in full with the project's patches, docs index, tools with their usage and run command, MCP servers, skills and hooks. A rule ID: that rule. A tool, `<plugin>:<script>`: its description, `usage` and run command, without running it. Works without an install, and sends a `help` event when telemetry is on. |
 
 ### `-C <dir>`
 

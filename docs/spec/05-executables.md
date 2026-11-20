@@ -16,6 +16,7 @@ A script is a file a package ships for agents, hooks or MCP servers to run.
   "probe": {
     "file": "./dev.harnesspm/scripts/probe.mjs",
     "description": "Capture a story's DOM and computed CSS",
+    "usage": "--story <id> [--json]",
     "allow": true
   }
 }
@@ -25,6 +26,7 @@ A script is a file a package ships for agents, hooks or MCP servers to run.
 | --- | --- | --- |
 | `file` | yes | Path inside `harness/`, starting with `./`. |
 | `description` | no | Shown to the agent in the script list. Without it, the script is hidden from the agent and only hooks and MCP servers use it. |
+| `usage` | no | The arguments and options the script takes, such as `--story <id> [--json]`. One line or several. `harnesspm help <plugin>:<script>` prints it with the run command, without running the script, so an agent learns the options also without an install ([10.1](10-cli.md#help-for-a-package-a-rule-or-a-tool)). Without it, `help` says that no usage is declared. |
 | `allow` | no | The producer suggests that agents may run it without asking. Takes effect only when the consumer trusts the package. See [5.4](#54-permissions). |
 
 ### The runner

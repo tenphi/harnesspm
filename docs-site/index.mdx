@@ -63,11 +63,11 @@ The examples on this site use one app. It depends on `@acme/ui`, a design system
 
 Each rule, docs index or script is a **unit** with an ID, such as `acme-colors:rules/usage`. The managed block that harnesspm writes into `AGENTS.md` names the unit behind every line:
 
-<ManagedBlock marks={{ '#### Where colors come from': 'patched by acme-ui' }} />
+<ManagedBlock marks={{ '- Always-on rule: Acme Colors — Where colors come from, Contrast. Read it with `help @acme/colors` (acme-colors:rules/usage)': 'patched by acme-ui' }} />
 
 The app depends only on `@acme/ui`. `@acme/colors` comes through it, and a patch from `@acme/ui` rewrites the first section of its rule for apps on `@acme/ui`. Lines marked `…` are cut here.
 
-Docs are one pointer line each, and skills load when needed, so the always-on text stays small. `npx harnesspm status` shows its size.
+Each rule, docs index and tool is one line, and skills load when needed, so the always-on text stays small. The commands at the top tell the agent how to get the rest: `help @acme/colors` prints that package's rules, with the patch applied, and `help acme-ui:tokens` prints a tool's usage. `npx harnesspm status` shows the size.
 
 ## Upgrade the package, upgrade the rules
 

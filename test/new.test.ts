@@ -68,7 +68,10 @@ test('S4: new patch copies the sections and registers the patch in harnesspm.jso
   assert.doesNotMatch(help, /harnesspm init/);
   assert.equal(run(dir, 'help', 'new').stdout, help);
   assert.match(run(dir, 'run', '--help').stdout, /^ {2}harnesspm run <plugin>:<script> \[-- args\]\n {33}run a script of a trusted package\n/);
-  assert.match(run(dir, 'help', 'nope').stdout, /^harnesspm — the harness package manager/, 'an unknown command gets the whole help');
+  // A word that is not a command is a package, rule or tool of the project (spec 10.1).
+  const nope = run(dir, 'help', 'nope');
+  assert.equal(nope.status, 1);
+  assert.match(nope.stderr, /No command, package, rule or tool "nope"/);
 });
 
 test('new in a project that uses harnesspm names sync and check, with the installed command', () => {

@@ -41,23 +41,25 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   assert.match(result.stderr, /@tenphi\/tasty: found versions .*using 3\.0\.0/, 'one version per repository');
 
   const root = read(dir, 'AGENTS.md');
-  assert.match(root, /### Style \(lint:rules\/style\)/, 'shared by every workspace');
+  assert.match(root, /- Always-on rule: Style\. Read it with `help @acme\/lint` \(lint:rules\/style\)/, 'shared by every workspace');
   assert.doesNotMatch(root, /uikit|server:|ui:rules/);
   // An agent that works through the shell never loads a workspace's block, so the always-on root names them (#23).
-  assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\nWorking from outside this folder, [^\n]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
+  assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\n- Every package of this harness: [^]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
 
   const web = read(dir, 'packages/web/AGENTS.md');
   assert.match(web, /## @cube-dev\/ui-kit\n/);
   assert.match(web, /read \.\.\/\.\.\/node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/harness\/dev\.harnesspm\/rules\/forms\.md/, 'paths are relative to the workspace');
-  assert.match(web, /### Tokens \(ui:rules\/tokens\)/, 'a workspace dependency brings its harness');
-  assert.match(web, /Tasty three\./);
+  assert.match(web, /^- Every package of this harness: /m, 'each block starts with the commands');
+  assert.match(web, /- Always-on rule: Tokens\. Read it with `help @acme\/ui` \(ui:rules\/tokens\)/, 'a workspace dependency brings its harness');
+  assert.match(web, /- Always-on rule: Version\. Read it with `help @tenphi\/tasty` \(tasty:rules\/v\)/);
+  assert.match(run(dir, 'help', '@tenphi/tasty').stdout, /Tasty three\./, 'help reads the version the repository resolves');
   assert.doesNotMatch(web, /server:|lint:/);
   assert.equal(read(dir, 'packages/web/CLAUDE.md'), '@AGENTS.md\n');
 
   const api = read(dir, 'packages/api/AGENTS.md');
-  assert.match(api, /### Handlers \(server:rules\/handlers\)/);
+  assert.match(api, /- Always-on rule: Handlers\. Read it with `help @acme\/server-kit` \(server:rules\/handlers\)/);
   assert.doesNotMatch(api, /uikit|ui:rules/);
-  assert.match(read(dir, 'packages/ui/AGENTS.md'), /## @acme\/ui \(this project\)\n\n### Tokens \(ui:rules\/tokens\)/, "a workspace's own harness");
+  assert.match(read(dir, 'packages/ui/AGENTS.md'), /## @acme\/ui \(this project\)\n\n- Always-on rule: Tokens\. Read it with `help @acme\/ui` \(ui:rules\/tokens\)/, "a workspace's own harness");
 
   // Skills and executable units are written at the root.
   assert.ok(isLink(dir, '.claude/skills/uikit-review'));
@@ -69,14 +71,15 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   spawnSync('git', ['add', 'packages'], { cwd: dir });
   assert.match(run(dir, 'sync').stdout, /Nothing changed/);
   assert.equal(read(dir, 'packages/web/CLAUDE.md'), '@AGENTS.md\n');
-  writeFiles(dir, { 'node_modules/@acme/server-kit/harness/dev.harnesspm/rules/handlers.md': rule('Handlers', 'Validate all input.') });
+  writeFiles(dir, { 'node_modules/@acme/server-kit/harness/dev.harnesspm/rules/handlers.md': rule('Handlers', '## Input\n\nValidate all input.') });
   const check = run(dir, 'sync', '--check');
   assert.equal(check.status, 1);
   assert.match(check.stdout, /packages\/api\/AGENTS\.md: the harnesspm block is out of date/);
 
   // sync works from inside a workspace.
   assert.equal(run(path.join(dir, 'packages/api'), 'sync').status, 0);
-  assert.match(read(dir, 'packages/api/AGENTS.md'), /Validate all input\./);
+  assert.match(read(dir, 'packages/api/AGENTS.md'), /- Always-on rule: Handlers — Input\./);
+  assert.match(run(path.join(dir, 'packages/api'), 'help', 'server:rules/handlers').stdout, /Validate all input\./, 'help works from inside a workspace');
 
   // A workspace that no longer has units loses its block; a file that held only the block goes away.
   writeFiles(dir, { 'packages/api/package.json': JSON.stringify({ name: '@acme/api', dependencies: { '@acme/lint': '1' } }) });
@@ -94,7 +97,7 @@ test('a workspace that another workspace depends on is the project\'s own code, 
   });
   const result = run(dir, 'sync');
   assert.doesNotMatch(result.stdout, /pending: @acme\/ui/);
-  assert.match(read(dir, 'packages/web/AGENTS.md'), /- Script: `npx -y @tenphi\/harnesspm run ui:tokens` — List tokens/);
+  assert.match(read(dir, 'packages/web/AGENTS.md'), /- Tool: `ui:tokens` — List tokens/);
   assert.equal(run(dir, 'run', 'ui:tokens').stdout.trim(), 'tokens');
 });
 

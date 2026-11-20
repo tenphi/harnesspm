@@ -96,7 +96,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Project entry** | A folder in an added harness with units for one repository, matched by its git remote. |
 | **Output** | A file or block harnesspm writes for an agent. Never edited by hand. |
 | **Managed block** | The part of a Markdown file that harnesspm writes, between `BEGIN:harnesspm` and `END:harnesspm` markers. |
-| **Outside line** | The first line of a committed managed block. It tells an agent in another folder, such as a repository that cloned this one, to add `-C <path>` and run `help`. |
+| **Block commands** | The lines at the top of a committed managed block. They say how to list the harness, print a package's rules and tools with `help <package>`, print a tool's options with `help <tool>`, run a tool, and add `-C <path>` from another folder, such as a repository that cloned this one. |
 | **Fetched package** | A harness package that `harnesspm fetch` downloaded into `node_modules/.harnesspm/fetched/`, without its dependencies. A project without an install reads and runs its harness from fetched packages. |
 | **Install hook** | The command that `init` adds to the project's `postinstall` or `prepare` script. It runs `harnesspm sync` on every full install, and skips it when harnesspm is not installed. |
 | **Lock** | `harnesspm.lock.json`: the committed record of harness packages and unit hashes. |
@@ -131,7 +131,8 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
 | S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx harnesspm doctor`. |
 | S17 | A teammate's merged change adds a hook, an MCP server or an allow rule | Nothing. The next install writes it on every machine, also when an agent runs the install. |
-| S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The clone's outside line says how: `npx -y @tenphi/harnesspm -C work/app help` lists its tools, rules and skills, and `-C work/app run <unit>` runs one, also before the clone is installed. Hooks of the clone do not run there. |
+| S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @tenphi/harnesspm -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone do not run there. |
+| S19 | A repository has many harness packages or workspaces, and its `AGENTS.md` must stay inside the agents' limits | Nothing. The managed block names each rule and tool in one line. Agents print a package's rules with `help <package>` and a tool's options with `help <tool>`. |
 
 ## 1.7 What is committed
 

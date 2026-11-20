@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { harnesspmHome } from './homes.ts';
 import { HarnessError, agentOf, caller, gitExcludeFile, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
 
-export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'read', 'skill', 'session'] as const;
+export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'help', 'read', 'skill', 'session'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** Events that harnesspm's own agent hooks send (spec 14.4). */
 export const AGENT_EVENTS: readonly EventType[] = ['read', 'skill', 'session'];

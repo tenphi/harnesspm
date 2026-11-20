@@ -97,6 +97,7 @@ A rule is one Markdown file about one topic, in `harness/dev.harnesspm/rules/`. 
 | `description` only | On demand. The block lists it with its description. |
 
 - Keep always-on rules short. They cost context in every session. Move details into on-demand rules, docs or skills.
+- Name each `##` section by what it asks, such as "Never edit outputs". The `AGENTS.md` block shows an always-on rule as its title and these headings, and agents read the text with `npx -y @tenphi/harnesspm help <package>`.
 - When a rule has more than a few lines, split it into small sections with `##` headings. A user can then patch one section and keep the rest.
 - When a skill must run in a situation, also name it in an always-on rule: "To check a theme, use the `my-lib-theme` skill."
 

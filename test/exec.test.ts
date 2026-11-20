@@ -156,7 +156,8 @@ test('S8 trusted: hooks, MCP servers, permissions and sub-agents for both agents
   assert.ok(!fs.existsSync(path.join(dir, 'node_modules/.harnesspm/skills')), 'no generated copy');
   assert.match(read(dir, '.codex/agents/kit-reviewer.toml'), /sandbox_mode = "danger-full-access"\ndeveloper_instructions = """\nReview like an owner\.\n"""/);
   tomlOk(path.join(dir, '.codex/agents/kit-reviewer.toml'));
-  assert.match(read(dir, 'AGENTS.md'), /- Script: `npx -y @tenphi\/harnesspm run kit:probe` — Print what the runner passes \(kit:scripts\/probe\)/);
+  // The committed block names the tool; the commands at its top say how to run it (spec 4.6).
+  assert.match(read(dir, 'AGENTS.md'), /- Tool: `kit:probe` — Print what the runner passes \(kit:scripts\/probe\)/);
 
   const exclude = read(dir, '.git/info/exclude');
   for (const entry of ['/.claude/settings.local.json', '/.codex/hooks.json', '/.codex/config.toml', '/.codex/rules/harnesspm.rules', '/.claude/agents/kit-reviewer.md', '/.codex/agents/kit-reviewer.toml']) {

@@ -10,6 +10,7 @@ export interface ScriptUnit {
   name: string;
   file: string;
   description?: string;
+  usage?: string;
   allow: boolean;
   pkg: HarnessPackage;
 }
@@ -88,6 +89,7 @@ export function discoverExecUnits(pkg: HarnessPackage, problems: string[]): Exec
     name,
     file: path.resolve(pkg.harnessDir, def.file),
     ...(def.description !== undefined ? { description: def.description } : {}),
+    ...(def.usage !== undefined ? { usage: def.usage } : {}),
     allow: def.allow === true,
     pkg,
   }));

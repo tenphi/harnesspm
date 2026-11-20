@@ -23,7 +23,10 @@ const HELP = `harnesspm — the harness package manager
 Usage: harnesspm [-C <dir>] <command>
   -C <dir>                       act on the project in <dir>, such as a repository you cloned. \`run\` keeps
                                  the current folder for the script, so file arguments stay valid
-  harnesspm help                 these commands, and the project's tools, rules and skills
+  harnesspm help                 these commands, and the project's packages, one line each
+  harnesspm help <package | rule ID | tool>
+                                 a package's rules, docs, tools, MCP servers, skills and hooks in full,
+                                 one rule, or a tool's usage and run command. Needs no install
 
 Projects
   harnesspm init                 set up harnesspm in this project
@@ -59,8 +62,8 @@ const DETAILS: Record<string, string> = {
   --entry         with --to: write into that harness's entry for this repository`,
 };
 
-/** Help for one command: its lines in HELP and its details. The whole HELP for an unknown command. */
-function commandHelp(command: string): string {
+/** Help for one command: its lines in HELP and its details. Undefined for a word that is not a command. */
+function commandHelp(command: string): string | undefined {
   const picked: string[] = [];
   let inside = false;
   for (const line of HELP.split('\n')) {
@@ -70,7 +73,7 @@ function commandHelp(command: string): string {
     } else if (inside && /^ {3,}\S/.test(line)) picked.push(line);
     else inside = false;
   }
-  if (picked.length === 0) return HELP;
+  if (picked.length === 0) return undefined;
   const details = DETAILS[command];
   return [...picked, ...(details !== undefined ? ['', details] : []), '', 'Every command: harnesspm help. Every option: https://harnesspm.tenphi.me/reference/cli/'].join('\n');
 }
@@ -93,13 +96,13 @@ function projectFolder(argv: string[]): { cwd: string; named: boolean; argv: str
   return { cwd, named: true, argv: argv.slice(2) };
 }
 
-function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, projectHelp, remove, run, status, sync, update, why }: typeof import('./commands.ts')): number | Promise<number> {
+function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, projectHelp, remove, run, status, sync, targetHelp, update, why }: typeof import('./commands.ts')): number | Promise<number> {
   const { cwd, named, argv } = projectFolder(argvIn);
   const [command, ...rest] = argv;
   const isHelp = (arg: string | undefined): boolean => arg === '--help' || arg === '-h';
   // After `run <plugin>:<script>`, every argument goes to the script, `--help` too. Only a first `--help` is harnesspm's.
   if (command !== undefined && (command === 'run' || command === 'mcp' ? isHelp(rest[0]) : rest.some(isHelp))) {
-    console.log(commandHelp(command));
+    console.log(commandHelp(command) ?? HELP);
     return 0;
   }
   if (command === 'run' || command === 'mcp') {
@@ -177,8 +180,13 @@ function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, 
     case '--help':
     case '-h':
       if (command === 'help' && args[0] !== undefined) {
-        console.log(commandHelp(args[0]));
-        return 0;
+        // A command first, then a package, rule or tool of the project (spec 10.1).
+        const text = commandHelp(args[0]);
+        if (text !== undefined) {
+          console.log(text);
+          return 0;
+        }
+        return targetHelp(cwd, args[0], out);
       }
       console.log(HELP.trimEnd());
       // Inside a project, or with -C, the project's own harness follows.
