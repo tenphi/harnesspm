@@ -33,9 +33,14 @@ The handler gets events only after a person's `sync` has recorded it in `harness
 | `mcp` | `harnesspm mcp` starts an MCP server |
 | `sync` | `harnesspm sync` writes the outputs. It lists added, removed and changed units. A sync in CI sends none. |
 | `why` | `harnesspm why` finds a unit |
+| `help` | `harnesspm help <target>` prints a package, a rule or a tool |
 | `read` | The agent reads a file of a unit, or loads a file-scoped rule or a workspace's rules by itself. Claude Code only. |
 | `skill` | The agent loads a skill. Claude Code only. |
 | `session` | A session starts or resumes |
+
+A `run` event's `outcome` is `ok` for exit `0`, `answer` for an exit code that the script lists in its `answers`, and `failed` otherwise. A lint that exits `1` for "found problems" lists `"answers": [1]` next to its `usage`, so its findings do not count as failures. Count errors from `outcome` `failed`, not from a non-zero `exit`.
+
+`run`, `help` and `why` events carry `outside: true` when an agent runs them from another folder with `-C`. Leave them out when you look for sessions whose hooks are missing.
 
 `read`, `skill` and `session` come from harnesspm's own asynchronous hooks, so the agent never waits for them. Every event names units by their IDs, and the repository by its `origin` remote, such as `github.com/acme/app`. Events cover only the dependency and project layers. Units of added harnesses belong to a person and never reach the team's handler. [Events](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#142-events) lists every field, with an example.
 
@@ -60,6 +65,9 @@ A tool of your project that is not a harnesspm script, such as `yarn probe`, can
 import { reportRun } from '@tenphi/harnesspm/telemetry';
 
 reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
+
+// A lint that exits 1 when it finds problems: the event's outcome is "answer", not "failed".
+reportRun({ unit: 'app:scripts/lint', duration: 1430, exit: 1, answers: [1] });
 ```
 
 It follows the same switch, opt-outs and trust rule as `harnesspm run`, and never throws, prints or waits. Keep arguments, file contents and paths out of `fields`. [Events from a project's own tools](https://github.com/tenphi/harnesspm/blob/main/docs/spec/14-telemetry.md#149-events-from-a-projects-own-tools) has every field.

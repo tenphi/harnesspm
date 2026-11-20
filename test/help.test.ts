@@ -88,3 +88,35 @@ test('a script declares its usage; check rejects one that is not a string; new s
   assert.match(read(dir, 'harness/dev.harnesspm/scripts/echo.mjs'), /`help widgets:echo` prints its "usage"/);
   assert.equal(run(dir, 'check').status, 0);
 });
+
+test('a script declares its answers; check rejects bad ones; help <tool> prints them, the tool line stays short', () => {
+  const dir = project({}, { name: '@acme/widgets', files: ['harness'] }, false);
+  const manifest = (answers: unknown): string =>
+    JSON.stringify({ $schema: PLUGIN_SCHEMA, name: 'widgets', extensions: { 'dev.harnesspm': { scripts: { lint: { file: './dev.harnesspm/scripts/lint.mjs', description: 'Lint', usage: '[files…]', answers } } } } });
+  writeFiles(dir, { 'harness/dev.harnesspm/scripts/lint.mjs': '\n' });
+  for (const bad of [[0], [1.5], [256], ['1'], 1, '1']) {
+    writeFiles(dir, { 'harness/plugin.json': manifest(bad) });
+    const check = run(dir, 'check');
+    assert.equal(check.status, 1, JSON.stringify(bad));
+    assert.match(check.stdout, /script "lint": "answers" must be an array of exit codes from 1 to 255/);
+  }
+  writeFiles(dir, { 'harness/plugin.json': manifest([2, 1, 1]) });
+  const check = run(dir, 'check');
+  assert.equal(check.status, 0, check.stdout + check.stderr);
+
+  // A consumer's help <tool> says which codes are answers; the tool line in help <package> and the block stays one line.
+  const app = project({ '@acme/kit': '1' });
+  installPackage(app, '@acme/kit', {
+    plugin: 'kit',
+    version: '1.2.0',
+    ext: { scripts: { lint: { file: './dev.harnesspm/scripts/lint.mjs', description: 'Lint styles', usage: '[files…]', answers: [1] } } },
+    harness: { 'dev.harnesspm/scripts/lint.mjs': 'process.exit(1);\n' },
+  });
+  writeFiles(app, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true } }) });
+  assert.equal(run(app, 'sync').status, 0);
+  const tool = run(app, 'help', 'kit:lint').stdout;
+  assert.match(tool, /\nUsage: \[files…\]\nExit: {2}0 is ok\. 1 is an answer, such as "found problems", not a broken tool\. Any other code is a failure\.\nRun: {3}npx -y @tenphi\/harnesspm run kit:lint \[args\]\n$/);
+  assert.match(run(app, 'help', '@acme/kit').stdout, /\n- `npx -y @tenphi\/harnesspm run kit:lint \[files…\]` — Lint styles \(kit:scripts\/lint\)\n?$/);
+  assert.match(read(app, 'AGENTS.md'), /^- Tool: `kit:lint` — Lint styles \(kit:scripts\/lint\)$/m);
+  assert.doesNotMatch(read(app, 'AGENTS.md'), /answer/i);
+});

@@ -16,10 +16,15 @@ function kit(dir: string): void {
     version: '2.1.0',
     ext: {
       docs: '../docs',
-      scripts: { probe: { file: './dev.harnesspm/scripts/probe.mjs', description: 'Print a word', allow: true } },
+      scripts: {
+        probe: { file: './dev.harnesspm/scripts/probe.mjs', description: 'Print a word', allow: true },
+        lint: { file: './dev.harnesspm/scripts/probe.mjs', description: 'Exit with a code', answers: [1, 2] },
+        killed: { file: './dev.harnesspm/scripts/killed.mjs', description: 'End by a signal' },
+      },
     },
     harness: {
       'dev.harnesspm/scripts/probe.mjs': 'console.log("probed"); process.exit(Number(process.argv[2] ?? 0));\n',
+      'dev.harnesspm/scripts/killed.mjs': 'process.kill(process.pid, "SIGKILL");\n',
       'dev.harnesspm/rules/usage.md': '# Usage\n\nUse the kit.\n',
       'dev.harnesspm/rules/forms.md': '---\npaths: ["**/*.tsx"]\n---\n\n# Forms\n\nUse Form.\n',
       'skills/kit-review/SKILL.md': skill('kit-review'),
@@ -98,6 +103,8 @@ test('a script run sends a run event to a file handler, without its arguments', 
   assert.equal(event.package, '@acme/kit');
   assert.equal(event.version, '2.1.0');
   assert.equal(event.exit, 3);
+  assert.equal(event.outcome, 'failed', 'a script without answers fails on any non-zero exit');
+  assert.equal(event.outside, undefined, 'inside the project, no outside field');
   assert.equal(typeof event.duration, 'number');
   assert.ok(!read(dir, EVENTS).includes(SECRET), 'no arguments in events');
   assert.ok(read(dir, '.git/info/exclude').includes(`/${EVENTS}\n`), 'a handler file in the project stays out of git');
@@ -110,8 +117,31 @@ test('a script run sends a run event to a file handler, without its arguments', 
   const [, , agentRun, hookRun, why, mcp] = events(dir);
   assert.deepEqual([agentRun!.caller, agentRun!.agent, agentRun!.session], ['agent', 'claude', 'sess-1']);
   assert.deepEqual([hookRun!.caller, hookRun!.agent], ['hook', 'codex']);
-  assert.deepEqual([why!.type, why!.unit, why!.package], ['why', 'kit:rules/usage', '@acme/kit']);
+  assert.deepEqual([why!.type, why!.unit, why!.package, why!.outside], ['why', 'kit:rules/usage', '@acme/kit', undefined]);
+  assert.equal(agentRun!.outcome, 'ok');
   assert.deepEqual([mcp!.type, mcp!.unit, mcp!.caller, mcp!.agent], ['mcp', 'kit:mcp/docs', 'hook', 'claude']);
+});
+
+test('a run event says what its exit code means: ok, answer or failed; a run that a signal ended fails', () => {
+  const dir = app({ events: ['run'], send: { file: EVENTS } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const outcomes: [string[], number, string][] = [
+    [['kit:lint'], 0, 'ok'],
+    [['kit:lint', '--', '1'], 1, 'answer'],
+    [['kit:lint', '--', '2'], 2, 'answer'],
+    [['kit:lint', '--', '3'], 3, 'failed'],
+    [['kit:probe', '--', '1'], 1, 'failed'],
+  ];
+  for (const [args, exit] of outcomes) assert.equal(run(dir, 'run', ...args).status, exit, args.join(' '));
+  // Ended by a signal: exit stays 1, as before, but it is never an answer, even with 1 in answers.
+  const kitManifest = path.join(dir, 'node_modules/@acme/kit/harness/plugin.json');
+  const manifest = json(kitManifest);
+  manifest.extensions['dev.harnesspm'].scripts.killed.answers = [1];
+  fs.writeFileSync(kitManifest, JSON.stringify(manifest));
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.equal(run(dir, 'run', 'kit:killed').status, 1);
+  const got = events(dir).map((e) => [e.unit, e.exit, e.outcome]);
+  assert.deepEqual(got, [...outcomes.map(([args, exit, outcome]) => [`kit:scripts/${args[0]!.slice(4)}`, exit, outcome]), ['kit:scripts/killed', 1, 'failed']]);
 });
 
 test('a command handler gets each event as JSON on stdin, and the command does not wait for it', () => {
@@ -349,7 +379,10 @@ test("a project's own tool reports its runs through @tenphi/harnesspm/telemetry,
   writeFiles(dir, {
     'scripts/probe.mjs': [
       `import { reportRun } from ${JSON.stringify(api)};`,
-      `reportRun({ unit: 'kit:scripts/probe', fields: { mode: 'fast', unit: 'other', caller: 'person' }, duration: 12.4, exit: 0 });`,
+      `reportRun({ unit: 'kit:scripts/probe', fields: { mode: 'fast', unit: 'other', caller: 'person', outcome: 'ok', outside: false }, duration: 12.4, exit: 0 });`,
+      `reportRun({ unit: 'kit:scripts/lint', exit: 1, answers: [1] });`,
+      `reportRun({ unit: 'kit:scripts/lint', exit: 2, answers: [1] });`,
+      `reportRun({ unit: 'kit:scripts/lint', exit: 1, fields: { outcome: 'ok' } });`,
       `reportRun({ unit: 'not a unit' });`,
       `console.log('done');`,
     ].join('\n'),
@@ -357,10 +390,21 @@ test("a project's own tool reports its runs through @tenphi/harnesspm/telemetry,
   const tool = (env: Record<string, string> = {}) => runNode(path.join(dir, 'scripts'), env, undefined, path.join(dir, 'scripts/probe.mjs'));
   const first = tool();
   assert.deepEqual([first.status, first.stdout, first.stderr], [0, 'done\n', ''], 'it never prints or throws');
-  const [event] = events(dir);
+  const [event, answer, failed, own] = events(dir);
   const { schema, time, harnesspm, ...fields } = event!;
   assert.equal(schema, 'harnesspm.event/1');
-  assert.deepEqual(fields, { type: 'run', project: 'app', workspace: '.', caller: 'person', unit: 'kit:scripts/probe', mode: 'fast', exit: 0, duration: 12 }, 'its own fields never replace common ones');
+  assert.deepEqual(fields, { type: 'run', project: 'app', workspace: '.', caller: 'person', unit: 'kit:scripts/probe', mode: 'fast', exit: 0, outcome: 'ok', duration: 12 }, 'its own fields never replace common ones');
+  assert.deepEqual([answer!.exit, answer!.outcome], [1, 'answer']);
+  assert.deepEqual([failed!.exit, failed!.outcome], [2, 'failed']);
+  assert.deepEqual([own!.exit, own!.outcome], [1, 'failed'], 'a tool cannot set its own outcome');
+
+  // Started from a folder outside the project, with the project's folder as cwd: the event says outside.
+  const outsideTool = path.join(dir, 'scripts/outside.mjs');
+  fs.writeFileSync(outsideTool, `import { reportRun } from ${JSON.stringify(api)};\nreportRun({ unit: 'kit:scripts/probe', cwd: ${JSON.stringify(dir)}, exit: 0 });\n`);
+  const elsewhere = fs.mkdtempSync(path.join(path.dirname(dir), 'elsewhere-'));
+  runNode(elsewhere, {}, undefined, outsideTool);
+  assert.deepEqual([events(dir).at(-1)!.outside, events(dir).at(-1)!.workspace], [true, '.']);
+  assert.equal(event!.outside, undefined, 'inside the project, no outside field');
   assert.match(read(dir, 'node_modules/.harnesspm/telemetry.log'), /reportRun: "not a unit" is not a unit ID/);
 
   tool(MODEL);

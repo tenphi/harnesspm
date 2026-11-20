@@ -155,6 +155,20 @@ export function realpath(p: string): string {
   return fs.realpathSync(p);
 }
 
+/** Whether `from`, by default the folder harnesspm started in, is `dir` or inside it. Both are compared as real paths. */
+export function insideDir(dir: string, from = process.cwd()): boolean {
+  const real = (p: string): string => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const inner = real(from);
+  const outer = real(dir);
+  return inner === outer || inner.startsWith(outer.endsWith(path.sep) ? outer : outer + path.sep);
+}
+
 /** Compares versions like 1.2.10 and 1.10.0 by their numeric parts. */
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(/[.+-]/);

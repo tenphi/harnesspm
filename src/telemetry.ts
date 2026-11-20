@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnesspmHome } from './homes.ts';
-import { HarnessError, agentOf, caller, gitExcludeFile, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
+import { HarnessError, agentOf, caller, gitExcludeFile, insideDir, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
 
 export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'help', 'read', 'skill', 'session'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -162,6 +162,23 @@ export function commandCaller(agentFlag?: string, env: NodeJS.ProcessEnv = proce
   const agent = agentFlag ?? agentOf(env);
   const session = env['CLAUDE_CODE_SESSION_ID'];
   return { caller: value, agent, session: agent !== undefined && session !== '' ? session : undefined };
+}
+
+export type RunOutcome = 'ok' | 'answer' | 'failed';
+
+/**
+ * What a run's exit code means (spec 14.2): `ok` for 0, `answer` for a code the tool lists in `answers`, `failed` for
+ * any other code. A run that a signal ended failed, whatever `answers` holds. No exit code: no outcome.
+ */
+export function runOutcome(exit: number | undefined, answers: readonly number[] = [], signal = false): RunOutcome | undefined {
+  if (signal) return 'failed';
+  if (typeof exit !== 'number' || !Number.isInteger(exit)) return undefined;
+  return exit === 0 ? 'ok' : answers.includes(exit) ? 'answer' : 'failed';
+}
+
+/** `{ outside: true }` when harnesspm runs from a folder outside the project, such as with `-C` (spec 14.2). Otherwise nothing. */
+export function outsideField(projectDir: string, from = process.cwd()): { outside?: true } {
+  return insideDir(projectDir, from) ? {} : { outside: true };
 }
 
 /** One event (spec 14.2). Fields that are undefined are left out. */

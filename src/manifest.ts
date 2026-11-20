@@ -13,6 +13,8 @@ export interface ScriptDef {
   description?: string;
   /** The arguments and options the script takes, for `help <tool>` (spec 5.1). */
   usage?: string;
+  /** Exit codes that are answers, not failures, such as 1 for "found problems" (spec 5.1, 14.2). */
+  answers?: number[];
   allow?: boolean;
 }
 
@@ -95,6 +97,13 @@ export function loadHarnessPackage(dir: string, layer: Layer): HarnessPackage | 
   };
 }
 
+/** A script's `answers`: sorted exit codes from 1 to 255. Absent is `[]`; undefined means the value is invalid. */
+function answerCodes(value: unknown): number[] | undefined {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.every((code) => Number.isInteger(code) && code >= 1 && code <= 255)) return undefined;
+  return [...new Set(value as number[])].sort((a, b) => a - b);
+}
+
 /** Reads `extensions["dev.harnesspm"]` of a manifest. Problems go into `problems`. */
 export function parseExtension(manifest: Record<string, unknown>, problems: string[]): Extension {
   const extensions = manifest['extensions'];
@@ -122,10 +131,13 @@ export function parseExtension(manifest: Record<string, unknown>, problems: stri
           continue;
         }
         if (def['usage'] !== undefined && typeof def['usage'] !== 'string') problems.push(`script "${name}": "usage" must be a string`);
+        const answers = answerCodes(def['answers']);
+        if (answers === undefined) problems.push(`script "${name}": "answers" must be an array of exit codes from 1 to 255`);
         scripts[name] = {
           file: def['file'],
           ...(typeof def['description'] === 'string' ? { description: def['description'] } : {}),
           ...(typeof def['usage'] === 'string' && def['usage'].trim() !== '' ? { usage: def['usage'].trim() } : {}),
+          ...(answers !== undefined && answers.length > 0 ? { answers } : {}),
           ...(def['allow'] === true ? { allow: true } : {}),
         };
       }
