@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0
+
+### Minor Changes
+
+- [#50](https://github.com/tenphi/harnesspm/pull/50) [`5c97e3a`](https://github.com/tenphi/harnesspm/commit/5c97e3acfa89a50db4ef8a6d7e34b619279e3679) Thanks [@tenphi](https://github.com/tenphi)! - Scripts can list their `answers` exit codes (such as `[1]` for a lint that found problems): `run` events get an `outcome` of `ok`, `answer` or `failed`, `reportRun` takes `answers` too, and `help <tool>` prints them. `run`, `help` and `why` events from a folder outside the project, such as with `-C`, carry `outside: true`.
+
 ## 0.8.0
 
 ### Minor Changes
