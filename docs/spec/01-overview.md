@@ -105,6 +105,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Pending** | An executable unit that harnesspm does not write yet: its package is not trusted, a `"pin"` package has a new version, or the agent's model started the run outside the reviewed state. |
 | **Reviewed state** | The repository's trust inputs as the remote default branch has them, with the lock that the install reproduces. A run by the agent's model may write what it records. |
 | **Event** | A record of one harness interaction, such as a script run or an agent reading a rule. Sent only when the project turns on telemetry. |
+| **Answer** | An exit code that a script declares as the tool doing its job, not failing, such as `1` for a lint that found problems or `2` for a hook that blocks. Listed in the script's `answers`. |
 | **Handler** | The command or file that gets a project's events. Named in `harnesspm.json`, and active only as a person's sync recorded it in the lock. |
 | **Telemetry** | The events a project collects about how agents and people use its harness. Off unless the project turns it on. |
 

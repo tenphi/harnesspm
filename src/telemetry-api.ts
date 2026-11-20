@@ -2,7 +2,7 @@
 // through the same handler, switch, opt-outs and trust rule as `harnesspm run`. Like `harnesspm track`, it loads
 // only Node.js built-ins and light modules, so a tool can call it on every run.
 import * as path from 'node:path';
-import { commandCaller, configDir, note, readIndex, readTelemetryState, sendEvent, type EventContext, type TelemetryIndex } from './telemetry.ts';
+import { commandCaller, configDir, note, outsideField, readIndex, readTelemetryState, runOutcome, sendEvent, type EventContext, type TelemetryIndex } from './telemetry.ts';
 import { findWorkspaces } from './workspaces.ts';
 import { isRecord, readJsonIfExists, relPosix } from './util.ts';
 
@@ -20,10 +20,15 @@ export interface RunReport {
   duration?: number;
   /** The tool's exit code. */
   exit?: number;
+  /**
+   * Exit codes that are answers, not failures, such as `[1]` for a lint that found problems. They set the event's
+   * `outcome`: `ok` for 0, `answer` for a code in this list, `failed` for any other code (spec 14.2).
+   */
+  answers?: number[];
 }
 
 /** Fields that harnesspm sets on every `run` event. A tool's own fields never replace them. */
-const RESERVED = new Set(['schema', 'type', 'time', 'project', 'repository', 'workspace', 'harnesspm', 'caller', 'agent', 'session', 'unit', 'package', 'version', 'exit', 'duration']);
+const RESERVED = new Set(['schema', 'type', 'time', 'project', 'repository', 'workspace', 'harnesspm', 'caller', 'agent', 'session', 'unit', 'package', 'version', 'exit', 'outcome', 'duration', 'outside']);
 
 const UNIT_ID = /^[^\s:]+:\S+$/;
 
@@ -54,6 +59,8 @@ export function reportRun(report: RunReport): void {
     const index = readIndex(projectDir);
     const own = Object.fromEntries(Object.entries(report.fields ?? {}).filter(([key]) => !RESERVED.has(key)));
     const pkg = index?.packages[report.unit.slice(0, report.unit.indexOf(':'))];
+    const exit = typeof report.exit === 'number' ? report.exit : undefined;
+    const answers = Array.isArray(report.answers) ? report.answers.filter((code) => Number.isInteger(code) && code >= 1 && code <= 255) : [];
     sendEvent(
       state,
       contextOf(projectDir, index),
@@ -64,8 +71,11 @@ export function reportRun(report: RunReport): void {
         package: pkg?.package,
         version: pkg?.version,
         ...own,
-        exit: typeof report.exit === 'number' ? report.exit : undefined,
+        exit,
+        outcome: runOutcome(exit, answers),
         duration: typeof report.duration === 'number' ? Math.round(report.duration) : undefined,
+        // The caller's folder, not `cwd`: a tool that an agent starts from another repository runs outside the project.
+        ...outsideField(projectDir),
       },
       report.cwd ?? process.cwd(),
     );

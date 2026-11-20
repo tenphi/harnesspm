@@ -29,9 +29,9 @@ import { alwaysOnText, blockRange, helpTarget, ruleBodyWithoutTitle, type PathFo
 import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalRule, type FinalScript, type FinalSkill, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
-import { commandCaller, describeSend, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
+import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, realpath, relPosix, shellWord, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -700,7 +700,7 @@ export function why(cwd: string, id: string, out: Output): number {
     throw new HarnessError(`No unit ${id}.${near.length > 0 ? ` Units of ${plugin}: ${near.join(', ')}` : ''}`);
   }
   if (pkg.layer !== 'added') {
-    sendEvent(readTelemetryState(res.projectDir), eventContext(res), { type: 'why', ...commandCaller(), unit: id, package: pkg.name, version: pkg.version });
+    sendEvent(readTelemetryState(res.projectDir), eventContext(res), { type: 'why', ...commandCaller(), unit: id, package: pkg.name, version: pkg.version, ...outsideField(res.projectDir) });
   }
   if (pkg.layer === 'project') row('owner', `project ${pkg.name} (harness/)`);
   else if (pkg.layer === 'added') row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${pkg.entry ? ', entry for this repository' : ''})`);
@@ -743,11 +743,7 @@ function execSource(unit: FinalScript | FinalHook | FinalMcp | FinalAgent | Fina
 }
 
 /** Whether the caller's own folder, where harnesspm started, is inside `projectDir`. */
-function callerInside(projectDir: string): boolean {
-  const caller = realpath(process.cwd());
-  const dir = realpath(projectDir);
-  return caller === dir || caller.startsWith(dir + path.sep);
-}
+const callerInside = (projectDir: string): boolean => insideDir(projectDir);
 
 /** The project's folder as the caller names it, for `-C` and `cd`. */
 const fromCaller = (projectDir: string): string => shellWord(path.relative(process.cwd(), projectDir) || '.');
@@ -1000,6 +996,7 @@ function scriptHelp(view: HelpView, script: FinalScript): string {
   lines.push('');
   if (script.usage !== undefined) lines.push(`Usage: ${script.usage.split('\n').join('\n       ')}`);
   else lines.push(`Usage: none declared. Its package can add "usage" next to "description" in its manifest. harnesspm does not run the script to ask.`);
+  if (script.answers !== undefined) lines.push(`Exit:  0 is ok. ${script.answers.join(', ')} ${script.answers.length > 1 ? 'are answers' : 'is an answer'}, such as "found problems", not a broken tool. Any other code is a failure.`);
   lines.push(`Run:   ${view.command} run ${ref} [args]`);
   if (!view.trusted(script.pkg)) lines.push('', `⚠️  ${trustNote(script.pkg)}`);
   return lines.join('\n');
@@ -1031,7 +1028,7 @@ export function targetHelp(cwd: string, target: string, out: Output): number {
     const repository = readIndex(res.projectDir)?.repository;
     const ctx = { ...eventContext(res), ...(repository !== undefined ? { repository } : {}) };
     const unit = rule?.id ?? script?.id;
-    sendEvent(readTelemetryState(res.projectDir), ctx, { type: 'help', ...commandCaller(), ...(unit !== undefined ? { unit } : {}), package: owner.name, version: owner.version }, callerInside(view.projectDir) ? process.cwd() : view.projectDir);
+    sendEvent(readTelemetryState(res.projectDir), ctx, { type: 'help', ...commandCaller(), ...(unit !== undefined ? { unit } : {}), package: owner.name, version: owner.version, ...outsideField(view.projectDir) }, callerInside(view.projectDir) ? process.cwd() : view.projectDir);
   }
   return 0;
 }

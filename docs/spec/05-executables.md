@@ -27,6 +27,7 @@ A script is a file a package ships for agents, hooks or MCP servers to run.
 | `file` | yes | Path inside `harness/`, starting with `./`. |
 | `description` | no | Shown to the agent in the script list. Without it, the script is hidden from the agent and only hooks and MCP servers use it. |
 | `usage` | no | The arguments and options the script takes, such as `--story <id> [--json]`. One line or several. `harnesspm help <plugin>:<script>` prints it with the run command, without running the script, so an agent learns the options also without an install ([10.1](10-cli.md#help-for-a-package-a-rule-or-a-tool)). Without it, `help` says that no usage is declared. |
+| `answers` | no | Exit codes from `1` to `255` that are **answers**, not failures, such as `[1]` for a lint that exits `1` when it finds problems, or `[2]` for a hook that exits `2` to block the agent. A `run` event then has `outcome` `answer` for them, not `failed` ([14.2](14-telemetry.md#142-events)), and `help <plugin>:<script>` prints them. Without it, every non-zero exit is a failure. |
 | `allow` | no | The producer suggests that agents may run it without asking. Takes effect only when the consumer trusts the package. See [5.4](#54-permissions). |
 
 ### The runner

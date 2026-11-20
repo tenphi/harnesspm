@@ -4,7 +4,7 @@
 
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs that do not install dependencies use `fetch`.
 - From outside a project, such as a repository that cloned it, add `-C <dir>` before the command. `help` lists the project's packages, and `help <package>` prints one in full.
-- `help <tool>` prints a tool's usage and run command, without running it.
+- `help <tool>` prints a tool's usage, its answer exit codes and its run command, without running it.
 - Authors use `check` and `new`.
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
@@ -40,7 +40,7 @@ npx -y @tenphi/harnesspm -C work/app run uikit:colors surface
 ```
 
 - `run` keeps the caller's folder for the script, so file arguments stay valid. `HARNESSPM_PROJECT_DIR` is the named project.
-- The `run` event goes to the named project's telemetry handler.
+- The `run` event goes to the named project's telemetry handler. Its `run`, `help` and `why` events carry `outside: true` when the caller's folder is outside the project ([14.2](14-telemetry.md#142-events)).
 - Hooks and allow rules of the named project do not apply: the agent reads them only from the folder its session starts in ([research](../research/agent-capabilities.md#outside-the-start-folder)).
 - harnesspm runs as the version npx started. It does not hand off to the named project's installed copy.
 
@@ -63,7 +63,7 @@ Paths start at the current folder. The tools run here too, with -C.
 | --- | --- |
 | A package, by its npm name or plugin name | Everything it contributes, with the project's `patch`, `replace` and `exclude` applied, and nothing left out: each rule in full, with how it becomes active and who changed it; its docs index; its tools, each with its description, its `usage` and the exact `run` command; its MCP servers; its skills, with the path of each `SKILL.md`; the hooks it registers. When the package is not trusted, the tools, MCP servers and hooks carry a line that says so. |
 | A rule ID, such as `acme-ui:rules/usage` | That rule in full. |
-| A tool, as `<plugin>:<script>` or by its ID | Its description, its `usage` ([5.1](05-executables.md#51-scripts)) and the exact `run` command. Without a `usage`, it says that none is declared. It never runs the script, so it works without an install. |
+| A tool, as `<plugin>:<script>` or by its ID | Its description, its `usage` ([5.1](05-executables.md#51-scripts)), its `answers` and the exact `run` command. Without a `usage`, it says that none is declared. With `answers`, an `Exit:` line says that those codes are answers, such as "found problems", not a broken tool. The tool line in `help <package>` and the managed block stays one line and leaves them out. It never runs the script, so it works without an install. |
 
 For every target:
 

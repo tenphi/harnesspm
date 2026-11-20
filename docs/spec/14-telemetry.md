@@ -5,6 +5,7 @@
 - Telemetry is off. A team turns it on in `harnesspm.json` with `telemetry`: which events to send, and a handler that gets them, either a command or a file. harnesspm has no vendor code.
 - harnesspm sends what it sees: script runs, MCP server starts, `sync`, `why` and `help <target>`. With agent events on, its own hooks also report when Claude Code reads a harness file, loads a workspace's rules or a skill, and when a session starts.
 - A project's own tools send `run` events through the same handler with `reportRun` from `@tenphi/harnesspm/telemetry` ([14.9](#149-events-from-a-projects-own-tools)).
+- A `run` event's `outcome` tells a tool's answer, such as a lint's "found problems", from a failure. Events from a folder outside the project, such as with `-C`, carry `outside: true`.
 - Events never hold arguments, file contents or prompts. Sending never slows down or fails a command.
 - A handler gets events only as a person's `sync` recorded it in the lock. A person opts out with `DO_NOT_TRACK=1` or `"telemetry": false` in `harnesspm.local.json`.
 
@@ -32,7 +33,7 @@ harnesspm adds a handler file inside the project to `.git/info/exclude` when it 
 
 | Type | When | Fields beyond the common ones |
 | --- | --- | --- |
-| `run` | `harnesspm run` finishes a script. A hook's script is a `run` with caller `hook`. | `unit`, `package`, `version`, `exit`, `duration` (ms) |
+| `run` | `harnesspm run` finishes a script. A hook's script is a `run` with caller `hook`. | `unit`, `package`, `version`, `exit`, `outcome`, `duration` (ms) |
 | `mcp` | `harnesspm mcp` starts an MCP server. | `unit`, `package`, `version` |
 | `sync` | `harnesspm sync` writes the outputs. `--check` and runs with `CI=true` send nothing: every CI job runs an install, and so a sync. | `packages` (name and version), `added`, `removed` and `changed` (unit IDs since the last lock), `pending` (packages whose executable units wait for trust) |
 | `why` | `harnesspm why` finds a unit. | `unit`, `package`, `version` |
@@ -41,11 +42,21 @@ harnesspm adds a handler file inside the project to `.git/info/exclude` when it 
 | `skill` | Agent event: the agent loads a skill. | `unit`, `package`, `version` |
 | `session` | Agent event: a session starts or resumes. | `source` (`startup`, `resume`, `clear`, `compact`, `fork`) |
 
+A `run` event's `outcome` says what its `exit` means for that tool:
+
+| `outcome` | When |
+| --- | --- |
+| `ok` | Exit `0`. |
+| `answer` | The exit code is one of the script's **answers** ([5.1](05-executables.md#51-scripts)): the tool did its job and its answer is "no", such as a lint that found problems, a check that failed or a hook that blocks the agent. |
+| `failed` | Any other exit code, and every run that a signal ended, whatever its answers. Such a run has `exit` `1`. |
+
+A run without an exit code has no `outcome`. A script without `answers` reports every non-zero exit as `failed`.
+
 Every event has these fields:
 
 | Field | Meaning |
 | --- | --- |
-| `schema` | `harnesspm.event/1`. The number changes when a field changes meaning or goes away. |
+| `schema` | `harnesspm.event/1`. The number changes when a field changes meaning or goes away. A new field, such as `outcome` or `outside`, keeps it. |
 | `type` | One of the types above. |
 | `time` | ISO 8601, UTC. |
 | `project` | The `name` in the root `package.json`. |
@@ -55,9 +66,10 @@ Every event has these fields:
 | `caller` | `person`; `agent` when the agent's model ran it ([6.2](06-trust.md#62-trusting-a-package), rule 4); `hook` when the agent ran it through a hook or an MCP server; `ci` when `CI=true`. |
 | `agent` | `claude` or `codex`, when known. |
 | `session` | The agent's session ID, when known. |
+| `outside` | `true` when harnesspm runs from a folder outside the project, such as through `-C` ([10.1](10-cli.md#-c-dir)). Missing inside the project. Its `workspace` is `.`. `run`, `help` and `why` set it: the commands that `-C` serves. Agent events come from the project's own hooks, so they never need it. It lets a handler tell an agent that works from another repository from a session inside the project whose hooks are missing. |
 
 ```json
-{"schema":"harnesspm.event/1","type":"run","time":"2026-11-13T10:00:00.000Z","project":"app","repository":"github.com/acme/app","workspace":".","harnesspm":"0.2.0","caller":"agent","agent":"claude","session":"77c89d39-1164-4bc0-b046-7a3e9bc97863","unit":"uikit:scripts/probe","package":"@cube-dev/ui-kit","version":"0.206.1","exit":0,"duration":812}
+{"schema":"harnesspm.event/1","type":"run","time":"2026-11-13T10:00:00.000Z","project":"app","repository":"github.com/acme/app","workspace":".","harnesspm":"0.2.0","caller":"agent","agent":"claude","session":"77c89d39-1164-4bc0-b046-7a3e9bc97863","unit":"uikit:scripts/probe","package":"@cube-dev/ui-kit","version":"0.206.1","exit":0,"outcome":"ok","duration":812}
 ```
 
 Rules:
@@ -140,6 +152,8 @@ receivers:
       - type: json_parser
 ```
 
+A handler that maps `run` events to spans or error counts sets an error status only for `outcome` `failed`. An `answer` is the tool doing its job.
+
 ## 14.8 Reporting harness problems
 
 Reporting is the project's own rule, not a harnesspm feature. A team that wants agents to report a wrong unit tells them where, in a rule of its own harness:
@@ -163,17 +177,18 @@ A project often tells agents to use tools that are not harnesspm scripts, such a
 ```js
 import { reportRun } from '@tenphi/harnesspm/telemetry';
 
-reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
+reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 1, answers: [1] });
 ```
 
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `unit` | yes | An ID in the form of [2.8](02-package-format.md#28-unit-ids), such as `app:scripts/probe`. The tool does not have to be a unit of the harness. |
-| `fields` | no | The tool's own fields. Rule 1 of [14.2](#142-events) applies: no arguments, file contents, prompts, tool output or absolute paths. A field with the name of a common field, or of `unit`, `package`, `version`, `exit` or `duration`, is left out. |
+| `fields` | no | The tool's own fields. Rule 1 of [14.2](#142-events) applies: no arguments, file contents, prompts, tool output or absolute paths. A field with the name of a common field, such as `outside`, or of `unit`, `package`, `version`, `exit`, `outcome` or `duration`, is left out. |
 | `cwd` | no | Where the tool runs. The project is the nearest folder above it with `harnesspm.json`. Default: the current folder. |
 | `duration` | no | Milliseconds. |
 | `exit` | no | The tool's exit code. |
+| `answers` | no | The exit codes that are answers, as a script's `answers` ([5.1](05-executables.md#51-scripts)). They set `outcome` ([14.2](#142-events)). |
 
-`reportRun` sends a `run` event as `harnesspm run` does: the same handler, the same `events` switch, every opt-out ([14.6](#146-opting-out)), nothing while the handler is held ([14.5](#145-trust)), and the same `caller`, `agent` and `session`. It names the unit's package and version when the index of [14.4](#144-agent-events) knows its plugin. It never throws, never prints and never waits: a command handler gets the event in a detached process, so a tool can call it right before `process.exit()`. Problems go into `telemetry.log`, as in [14.3](#143-sending).
+`reportRun` sends a `run` event as `harnesspm run` does: the same handler, the same `events` switch, every opt-out ([14.6](#146-opting-out)), nothing while the handler is held ([14.5](#145-trust)), the same `caller`, `agent` and `session`, and `outside` when the current folder, not `cwd`, is outside the project. It names the unit's package and version when the index of [14.4](#144-agent-events) knows its plugin. It never throws, never prints and never waits: a command handler gets the event in a detached process, so a tool can call it right before `process.exit()`. Problems go into `telemetry.log`, as in [14.3](#143-sending).
 
 The package's `exports` field has this entry, `./telemetry`, and `./package.json`. Other files of the package are internal.

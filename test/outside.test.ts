@@ -102,7 +102,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
     ['kit:scripts/where', '@acme/kit', '2.1.0'],
     ['kit:scripts/needs', '@acme/kit', '2.1.0'],
   ]);
-  assert.ok(helps.every((e) => e['workspace'] === '.' && e['caller'] === 'person'));
+  assert.ok(helps.every((e) => e['workspace'] === '.' && e['caller'] === 'person' && e['outside'] === true), 'help from outside the project says so');
   const nope = run(root, '-C', 'work/app', 'help', 'kit:nope');
   assert.equal(nope.status, 1);
   assert.match(nope.stderr, /No command, package, rule or tool "kit:nope"\. Packages: @acme\/kit\. `npx -y @tenphi\/harnesspm -C work\/app help` lists them\./);
@@ -112,6 +112,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.match(inside, /\nThis project: app\n/);
   assert.match(inside, /: `npx -y @tenphi\/harnesspm help @acme\/kit`/);
   const insidePkg = run(app, 'help', '@acme/kit').stdout;
+  assert.equal(events(app).filter((e) => e.type === 'help').at(-1)!['outside'], undefined, 'help inside the project has no outside field');
   assert.match(insidePkg, /- `npx -y @tenphi\/harnesspm run kit:where \[args\]`/);
   assert.match(insidePkg, /File: node_modules\/\.harnesspm\/\S+forms\.md/);
 
@@ -122,10 +123,15 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   const event = events(app).find((e) => e.type === 'run')!;
   assert.equal(event['unit'], 'kit:scripts/where');
   assert.equal(event['project'], 'app', "the run event goes to the named project's handler");
+  assert.deepEqual([event['outside'], event['workspace'], event['outcome']], [true, '.', 'ok'], 'a run from outside: outside, and the root workspace');
   assert.ok(!fs.existsSync(path.join(root, EVENTS)));
 
   // Other commands take -C too.
   assert.match(run(root, '-C', 'work/app', 'why', 'kit:scripts/where').stdout, /run +npx -y @tenphi\/harnesspm -C work\/app run kit:where/);
+  assert.deepEqual([events(app).at(-1)!.type, events(app).at(-1)!['outside']], ['why', true]);
+  run(app, 'why', 'kit:scripts/where');
+  run(app, 'run', 'kit:where');
+  assert.deepEqual(events(app).slice(-2).map((e) => [e.type, e['outside']]), [['why', undefined], ['run', undefined]], 'inside the project, no outside field');
   assert.match(run(root, '-C', 'work/app', 'status').stdout, /📦 dependencies {2}@acme\/kit 2\.1\.0/);
   assert.equal(run(root, '-C', 'work/app', 'doctor').status, 0);
   const missing = run(root, '-C', 'work/nope', 'help');

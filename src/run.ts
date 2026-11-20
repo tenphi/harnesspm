@@ -5,7 +5,7 @@ import { harnesspmHome } from './added.ts';
 import { trustOf } from './exec-outputs.ts';
 import { readLock } from './lock.ts';
 import type { Resolution, ResolvedPackage } from './resolve.ts';
-import { commandCaller, readIndex, readTelemetryState, sendEvent, type EventType } from './telemetry.ts';
+import { commandCaller, outsideField, readIndex, readTelemetryState, runOutcome, sendEvent, type EventType } from './telemetry.ts';
 import { HarnessError, agentOf, ensureDir, isFile } from './util.ts';
 
 /** Thrown when the runner refuses a script. The CLI exits with code 2 (spec 10.4). */
@@ -46,7 +46,7 @@ function unitEvent(res: Resolution, type: EventType, unit: { id: string; pkg: Re
   // The index that `sync` writes has the remote, so the event does not ask git.
   const repository = readIndex(res.projectDir)?.repository;
   const ctx = { projectDir: res.projectDir, project: res.projectName, ...(repository !== undefined ? { repository } : {}), workspaces: res.workspaces.map((ws) => ws.key) };
-  sendEvent(readTelemetryState(res.projectDir), ctx, { type, ...commandCaller(agent), unit: unit.id, package: unit.pkg.name, version: unit.pkg.version, ...extra });
+  sendEvent(readTelemetryState(res.projectDir), ctx, { type, ...commandCaller(agent), unit: unit.id, package: unit.pkg.name, version: unit.pkg.version, ...outsideField(res.projectDir), ...extra });
 }
 
 function interpreter(file: string): [string, string[]] {
@@ -97,8 +97,9 @@ export function runScript(res: Resolution, ref: string, args: string[], agent: s
       if (status !== 0 && context.install !== undefined && MISSING_MODULE.test(tail)) {
         process.stderr.write(`harnesspm: ${ref} needs a package that the project installs, and this project has no install. Install it with \`${context.install}\`, then run the script again.\n`);
       }
-      // Never the arguments: they can hold anything (spec 14.2).
-      unitEvent(res, 'run', script, agent, { exit: status, duration: Date.now() - started });
+      // Never the arguments: they can hold anything (spec 14.2). A signal gives exit 1, as before, but never an answer.
+      const outcome = runOutcome(status, script.answers, code === null && signal !== null);
+      unitEvent(res, 'run', script, agent, { exit: status, outcome, duration: Date.now() - started });
       done(status);
     });
   });
