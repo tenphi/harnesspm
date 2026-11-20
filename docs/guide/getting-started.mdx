@@ -44,7 +44,7 @@ Details: https://harnesspm.tenphi.me/guides/setup
 
 Either way, `init` does the same:
 
-- It writes the rules of your dependencies into a block in `AGENTS.md`, and links their skills and docs.
+- It names the rules and tools of your dependencies in a block in `AGENTS.md`, one line each, and links their skills and docs. Agents read a package's rules with `help <package>`.
 - It makes every install run `harnesspm sync`, which keeps all of this current.
 - It gives your agent three skills for harnesspm itself, so you can [ask for the rest](./ask-your-agent.mdx).
 
@@ -82,7 +82,7 @@ Your agent cannot do step 3. harnesspm never lets an agent give itself permissio
 - A check in CI catches a missed sync. Ask for it: "Add `npx harnesspm sync --check` to our CI, after the install."
 - A deploy that installs without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync and goes on.
 
-Upgrades then show up in pull requests, as changes to the block in `AGENTS.md` and to the lock.
+Upgrades then show up in pull requests, as changes to the lock and, when a rule's sections change, to the block in `AGENTS.md`.
 
 ## Why one step
 

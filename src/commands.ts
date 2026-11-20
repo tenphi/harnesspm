@@ -25,9 +25,11 @@ import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.
 import { reviewedState, type Reviewed } from './reviewed.ts';
 import { runMcp, runScript } from './run.ts';
 import { pathTools } from './outputs.ts';
-import { alwaysOnText, blockRange, renderSections, sectionsFor, type PathFor } from './render.ts';
-import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalScript, type Resolution, type ResolvedPackage } from './resolve.ts';
-import { commandCaller, describeSend, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
+import { alwaysOnText, blockRange, helpTarget, ruleBodyWithoutTitle, type PathFor } from './render.ts';
+import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalRule, type FinalScript, type FinalSkill, type Resolution, type ResolvedPackage } from './resolve.ts';
+import { demoteHeadings } from './sections.ts';
+import { tryFrontmatter } from './frontmatter.ts';
+import { commandCaller, describeSend, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
 import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, realpath, relPosix, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
@@ -422,7 +424,7 @@ function codexMisses(projectDirInput: string, plan: Plan): string[] {
     if (text === undefined || range === undefined) continue;
     const rel = relPosix(projectDir, path.join(dir, 'AGENTS.md'));
     if (isFile(path.join(dir, 'AGENTS.override.md'))) {
-      problems.push(`Codex never reads the harness block in ${rel}: it reads ${relPosix(projectDir, path.join(dir, 'AGENTS.override.md'))} there instead.`);
+      problems.push(`Codex never reads the harness block in ${rel}: it reads ${relPosix(projectDir, path.join(dir, 'AGENTS.override.md'))} there instead. ${STILL_HELP}`);
       continue;
     }
     let above = 0;
@@ -441,10 +443,13 @@ function codexMisses(projectDirInput: string, plan: Plan): string[] {
     ].join(', or ');
     const where = 'of the AGENTS.md files that Codex joins there, past its 32 KiB limit';
     const what = start >= CODEX_LIMIT ? `Codex never reads the harness block in ${rel}: it starts at ${kib(start)} ${where}` : `Codex reads only part of the harness block in ${rel}: it ends at ${kib(end)} ${where}`;
-    problems.push(`${what}. To fix it, ${steps}.`);
+    problems.push(`${what}. To fix it, ${steps}. ${STILL_HELP}`);
   }
   return problems;
 }
+
+/** What an agent can still do when Codex misses a block: the block names its packages, and `help` prints them (spec 4.9). */
+const STILL_HELP = `Agents can still get what it holds with \`${NPX_ANY} help <package>\`.`;
 
 /** Agents often read only the top of AGENTS.md, such as with `head -30` (research/agent-capabilities.md). */
 const TOP_LINES = 30;
@@ -821,49 +826,213 @@ export function mcp(cwd: string, ref: string, agent: string | undefined): number
   return runMcp(tools.res, ref, agent);
 }
 
+/** What `help` shows of a project: its units, and paths and commands as the caller types them (spec 10.1). */
+interface HelpView {
+  projectDir: string;
+  tools: ToolResolution;
+  res: Resolution;
+  /** The command that runs the project's tools from the caller's folder, `-C` included. */
+  command: string;
+  /** The project's folder from the caller's, when the caller is outside it. */
+  base?: string;
+  trusted(pkg: ResolvedPackage): boolean;
+  paths: PathFor;
+  /** A file of a package, as the caller can open it. */
+  file(file: string): string;
+}
+
 /**
- * The project's part of `help` (spec 10.1): its scripts, MCP servers, rules, docs indexes and skills, across its
- * workspaces. It renders the sections of the managed blocks, with paths from the caller's folder. Without an install it
- * reads the fetched packages, and fetches them first when there are none.
+ * The project for `help`. Without an install it reads the fetched packages, and fetches them first when there are
+ * none. Undefined when the project does not use harnesspm.
  */
-export function projectHelp(cwd: string, out: Output, named: boolean): number {
+function helpView(cwd: string, out: Output): HelpView | undefined {
   const projectDir = findProjectDir(cwd);
-  if (!isFile(path.join(projectDir, CONFIG_FILE))) {
-    if (named) out.log(`\n${fromCaller(projectDir)} does not use harnesspm: it has no ${CONFIG_FILE}.`);
-    return 0;
-  }
+  if (!isFile(path.join(projectDir, CONFIG_FILE))) return undefined;
   const tools = resolveTools(projectDir, { fetch: out });
-  const team = tools.res;
+  const res = tools.res;
   const lock = readLock(projectDir);
-  const command = toolCommand(projectDir);
-  const trusted = (pkg: ResolvedPackage): boolean => trustOf(pkg, team, lock).trusted;
-  const { paths: projectPaths, display } = pathTools(team, () => path.join(projectDir, STATE_DIR), new Map(), []);
+  const { paths: projectPaths, display } = pathTools(res, () => path.join(projectDir, STATE_DIR), new Map(), []);
   // Paths in the managed block are relative to the project. From outside it, they start at the caller's folder.
   const base = callerInside(projectDir) ? undefined : path.relative(process.cwd(), projectDir);
   const shown = (p: string): string => (base === undefined || path.isAbsolute(p) ? p : path.posix.join(base.split(path.sep).join('/'), p));
   // A stable path under node_modules/.harnesspm exists after a sync or a fetch. Else the file's own path.
-  const existing = (p: string, file: string): string => (path.isAbsolute(p) || fs.existsSync(path.join(team.projectDir, p)) ? p : relPosix(team.projectDir, file));
-  const paths: PathFor = {
-    rule: (rule) => shown(existing(projectPaths.rule(rule), rule.source)),
-    docsIndex: (pkg) => {
-      const index = projectPaths.docsIndex(pkg);
-      return index === undefined ? undefined : shown(index);
+  const existing = (p: string, file: string): string => (path.isAbsolute(p) || fs.existsSync(path.join(projectDir, p)) ? p : relPosix(projectDir, file));
+  return {
+    projectDir,
+    tools,
+    res,
+    command: toolCommand(projectDir),
+    ...(base !== undefined ? { base } : {}),
+    trusted: (pkg) => trustOf(pkg, res, lock).trusted,
+    paths: {
+      rule: (rule) => shown(existing(projectPaths.rule(rule), rule.source)),
+      docsIndex: (pkg) => {
+        const index = projectPaths.docsIndex(pkg);
+        return index === undefined ? undefined : shown(index);
+      },
     },
+    file: (file) => shown(existing(display(file), file)),
   };
-  const packages = team.packages.filter((p) => p.layer !== 'added');
-  const sections = sectionsFor(team, packages, paths, (pkg) => (trusted(pkg) ? command : undefined)).map((section, i) => {
-    const pkg = packages[i]!;
-    const mcpLines = trusted(pkg) ? team.mcp.filter((m) => m.pkg === pkg).map((m) => (m.config['type'] === 'stdio' ? `- MCP server: \`${command} mcp ${m.pkg.plugin}:${m.name}\` (${m.id})` : `- MCP server: ${String(m.config['url'])} (${m.id})`)) : [];
-    const skillLines = team.skills.filter((s) => s.pkg === pkg).map((s) => `- Skill: ${s.name}: read ${shown(existing(display(path.join(s.dir, 'SKILL.md')), path.join(s.dir, 'SKILL.md')))} (${s.id})`);
-    return { ...section, extra: [...mcpLines, ...skillLines] };
-  });
-  const body = renderSections(sections, paths, { brief: true });
-  out.log('');
-  out.log(`This project: ${team.projectName}${base !== undefined ? ` (${fromCaller(projectDir)})` : ''}`);
-  if (base !== undefined) out.log(`Paths start at the current folder. The tools run here too, with -C.`);
+}
+
+/** The lines above every part of `help` about the project: its name, where paths start, and whether it is installed. */
+function helpIntro(view: HelpView, out: Output): void {
+  const { projectDir, tools, res, base } = view;
+  out.log(`This project: ${res.projectName}${base !== undefined ? ` (${fromCaller(projectDir)})` : ''}`);
+  if (base !== undefined) out.log('Paths start at the current folder. The tools run here too, with -C.');
   if (!tools.installed) out.log(tools.missing.length > 0 ? `⚠️  No install and no fetched harness packages: ${notAvailable(projectDir, tools, 'tools')}` : `No install: tools run from the fetched harness packages. A tool that needs another package says so; install the project with \`${installCommand(projectDir)}\`.`);
+}
+
+const count = (n: number, word: string): string => (n === 1 ? `1 ${word}` : `${n} ${word}s`);
+
+/**
+ * The project's part of `help` (spec 10.1): one line per package, across workspaces, with what it covers and the
+ * `help <package>` command that prints the rest.
+ */
+export function projectHelp(cwd: string, out: Output, named: boolean): number {
+  const view = helpView(cwd, out);
+  if (view === undefined) {
+    if (named) out.log(`\n${fromCaller(findProjectDir(cwd))} does not use harnesspm: it has no ${CONFIG_FILE}.`);
+    return 0;
+  }
+  const { res, command } = view;
   out.log('');
-  out.log(body !== '' ? body : 'No harness units yet.');
+  helpIntro(view, out);
+  out.log('');
+  const lines = res.packages
+    .filter((p) => p.layer !== 'added')
+    .map((pkg) => {
+      const rules = res.rules.filter((r) => r.pkg === pkg);
+      const always = rules.filter((r) => r.activation === 'always');
+      const covers = pkg.description ?? always.map((r) => r.title).join(', ');
+      const parts = [
+        rules.length > 0 ? count(rules.length, 'rule') : '',
+        res.docs.some((d) => d.pkg === pkg) ? 'docs' : '',
+        count(res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined).length, 'tool'),
+        count(res.mcp.filter((m) => m.pkg === pkg).length, 'MCP server'),
+        count(res.skills.filter((k) => k.pkg === pkg).length, 'skill'),
+        count(res.hooks.filter((h) => h.pkg === pkg).length, 'hook'),
+      ].filter((part) => part !== '' && !part.startsWith('0 '));
+      const name = `${pkg.name}${pkg.via !== undefined ? ` (via ${pkg.via})` : pkg.layer === 'project' ? ' (this project)' : ''}`;
+      return `- ${name}${covers !== '' ? ` — ${covers}` : ''}. ${parts.length > 0 ? `${parts.join(', ')}: ` : ''}\`${command} help ${helpTarget(pkg)}\``;
+    });
+  out.log(lines.length > 0 ? lines.join('\n') : 'No harness units yet.');
+  if (lines.length > 0) out.log(`\nA tool's options: \`${command} help <tool>\`. Run a tool: \`${command} run <tool> [args]\`.`);
+  return 0;
+}
+
+/** How a rule becomes active, in words (spec 2.5). */
+function activationLine(rule: FinalRule, file: string): string {
+  if (rule.activation === 'always') return 'Always on.';
+  if (rule.activation === 'file') return `When editing ${(rule.paths ?? []).map((p) => `\`${p.replace(/^\/(?!\/)/, '')}\``).join(', ')}${rule.description !== undefined ? ` — ${rule.description}` : ''}. File: ${file}`;
+  return `On demand: ${rule.description}. File: ${file}`;
+}
+
+/** Who changed a rule's text: replacements and patches, as `why` lists them. */
+function changedBy(rule: FinalRule): string | undefined {
+  const by = [...new Set([rule.replacedBy?.by, ...rule.patches.map((p) => p.by)].filter((b): b is string => b !== undefined))];
+  return by.length > 0 ? `Changed by ${by.join(', ')}: this is the text agents get here.` : undefined;
+}
+
+function ruleHelp(view: HelpView, rule: FinalRule, level: number): string {
+  const head = `${'#'.repeat(level)} ${rule.title} (${rule.id})`;
+  const about = [activationLine(rule, view.paths.rule(rule)), changedBy(rule)].filter((l) => l !== undefined).join(' ');
+  const body = demoteHeadings(ruleBodyWithoutTitle(rule), level - 1);
+  return [head, about, ...(body !== '' ? [body] : [])].join('\n\n');
+}
+
+function trustNote(pkg: ResolvedPackage): string {
+  return `Not trusted in this project, so they stay off and \`run\` refuses them. A person turns them on with "${pkg.name}": true in "trust" in ${CONFIG_FILE}.`;
+}
+
+function toolLines(view: HelpView, script: FinalScript): string[] {
+  const ref = `${script.pkg.plugin}:${script.name}`;
+  const lines = [`- \`${view.command} run ${ref}${script.usage !== undefined && !script.usage.includes('\n') ? ` ${script.usage}` : ' [args]'}\`${script.description !== undefined ? ` — ${script.description}` : ''} (${script.id})`];
+  if (script.usage !== undefined && script.usage.includes('\n')) lines.push(...script.usage.split('\n').map((l) => `  ${l}`));
+  return lines;
+}
+
+function hookLine(hook: FinalHook): string {
+  const on = (Object.entries(hook.matchers) as [string, string | undefined][]).map(([agent, matcher]) => `${agent === 'claude' ? 'Claude Code' : 'Codex'}${matcher !== undefined && matcher !== '' && matcher !== '*' ? ` on \`${matcher}\`` : ''}`);
+  return `- ${hook.event}, ${on.join(' and ')}: runs \`${hook.pkg.plugin}:${hook.run}\` (${hook.id})`;
+}
+
+function mcpLine(view: HelpView, server: FinalMcp): string {
+  return server.config['type'] === 'stdio' ? `- \`${view.command} mcp ${server.pkg.plugin}:${server.name}\` (${server.id})` : `- ${String(server.config['url'])} (${server.id})`;
+}
+
+/** Everything a package contributes, with the project's patches applied (spec 10.1, `help <package>`). */
+function packageHelp(view: HelpView, pkg: ResolvedPackage): string {
+  const { res } = view;
+  const parts: string[] = [];
+  const where = pkg.layer === 'project' ? 'this project' : pkg.layer === 'added' ? `added ${pkg.added?.source.spec ?? pkg.plugin}` : `${pkg.version}${pkg.via !== undefined ? `, via ${pkg.via}` : ''}`;
+  parts.push(`# ${pkg.name} (${where}), plugin ${pkg.plugin}${pkg.description !== undefined ? `\n\n${pkg.description}` : ''}`);
+  const trusted = view.trusted(pkg);
+  const rules = res.rules.filter((r) => r.pkg === pkg);
+  if (rules.length > 0) parts.push('## Rules', ...rules.map((r) => ruleHelp(view, r, 3)));
+  const index = view.paths.docsIndex(pkg);
+  if (index !== undefined) parts.push('## Docs', `- ${index} (${pkg.plugin}:docs)`);
+  const scripts = res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined);
+  if (scripts.length > 0) parts.push('## Tools', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...scripts.flatMap((s) => toolLines(view, s))].join('\n'));
+  const servers = res.mcp.filter((m) => m.pkg === pkg);
+  if (servers.length > 0) parts.push('## MCP servers', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...servers.map((m) => mcpLine(view, m))].join('\n'));
+  const skills = res.skills.filter((k) => k.pkg === pkg);
+  if (skills.length > 0) {
+    const line = (skill: FinalSkill): string => {
+      const file = path.join(skill.dir, 'SKILL.md');
+      const description = tryFrontmatter(readTextIfExists(file) ?? '', file).data['description'];
+      return `- ${skill.name}: read ${view.file(file)} (${skill.id})${typeof description === 'string' ? `\n  ${description}` : ''}`;
+    };
+    parts.push('## Skills', skills.map(line).join('\n'));
+  }
+  const hooks = res.hooks.filter((h) => h.pkg === pkg);
+  if (hooks.length > 0) parts.push('## Hooks', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...hooks.map(hookLine)].join('\n'));
+  if (parts.length === 1) parts.push('No harness units.');
+  return parts.join('\n\n');
+}
+
+/** One tool: its description, usage and the command that runs it. It never runs the script (spec 10.1, `help <tool>`). */
+function scriptHelp(view: HelpView, script: FinalScript): string {
+  const ref = `${script.pkg.plugin}:${script.name}`;
+  const lines = [`${ref} (${script.id}), from ${script.pkg.name}`];
+  if (script.description !== undefined) lines.push('', script.description);
+  else lines.push('', 'No description: hooks and MCP servers use it, agents do not run it themselves.');
+  lines.push('');
+  if (script.usage !== undefined) lines.push(`Usage: ${script.usage.split('\n').join('\n       ')}`);
+  else lines.push(`Usage: none declared. Its package can add "usage" next to "description" in its manifest. harnesspm does not run the script to ask.`);
+  lines.push(`Run:   ${view.command} run ${ref} [args]`);
+  if (!view.trusted(script.pkg)) lines.push('', `⚠️  ${trustNote(script.pkg)}`);
+  return lines.join('\n');
+}
+
+/**
+ * `help <target>`: a package or plugin, a rule ID, or a tool by `<plugin>:<script>` or its ID (spec 10.1). It works
+ * without an install, like `help`, and sends a `help` event (spec 14.2).
+ */
+export function targetHelp(cwd: string, target: string, out: Output): number {
+  const view = helpView(cwd, out);
+  if (view === undefined) throw new HarnessError(`No command "${target}", and ${fromCaller(findProjectDir(cwd))} does not use harnesspm, so it has no packages, rules or tools. Run \`harnesspm help\`.`);
+  const { res } = view;
+  const pkg = res.packages.find((p) => p.name === target || p.plugin === target);
+  const rule = pkg === undefined ? res.rules.find((r) => r.id === target) : undefined;
+  const script = pkg === undefined && rule === undefined ? res.scripts.find((s) => `${s.pkg.plugin}:${s.name}` === target || s.id === target) : undefined;
+  const owner = pkg ?? rule?.pkg ?? script?.pkg;
+  if (owner === undefined) {
+    const reason = notAvailable(view.projectDir, view.tools, 'harness packages');
+    if (reason !== undefined) throw new HarnessError(reason);
+    const names = res.packages.map(helpTarget).join(', ');
+    throw new HarnessError(`No command, package, rule or tool "${target}".${names !== '' ? ` Packages: ${names}.` : ''} \`${view.command} help\` lists them.`);
+  }
+  helpIntro(view, out);
+  out.log('');
+  out.log(pkg !== undefined ? packageHelp(view, pkg) : rule !== undefined ? ruleHelp(view, rule, 1) : scriptHelp(view, script!));
+  // Units of added harnesses belong to a person: their use never reaches the team's handler (spec 14.2, rule 2).
+  if (owner.layer !== 'added') {
+    const repository = readIndex(res.projectDir)?.repository;
+    const ctx = { ...eventContext(res), ...(repository !== undefined ? { repository } : {}) };
+    const unit = rule?.id ?? script?.id;
+    sendEvent(readTelemetryState(res.projectDir), ctx, { type: 'help', ...commandCaller(), ...(unit !== undefined ? { unit } : {}), package: owner.name, version: owner.version }, callerInside(view.projectDir) ? process.cwd() : view.projectDir);
+  }
   return 0;
 }
 

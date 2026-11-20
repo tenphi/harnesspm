@@ -145,6 +145,8 @@ paths: ["**/*.tsx", "**/*.ts"]
 
 Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `harnesspm check` reports the size of a package's always-on text.
 
+The committed `AGENTS.md` block names an always-on rule in one line: its title and its `##` and `###` headings ([4.6](04-outputs.md#46-managed-blocks)). Agents read the text with `harnesspm help <package>`. So a heading SHOULD say what its section asks, such as "Never edit outputs".
+
 A package SHOULD split a rule into small sections with `##` headings, so that others can change one section with a patch.
 
 ### Patches

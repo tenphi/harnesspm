@@ -205,7 +205,7 @@ function changesSection(team: Resolution, full: Resolution, rulePath: (rule: Fin
     if (changed.text === rule.text) continue;
     const by = [changed.replacedBy?.by, ...changed.patches.map((p) => p.by)].filter((b): b is string => b !== undefined && added.has(b));
     const who = [...new Set(by)].join(', ');
-    if (changed.activation === 'always') texts.push(alwaysOnText(changed, `${rule.id}, changed by ${who}; use this text instead of the one in AGENTS.md`));
+    if (changed.activation === 'always') texts.push(alwaysOnText(changed, `${rule.id}, changed by ${who} on this machine; follow this text`));
     else lines.push(`- Instead of the rule ${rule.id} in AGENTS.md, read ${rulePath(changed)} (changed by ${who})`);
   }
   if (lines.length === 0 && texts.length === 0) return undefined;
@@ -331,7 +331,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
         },
       };
       const own = team.packages.filter((p) => !shared(p) && p.members.has(ws.key));
-      const content = renderSections(sectionsFor(team, own, wsPaths, prefix), wsPaths);
+      const content = renderSections(sectionsFor(team, own, wsPaths, prefix, { compact: true }), wsPaths, { compact: true });
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
       const existing = readTextIfExists(agentsFile);
       const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content, true)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
@@ -342,7 +342,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
       const always = team.rules.filter((r) => r.activation === 'always' && own.includes(r.pkg)).map((r) => r.id);
       if (always.length > 0) blockUnits.set(path.join(realOrSame(ws.dir), 'AGENTS.md'), always);
     }
-    const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix), teamTools.paths)]
+    const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix, { compact: true }), teamTools.paths, { compact: true })]
       .filter((part) => part !== undefined && part !== '')
       .join('\n\n');
     const block = rootContent !== '' ? wrapBlock(rootContent, true) : wrapBlock('No harness units yet.');

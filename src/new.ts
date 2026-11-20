@@ -128,11 +128,11 @@ export function createUnit(target: Target, kind: Kind, name: string): string[] {
     files.push(file);
   };
   const scriptFile = (script: string): string => path.join(target.dir, NS, 'scripts', `${script}.mjs`);
-  const declareScript = (script: string, description?: string): void => {
+  const declareScript = (script: string, description?: string, usage?: string): void => {
     editManifest(target.manifest, (ext) => {
       const scripts = isRecord(ext['scripts']) ? ext['scripts'] : {};
       if (scripts[script] !== undefined) throw new HarnessError(`The script "${script}" already exists`);
-      scripts[script] = { file: `./${NS}/scripts/${script}.mjs`, ...(description !== undefined ? { description } : {}) };
+      scripts[script] = { file: `./${NS}/scripts/${script}.mjs`, ...(description !== undefined ? { description } : {}), ...(usage !== undefined ? { usage } : {}) };
       ext['scripts'] = scripts;
     }, target.plugin);
     files.push(target.manifest);
@@ -150,8 +150,9 @@ export function createUnit(target: Target, kind: Kind, name: string): string[] {
       add(path.join(target.dir, NS, 'agents', `${name}.md`), `---\nname: ${name}\ndescription: What the sub-agent does. Use when ….\n---\n\nInstructions for the sub-agent.\n`);
       break;
     case 'script':
-      add(scriptFile(name), `// Run it with \`npx -y @tenphi/harnesspm run ${target.plugin}:${name} -- <args>\`.\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
-      declareScript(name, `What ${name} does`);
+      add(scriptFile(name), `// Run it with \`npx -y @tenphi/harnesspm run ${target.plugin}:${name} -- <args>\`. \`help ${target.plugin}:${name}\` prints its "usage".\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
+      // `usage` is what `help <tool>` prints (spec 5.1). This template echoes its arguments.
+      declareScript(name, `What ${name} does`, '[<words>...]');
       break;
     case 'hook': {
       add(scriptFile(name), `// A hook script: the agent's JSON event is on stdin. Exit 0 to continue, 2 to block (reason on stderr).\nimport { readFileSync } from 'node:fs';\nconst event = JSON.parse(readFileSync(0, 'utf8') || '{}');\nvoid event;\nprocess.exit(0);\n`);

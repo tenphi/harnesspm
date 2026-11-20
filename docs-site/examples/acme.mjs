@@ -60,7 +60,7 @@ const ui = {
     patch: { 'acme-colors:rules/usage': './dev.harnesspm/patches/acme-colors-usage.patch.md' },
     docs: '../docs',
     scripts: {
-      tokens: { file: './dev.harnesspm/scripts/tokens.mjs', description: 'Find a color token by a part of its name, with its light and dark values', allow: true },
+      tokens: { file: './dev.harnesspm/scripts/tokens.mjs', description: 'Find a color token by a part of its name, with its light and dark values', usage: '<part of a token name>', allow: true },
     },
   },
   files: {
@@ -106,7 +106,7 @@ function installPackages() {
   install('@acme/colors', '2.1.0', 'acme-colors', {
     docs: '../docs',
     scripts: {
-      contrast: { file: './dev.harnesspm/scripts/contrast.mjs', description: 'Measure the WCAG contrast of a text color on a background', allow: true },
+      contrast: { file: './dev.harnesspm/scripts/contrast.mjs', description: 'Measure the WCAG contrast of a text color on a background', usage: '<text color> <background color>, each as #rrggbb', allow: true },
     },
   }, {
     'harness/dev.harnesspm/rules/usage.md': [

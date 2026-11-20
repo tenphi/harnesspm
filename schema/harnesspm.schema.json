@@ -37,7 +37,7 @@
           "description": "The event types to send, or \"all\" (the default). \"read\", \"skill\" and \"session\" come from harnesspm's own agent hooks.",
           "oneOf": [
             { "const": "all" },
-            { "type": "array", "uniqueItems": true, "items": { "enum": ["run", "mcp", "sync", "why", "read", "skill", "session"] } }
+            { "type": "array", "uniqueItems": true, "items": { "enum": ["run", "mcp", "sync", "why", "help", "read", "skill", "session"] } }
           ]
         },
         "send": {

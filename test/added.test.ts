@@ -128,7 +128,7 @@ test('an entry changes team units on this machine only; committed files stay the
   assert.equal(run(dir, 'sync', '--check').status, 0);
   const local = read(dir, 'CLAUDE.local.md');
   assert.match(local, /## Changes to this repository's rules/);
-  assert.match(local, /### Forms \(kit:rules\/forms, changed by .*; use this text instead of the one in AGENTS\.md\)[\s\S]*Show them in a toast\./);
+  assert.match(local, /### Forms \(kit:rules\/forms, changed by .* on this machine; follow this text\)[\s\S]*Show them in a toast\./);
   assert.match(local, /- Ignore the rule kit:rules\/legacy in AGENTS\.md: .* turns it off on this machine\./);
   assert.ok(!fs.existsSync(path.join(dir, '.claude/skills/kit-review')), 'an excluded team skill is not linked');
   assert.match(run(dir, 'status').stdout, /✏️  changed here  kit:rules\/forms/);

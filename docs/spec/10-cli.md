@@ -3,14 +3,15 @@
 **In short**
 
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs that do not install dependencies use `fetch`.
-- From outside a project, such as a repository that cloned it, add `-C <dir>` before the command. `help` lists the project's tools, rules and skills.
+- From outside a project, such as a repository that cloned it, add `-C <dir>` before the command. `help` lists the project's packages, and `help <package>` prints one in full.
+- `help <tool>` prints a tool's usage and run command, without running it.
 - Authors use `check` and `new`.
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
 
 The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. `npx -y @tenphi/harnesspm …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Tool lines in the managed block use this form ([4.6](04-outputs.md#46-managed-blocks)). `npx harnesspm …` works only in a project that depends on harnesspm, and messages there may use it. An allow rule always has the prefix of the command it allows.
 
-`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's harness ([below](#the-project-in-help)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
+`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's packages ([below](#the-project-in-help)), and `help <package | rule ID | tool>` prints one of them in full ([below](#help-for-a-package-a-rule-or-a-tool)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
 
 ## 10.1 Projects
 
@@ -26,7 +27,8 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)) in the caller's folder. Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. Without an install, it runs the script from the [fetched packages](01-overview.md#15-terms). When there are none, it says so and names `fetch` and the install, not `No script`. |
 | `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install, and checks their integrity ([04-outputs.md](04-outputs.md#42-stable-package-paths)). For review bots and CI jobs that do not install dependencies, and for a clone that an agent uses without installing it. |
-| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's harness ([below](#the-project-in-help)). |
+| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's packages, one line each ([below](#the-project-in-help)). |
+| `harnesspm help <package \| rule ID \| tool>` | A package's rules, docs, tools, MCP servers, skills and hooks in full, one rule, or a tool's usage and run command ([below](#help-for-a-package-a-rule-or-a-tool)). Needs no install. |
 
 ### `-C <dir>`
 
@@ -44,15 +46,30 @@ npx -y @tenphi/harnesspm -C work/app run uikit:colors surface
 
 ### The project in `help`
 
-Inside a project, or with `-C`, `help` ends with a "This project" section. It renders the sections of the managed blocks ([4.6](04-outputs.md#46-managed-blocks)) for the whole project, every workspace included:
+Inside a project, or with `-C`, `help` ends with a "This project" section. It gives each package of the dependency and project layers one line, across all workspaces: what it covers (its `description` in `plugin.json`, else the titles of its always-on rules), how many rules, tools, MCP servers, skills and hooks it has, and the `help <package>` command that prints the rest.
 
-- scripts, with their descriptions and the command, `-C` included;
-- MCP servers;
-- rules: each always-on rule by title, the others with when to read them;
-- docs indexes;
-- skills, with the path of each `SKILL.md`.
+```text
+This project: app (work/app)
+Paths start at the current folder. The tools run here too, with -C.
 
-From outside the project, paths start at the caller's folder. `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
+- @acme/ui — Acme UI. 1 rule, docs, 1 tool, 1 skill: `npx -y @tenphi/harnesspm -C work/app help @acme/ui`
+```
+
+### Help for a package, a rule or a tool
+
+`help <target>` prints one part of the project's harness. A command name, such as `help sync`, still prints that command's help.
+
+| Target | What `help` prints |
+| --- | --- |
+| A package, by its npm name or plugin name | Everything it contributes, with the project's `patch`, `replace` and `exclude` applied, and nothing left out: each rule in full, with how it becomes active and who changed it; its docs index; its tools, each with its description, its `usage` and the exact `run` command; its MCP servers; its skills, with the path of each `SKILL.md`; the hooks it registers. When the package is not trusted, the tools, MCP servers and hooks carry a line that says so. |
+| A rule ID, such as `acme-ui:rules/usage` | That rule in full. |
+| A tool, as `<plugin>:<script>` or by its ID | Its description, its `usage` ([5.1](05-executables.md#51-scripts)) and the exact `run` command. Without a `usage`, it says that none is declared. It never runs the script, so it works without an install. |
+
+For every target:
+
+- Commands carry `-C <dir>` when `help` was given one, and paths start at the caller's folder, as in the project section.
+- `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
+- Each run sends a `help` event to the project's handler ([14.2](14-telemetry.md#142-events)), so a team can see whether agents follow the block's pointers.
 
 Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
 

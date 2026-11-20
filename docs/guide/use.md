@@ -22,16 +22,16 @@ harnesspm only reads files. It never runs code from a package to find its harnes
 
 | Unit | How the agent gets it |
 | --- | --- |
-| Always-on rule | Its text is in the managed block in `AGENTS.md`. |
+| Always-on rule | One line in the managed block in `AGENTS.md`: its title and section headings. The agent reads the text with `npx -y @tenphi/harnesspm help <package>`. |
 | File-scoped rule | A pointer line in the block. Claude Code also loads it by itself when it works on a matching file. |
 | On-demand rule | A pointer line with a description. The agent reads it when it is relevant. |
 | Docs | One pointer line to an index of the package's docs, at the installed version. |
 | Skill | A link in `.claude/skills/` and `.agents/skills/`. The agent loads it when it fits the task. |
 | Sub-agent | A file in `.claude/agents/` and `.codex/agents/`. |
-| Script | A line in the block with the command that runs it, once the package is trusted. |
+| Script | A tool line in the block, once the package is trusted. `npx -y @tenphi/harnesspm help <tool>` prints its usage and command. |
 | Hook, MCP server, permission | Entries in each agent's settings, once the package is trusted. |
 
-Every line in the block ends with the unit's ID, such as `acme-colors:rules/usage`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
+The block starts with the commands that reach the rest: `help` lists the packages, `help <package>` prints a package's rules, docs, tools, MCP servers, skills and hooks, with your patches applied, and `help <tool>` prints a tool's usage. Every line in the block ends with the unit's ID, such as `acme-colors:rules/usage`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
 
 ## Stable paths
 
@@ -41,16 +41,18 @@ A job that does not install dependencies, such as a review bot, runs `npx -y @te
 
 ## From another folder
 
-An agent often works in a clone below its session's folder, such as `work/app`, when the repository it starts in tells it to clone what a task needs. The cloning repository needs nothing from harnesspm. The first line of the clone's managed block tells the agent what to do:
+An agent often works in a clone below its session's folder, such as `work/app`, when the repository it starts in tells it to clone what a task needs. The cloning repository needs nothing from harnesspm. The commands at the top of the clone's managed block tell the agent what to do:
 
 ```bash
-npx -y @tenphi/harnesspm -C work/app help                          # the clone's tools, rules, docs and skills
-npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run one, from the session's folder
+npx -y @tenphi/harnesspm -C work/app help                          # the clone's packages, one line each
+npx -y @tenphi/harnesspm -C work/app help @acme/ui                 # one package's rules, docs, tools and skills
+npx -y @tenphi/harnesspm -C work/app help acme-ui:tokens           # a tool's usage, without running it
+npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run it, from the session's folder
 ```
 
 - `-C <dir>` goes before the command, as in `git -C`. Every command takes it.
 - The script runs in the current folder, so file arguments stay valid. The `run` event goes to the clone's telemetry handler.
-- A clone that is not installed works too. `help` fetches its harness packages first; fetching only downloads and checks integrity. Self-contained scripts then run. A script that needs a package of the clone's install says so and names the install command.
+- A clone that is not installed works too. `help` fetches its harness packages first, and `help <tool>` never runs the script; fetching only downloads and checks integrity. Self-contained scripts then run. A script that needs a package of the clone's install says so and names the install command.
 - The clone's hooks and allow rules do not apply: agents read them only from the folder the session starts in.
 - Keep the block near the top of `AGENTS.md`: agents often read only the first lines. `status` warns when the block starts past line 30.
 
@@ -82,13 +84,13 @@ The block points at one path per package, so harnesspm uses one version of each 
 
 ## Keep the always-on text small
 
-Always-on text is in every session. `npx harnesspm status` reports its size for each agent:
+Always-on text is in every session. The managed block names each rule and tool in one line, so it stays small with many packages and workspaces. `npx harnesspm status` reports the size for each agent:
 
 ```text
-📏 always-on     Codex 2.5 KiB of 32 KiB · Claude Code 61 lines
+📏 always-on     Codex 1.9 KiB of 32 KiB · Claude Code 32 lines
 ```
 
-Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Both also name each harnesspm block that Codex never reaches, such as one after long hand-written text. Move that block to the top of the file: `sync` keeps it there. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
+Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Both also name each harnesspm block that Codex never reaches, such as one after long hand-written text, and say that agents can still get it with `help <package>`. Move that block to the top of the file: `sync` keeps it there. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
 
 ## More
 

@@ -9,11 +9,11 @@
   "units": {
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "98292ebc7384e858"
+      "hash": "2a19bdf840b20b02"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",
-      "hash": "91b0cd8b178bda8f"
+      "hash": "755c5b2ec8e867ce"
     },
     "harnesspm:rules/harnesspm-config": {
       "kind": "rules",
@@ -21,7 +21,7 @@
     },
     "harnesspm:skills/harnesspm-export": {
       "kind": "skills",
-      "hash": "8dad2fc67c32d3d5"
+      "hash": "fb92aa8cb29e1e26"
     },
     "harnesspm:skills/harnesspm-import": {
       "kind": "skills",

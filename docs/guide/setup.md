@@ -61,7 +61,7 @@ A pending line gives only a count. To learn what each tool does, read the packag
 
 | File | What it holds | Commit |
 | --- | --- | --- |
-| `AGENTS.md` | The managed block: always-on rules, a docs index and scripts for each package | Yes |
+| `AGENTS.md` | The managed block: the commands that reach the harness, then one line for each rule, docs index and tool of each package | Yes |
 | `CLAUDE.md` | `@AGENTS.md`, so Claude Code reads the block. A folder with its own `AGENTS.md` that git tracks gets one too. | Yes |
 | `harnesspm.json` | Your configuration: trust, patches, exclusions | Yes |
 | `harnesspm.lock.json` | Every harness package and every unit's hash | Yes |
@@ -96,10 +96,10 @@ Step 1 looks like this:
 }
 ```
 
-After step 2, the script of `@acme/ui` appears in the block:
+After step 2, the script of `@acme/ui` appears in the block as a tool. The commands at the top of the block say how to run it and how to see its options with `help acme-ui:tokens`:
 
 ```markdown
-- Script: `npx -y @tenphi/harnesspm run acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
+- Tool: `acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
 `@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).
@@ -150,7 +150,7 @@ $ npx harnesspm status
 ➕ added         none
 ⏳ pending: @acme/colors: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)
 ⏳ pending: @acme/styles: 1 script, 1 hook (not trusted; a person turns it on in "trust" in harnesspm.json)
-📏 always-on     Codex 2.5 KiB of 32 KiB · Claude Code 61 lines
+📏 always-on     Codex 1.9 KiB of 32 KiB · Claude Code 32 lines
 ```
 
 `doctor` checks that per-machine files stay out of git and that the outputs are in place. Each problem names the command that fixes it:

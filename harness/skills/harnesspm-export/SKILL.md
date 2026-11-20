@@ -27,7 +27,7 @@ Share what the package's **users** need. Keep contributor-only instructions (rel
 
 Write each skill's `description` as what it does, then "Use when …" with the situations and words people use. Agents pick skills by that text, but not every time: when a skill must run in a situation, also add an always-on rule that names it.
 
-Keep always-on rules short. One topic per file, split into small `##` sections, so users can patch one section, replace one file or drop it.
+Keep always-on rules short. One topic per file, split into small `##` sections, so users can patch one section, replace one file or drop it. The `AGENTS.md` block shows an always-on rule as one line, its title and its `##` and `###` headings, and agents read the text with `npx -y @tenphi/harnesspm help <package>`. So name each section by what it asks, such as "Never edit outputs".
 
 ## 3. Pass on upstream harness
 
