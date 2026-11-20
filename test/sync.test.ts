@@ -164,7 +164,7 @@ test('the block has a blank line after BEGIN and before END, so Prettier leaves 
   writeFiles(dir, { 'AGENTS.md': '# Team\n' });
   run(dir, 'sync');
   const agents = read(dir, 'AGENTS.md');
-  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\n## @tenphi\/tasty/);
+  assert.match(agents, /<!-- BEGIN:harnesspm[^\n]*-->\n\nWorking from outside this folder, [^\n]*\n\n## @tenphi\/tasty/);
   assert.match(agents, /\(uikit:docs\)\n\n<!-- END:harnesspm -->\n/);
 
   // A block that harnesspm 0.3 wrote, without the blank lines, is up to date until the next sync rewrites it once.

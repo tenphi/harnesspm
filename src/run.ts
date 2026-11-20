@@ -1,5 +1,5 @@
 // harnesspm run and harnesspm mcp (spec 5.1, 5.3).
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import { harnesspmHome } from './added.ts';
 import { trustOf } from './exec-outputs.ts';
@@ -55,7 +55,18 @@ function interpreter(file: string): [string, string[]] {
   return [file, []];
 }
 
-export function runScript(res: Resolution, ref: string, args: string[], agent: string | undefined): number {
+/** Node.js's error codes for an import or require that finds no module. */
+const MISSING_MODULE = /\b(?:ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND)\b/;
+
+/**
+ * Where a script's dependencies come from. A project without an install runs scripts from fetched packages, which have
+ * no dependencies of their own; `install` is then the command that installs the project.
+ */
+export interface RunContext {
+  install?: string;
+}
+
+export function runScript(res: Resolution, ref: string, args: string[], agent: string | undefined, context: RunContext = {}): Promise<number> {
   const { plugin, name } = parseRef(ref);
   const script = res.scripts.find((s) => s.pkg.plugin === plugin && s.name === name);
   if (!script) {
@@ -66,12 +77,31 @@ export function runScript(res: Resolution, ref: string, args: string[], agent: s
   if (!isFile(script.file)) throw new HarnessError(`Script ${ref}: ${script.file} does not exist`);
   const [command, prefix] = interpreter(script.file);
   const started = Date.now();
-  const result = spawnSync(command, [...prefix, ...args], { stdio: 'inherit', cwd: process.cwd(), env: environment(script.pkg, res, agent) });
-  if (result.error) throw new HarnessError(`Script ${ref} could not start: ${result.error.message}`);
-  const status = result.status ?? 1;
-  // Never the arguments: they can hold anything (spec 14.2).
-  unitEvent(res, 'run', script, agent, { exit: status, duration: Date.now() - started });
-  return status;
+  // The script runs in the caller's folder, so file arguments stay valid, also with -C (spec 10.1). stdout streams as it
+  // is. stderr passes through too, and its tail shows whether a dependency was missing.
+  const child = spawn(command, [...prefix, ...args], { stdio: ['inherit', 'inherit', 'pipe'], cwd: process.cwd(), env: environment(script.pkg, res, agent) });
+  let tail = '';
+  child.stderr.on('data', (chunk: Buffer) => {
+    process.stderr.write(chunk);
+    tail = (tail + chunk.toString('utf8')).slice(-4096);
+  });
+  return new Promise((done, fail) => {
+    let failed = false;
+    child.on('error', (error) => {
+      failed = true;
+      fail(new HarnessError(`Script ${ref} could not start: ${error.message}`));
+    });
+    child.on('close', (code, signal) => {
+      if (failed) return;
+      const status = code ?? (signal !== null ? 1 : 0);
+      if (status !== 0 && context.install !== undefined && MISSING_MODULE.test(tail)) {
+        process.stderr.write(`harnesspm: ${ref} needs a package that the project installs, and this project has no install. Install it with \`${context.install}\`, then run the script again.\n`);
+      }
+      // Never the arguments: they can hold anything (spec 14.2).
+      unitEvent(res, 'run', script, agent, { exit: status, duration: Date.now() - started });
+      done(status);
+    });
+  });
 }
 
 export function runMcp(res: Resolution, ref: string, agent: string | undefined): number {

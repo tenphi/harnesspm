@@ -10,7 +10,7 @@
 
 | File | Role |
 | --- | --- |
-| [`AGENTS.md`](https://github.com/tenphi/harnesspm/blob/main/AGENTS.md) | How to work on this repository, including how to save changes. Ends with the harnesspm block that `npm run sync` writes. |
+| [`AGENTS.md`](https://github.com/tenphi/harnesspm/blob/main/AGENTS.md) | How to work on this repository, including how to save changes. The harnesspm block that `npm run sync` writes comes right after the title, where agents that read only the top of the file see it. |
 | [`CLAUDE.md`](https://github.com/tenphi/harnesspm/blob/main/CLAUDE.md) | Imports `AGENTS.md` for Claude Code. |
 | [`harnesspm.json`](https://github.com/tenphi/harnesspm/blob/main/harnesspm.json) | This repository's project configuration. |
 | [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness) | The harness that ships to everyone who installs `@tenphi/harnesspm`. Part of the project layer here, the dependency layer for users. |

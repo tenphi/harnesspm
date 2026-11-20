@@ -44,7 +44,7 @@ test('S7: each workspace gets its own block; what every workspace shares is writ
   assert.match(root, /### Style \(lint:rules\/style\)/, 'shared by every workspace');
   assert.doesNotMatch(root, /uikit|server:|ui:rules/);
   // An agent that works through the shell never loads a workspace's block, so the always-on root names them (#23).
-  assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
+  assert.match(root, /<!-- BEGIN:harnesspm[^\n]*\n\nWorking from outside this folder, [^\n]*\n\n## Workspaces\n\nThese folders have harness rules of their own in their `AGENTS\.md`: `packages\/api`, `packages\/ui`, `packages\/web`\. Read a folder's `AGENTS\.md` before you change files in it\.\n\n## @acme\/lint/);
 
   const web = read(dir, 'packages/web/AGENTS.md');
   assert.match(web, /## @cube-dev\/ui-kit\n/);
@@ -94,7 +94,7 @@ test('a workspace that another workspace depends on is the project\'s own code, 
   });
   const result = run(dir, 'sync');
   assert.doesNotMatch(result.stdout, /pending: @acme\/ui/);
-  assert.match(read(dir, 'packages/web/AGENTS.md'), /- Script: `npx harnesspm run ui:tokens` — List tokens/);
+  assert.match(read(dir, 'packages/web/AGENTS.md'), /- Script: `npx -y @tenphi\/harnesspm run ui:tokens` — List tokens/);
   assert.equal(run(dir, 'run', 'ui:tokens').stdout.trim(), 'tokens');
 });
 

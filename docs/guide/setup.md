@@ -50,7 +50,7 @@ Links and settings for this machine stay out of git: .git/info/exclude lists the
 
 The four packages are the three `@acme` packages and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
 
-The pending lines are normal. They name who turns the tools on: a person, never the agent. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx harnesspm run` refuses it until then.
+The pending lines are normal. They name who turns the tools on: a person, never the agent. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx -y @tenphi/harnesspm run` refuses it until then.
 
 A pending line gives only a count. To learn what each tool does, read the package's manifest, `node_modules/.harnesspm/pkgs/<package>/harness/plugin.json`:
 
@@ -99,7 +99,7 @@ Step 1 looks like this:
 After step 2, the script of `@acme/ui` appears in the block:
 
 ```markdown
-- Script: `npx harnesspm run acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
+- Script: `npx -y @tenphi/harnesspm run acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
 `@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).

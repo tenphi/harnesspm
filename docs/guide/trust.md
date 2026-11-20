@@ -52,10 +52,10 @@ Then run `npx harnesspm sync`. Trust never passes through `extends`: trusting `@
 A dependency cannot grant itself broad rights. harnesspm writes allow rules only for units from the project, an added harness or a trusted package, and only for three things:
 
 - each skill, as `Skill(<name>)`, so an unattended Claude Code session can run it;
-- each script with `"allow": true`, as `Bash(npx harnesspm run <plugin>:<script> *)` for Claude Code and a `prefix_rule` for Codex;
+- each script with `"allow": true`, as `Bash(npx -y @tenphi/harnesspm run <plugin>:<script> *)` for Claude Code, and for now also the earlier `Bash(npx harnesspm run <plugin>:<script> *)`, and a `prefix_rule` for Codex;
 - each MCP server's tools, for Claude Code.
 
-Deny and ask rules from any package pass through, because they only restrict. Every script runs through `npx harnesspm run`, which refuses a script when its package is not trusted, or when the installed version differs from the lock.
+Deny and ask rules from any package pass through, because they only restrict. Every script runs through `harnesspm run`, which refuses a script when its package is not trusted, or when the installed version differs from the lock.
 
 ## An agent cannot grant itself permissions
 
