@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+### Minor Changes
+
+- [#44](https://github.com/tenphi/harnesspm/pull/44) [`d9b558f`](https://github.com/tenphi/harnesspm/commit/d9b558fb73a8d914437d8f0a34a66e189ed24701) Thanks [@tenphi](https://github.com/tenphi)! - Use a cloned repository's harness from another folder: `harnesspm -C <dir> <command>` acts on the project in `<dir>`, `help` lists the project's scripts, MCP servers, rules, docs and skills (fetching its harness packages first when it has no install), `run` and `mcp` use fetched packages and say what is missing instead of `No script`, and the managed block starts with a line for agents outside the folder and gives tools as `npx -y @tenphi/harnesspm run <unit>`.
+
+- [#47](https://github.com/tenphi/harnesspm/pull/47) [`c300231`](https://github.com/tenphi/harnesspm/commit/c30023153ced717ec184ed2b94358a9bcdf1ff47) Thanks [@tenphi](https://github.com/tenphi)! - Rules are no longer inlined in AGENTS.md; agents get them with `help <package>`. The managed block now starts with the commands that reach the harness, then names each always-on rule in one line (its title and section headings), and lists tools by name without repeating the run command. `harnesspm help <package>` prints a package's rules in full with your patches, its docs, tools, MCP servers, skills and hooks; `help <rule ID>` prints one rule; `help <tool>` prints a tool's usage and run command without running it, from a new optional `usage` field in the script's manifest entry. All work with `-C` and without an install, and `help` with a target is a new telemetry event.
+
 ## 0.7.0
 
 ### Minor Changes
