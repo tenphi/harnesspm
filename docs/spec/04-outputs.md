@@ -50,7 +50,7 @@ Notes:
 4. File-scoped and on-demand rules of added harnesses are pointer lines with absolute paths, in `CLAUDE.local.md` and the user-level blocks. They get no `.claude/rules/` link, because Claude Code treats a link to a file outside the working folder as an external import that needs approval. Patched rules and docs indexes of added harnesses are generated into `~/.harnesspm/generated/`, because a repository may have no `node_modules`.
 5. An added harness's `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the local block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 6. With agent events on, harnesspm also writes its own telemetry hooks into the same hook files, and the index they read into `node_modules/.harnesspm/telemetry.json` ([14.4](14-telemetry.md#144-agent-events)).
-7. Claude Code reads a nested `AGENTS.md` only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in its folder or above, and the root `CLAUDE.md` that imports the block is one ([research](../research/agent-capabilities.md#instructions)). So every nested `AGENTS.md` that git tracks, outside `node_modules`, gets an `@AGENTS.md` line in a `CLAUDE.md` in the same folder. harnesspm creates that file, or adds the line at the top of an existing one. A folder whose `.claude/CLAUDE.md` already has `@../AGENTS.md` keeps it and gets no second import. These files are committed outputs: `sync --check` and `doctor` report a missing line.
+7. Claude Code reads a nested `AGENTS.md` only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in its folder or above, and the root `CLAUDE.md` that imports the block is one ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). So every nested `AGENTS.md` that git tracks, outside `node_modules`, gets an `@AGENTS.md` line in a `CLAUDE.md` in the same folder. harnesspm creates that file, or adds the line at the top of an existing one. A folder whose `.claude/CLAUDE.md` already has `@../AGENTS.md` keeps it and gets no second import. These files are committed outputs: `sync --check` and `doctor` report a missing line.
 
 ## 4.4 Outputs of added harnesses, user scope
 
@@ -71,7 +71,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 1. A workspace with its own units gets a managed block in `<workspace>/AGENTS.md`. Codex joins `AGENTS.md` files from the root down to the current folder. Paths in a workspace's block are relative to its folder. A block that becomes empty is removed, and so is a file that held only the block.
 2. A workspace's `AGENTS.md` gets a `CLAUDE.md` that imports it, like every nested `AGENTS.md` ([4.3](#43-project-outputs), note 7). Both files are committed.
 3. Skills and executable units are written at the root.
-4. The root block starts with a `## Workspaces` section that names each workspace with a block of its own. Claude Code loads a workspace's block only when the agent opens a file there with its file tools, and Codex only when it starts in that folder ([research](../research/agent-capabilities.md#instructions)). The root block is always on, so an agent that works through the shell still learns that the block exists.
+4. The root block starts with a `## Workspaces` section that names each workspace with a block of its own. Claude Code loads a workspace's block only when the agent opens a file there with its file tools, and Codex only when it starts in that folder ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). The root block is always on, so an agent that works through the shell still learns that the block exists.
 
 ## 4.6 Managed blocks
 
@@ -112,7 +112,7 @@ The committed block is **compact**: the block commands at the top, then one line
 | Hooks that check file edits, from the project or a trusted package | ``- Edit files with your file tools, not shell commands such as `sed`, so the hook that checks each edit runs (<IDs>)``, once per package. A hook counts when it runs before or after a tool and its matcher, read as each agent reads it, matches an edit tool: `Edit`, `Write` or `MultiEdit` for Claude Code, `apply_patch`, `Edit` or `Write` for Codex. A matcher that matches every tool does not count. An edit through the shell skips it. |
 | Workspaces with blocks of their own, in the root block of a monorepo | A `## Workspaces` section after the block commands, naming each folder ([4.5](#45-monorepos)) |
 
-The commands use `npx -y @tenphi/harnesspm` in every block. Inside the project, npx runs the installed harnesspm. Outside it, the agent adds `-C <path>`. The bare `npx harnesspm` fails outside a project, because `harnesspm` is not a published package name ([research](../research/agent-capabilities.md#outside-the-start-folder)).
+The commands use `npx -y @tenphi/harnesspm` in every block. Inside the project, npx runs the installed harnesspm. Outside it, the agent adds `-C <path>`. The bare `npx harnesspm` fails outside a project, because `harnesspm` is not a published package name ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#outside-the-start-folder)).
 
 **What a reviewer sees.** A dependency upgrade that changes a rule's text changes the unit's hash in the lock. The block changes only when the rule's title, headings or `description` change. `harnesspm help <package>` prints the new text.
 
@@ -120,7 +120,7 @@ The commands use `npx -y @tenphi/harnesspm` in every block. Inside the project, 
 
 Every heading and line of a unit carries its ID, so an agent can find the source with `harnesspm why`.
 
-**Position.** Agents often read only the top of `AGENTS.md`, such as with `head -30` ([research](../research/agent-capabilities.md#outside-the-start-folder)), so the block commands come first. A new file gets the block at its top. In an existing file without markers, the block goes at the end, and a person can move it up: `sync` keeps it where it is. `harnesspm status` and `doctor` warn when a committed block starts past the first 30 lines of its file.
+**Position.** Agents often read only the top of `AGENTS.md`, such as with `head -30` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#outside-the-start-folder)), so the block commands come first. A new file gets the block at its top. In an existing file without markers, the block goes at the end, and a person can move it up: `sync` keeps it where it is. `harnesspm status` and `doctor` warn when a committed block starts past the first 30 lines of its file.
 
 A blank line follows the BEGIN marker and comes before the END marker, so Markdown formatters such as Prettier leave the block as it is. A block written without them, as harnesspm 0.3 did, still counts as up to date, and the next `sync` rewrites it once.
 
@@ -143,7 +143,7 @@ Both agents have plugin systems. harnesspm does not generate plugins in v1, beca
 
 The committed block holds one line per unit, not the text of always-on rules ([4.6](#46-managed-blocks)). The always-on size that `status` reports is that of the files the agents load. The text that agents get with `help <package>` does not count toward it.
 
-Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from its project root, usually the git root, down to the folder it starts in, and only the files' bytes count toward the limit ([research](../research/agent-capabilities.md#codex)). So `status` and `doctor` also name each managed block that Codex never reads, or reads only in part, with where it starts or ends in the joined files. Each warning adds that agents can still get what the block holds with `npx -y @tenphi/harnesspm help <package>`:
+Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from its project root, usually the git root, down to the folder it starts in, and only the files' bytes count toward the limit ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#codex)). So `status` and `doctor` also name each managed block that Codex never reads, or reads only in part, with where it starts or ends in the joined files. Each warning adds that agents can still get what the block holds with `npx -y @tenphi/harnesspm help <package>`:
 
 - a root block after long hand-written text;
 - a workspace block below a long root `AGENTS.md`;
