@@ -26,7 +26,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.4 Sub-agents for Codex
 
-**Decision:** sub-agents are written for both agents. Codex reads custom agents from `.codex/agents/*.toml` and `~/.codex/agents/` ([research/agent-capabilities.md](../research/agent-capabilities.md)). The format is in [02-package-format.md](02-package-format.md#26-sub-agents).
+**Decision:** sub-agents are written for both agents. Codex reads custom agents from `.codex/agents/*.toml` and `~/.codex/agents/` ([research/agent-capabilities.md](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md)). The format is in [02-package-format.md](02-package-format.md#26-sub-agents).
 
 ### 13.5 Plugin output mode
 
@@ -35,7 +35,7 @@ Variables and slots were the other options. A patch covers the same cases, inclu
 
 ### 13.6 CI without an install
 
-**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this, from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock` ([research](../research/package-managers.md#lockfiles)). Without a URL, `fetch` downloads `<name>@<version>` from the registry. Without integrity, as with Yarn 2 and later, it says for each package that the download is not checked. `run`, `mcp` and `help` use the fetched packages too, so an agent can use a clone's self-contained tools before the clone is installed ([10-cli.md](10-cli.md#-c-dir)).
+**Decision:** `harnesspm fetch` downloads only the harness packages in the lock and fills `node_modules/.harnesspm/pkgs/` ([04-outputs.md](04-outputs.md#42-stable-package-paths)). The lock records each package's tarball URL and integrity for this, from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#lockfiles)). Without a URL, `fetch` downloads `<name>@<version>` from the registry. Without integrity, as with Yarn 2 and later, it says for each package that the download is not checked. `run`, `mcp` and `help` use the fetched packages too, so an agent can use a clone's self-contained tools before the clone is installed ([10-cli.md](10-cli.md#-c-dir)).
 
 ### 13.7 Team lock on rules (rejected)
 
@@ -57,14 +57,14 @@ A person's notes describe how repositories relate, such as "UI Kit builds on Tas
 
 ### 13.11 Agent behavior not confirmed yet
 
-Every ❓ in [research/agent-capabilities.md](../research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.5](09-cloud.md#95-what-real-sessions-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled so far:
+Every ❓ in [research/agent-capabilities.md](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md) that v1 relies on must be tested, and the 🔍 rows behind [9.5](09-cloud.md#95-what-real-sessions-confirmed) checked again. The Codex Cloud rows are out of scope (13.12). Settled so far:
 
-- Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](../research/package-managers.md)).
+- Yarn 4 runs `postinstall` but not `prepare`, so `init` uses `postinstall` in a private package ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md)).
 - Codex marks commands its model runs with `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, so rule 4 in [6.2](06-trust.md#62-trusting-a-package) covers Codex too.
 - Codex reads `developer_instructions` from a trusted project's `.codex/config.toml`.
-- A real agent improves a harness the intended way. A headless Claude Code run, asked to fix a dependency's rule for the team, used the `harnesspm-improve` skill, `why`, `new patch` and `sync`; asked to remember a preference for all projects, it wrote a rule into the person's added harness with `new rule --to` and saved it the way that harness's `AGENTS.md` said: a commit with the required prefix, pushed to `main` ([research](../research/agent-capabilities.md#claude-code)).
-- Telemetry's agent events work in a headless Claude Code run, and a project rule built from the template in [14.8](14-telemetry.md#148-reporting-harness-problems) led the agent to report a failing harness tool with `harnesspm why` output, unprompted ([research](../research/agent-capabilities.md#claude-code)).
-- A headless Claude Code run uses what harnesspm writes: hooks, allow and deny rules, local-scope MCP servers, sub-agents, and skills linked from inside or outside the repository ([research](../research/agent-capabilities.md#claude-code)). Codex outputs are checked only against its source and docs, because no Codex CLI was available.
+- A real agent improves a harness the intended way. A headless Claude Code run, asked to fix a dependency's rule for the team, used the `harnesspm-improve` skill, `why`, `new patch` and `sync`; asked to remember a preference for all projects, it wrote a rule into the person's added harness with `new rule --to` and saved it the way that harness's `AGENTS.md` said: a commit with the required prefix, pushed to `main` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)).
+- Telemetry's agent events work in a headless Claude Code run, and a project rule built from the template in [14.8](14-telemetry.md#148-reporting-harness-problems) led the agent to report a failing harness tool with `harnesspm why` output, unprompted ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)).
+- A headless Claude Code run uses what harnesspm writes: hooks, allow and deny rules, local-scope MCP servers, sub-agents, and skills linked from inside or outside the repository ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)). Codex outputs are checked only against its source and docs, because no Codex CLI was available.
 
 ### 13.13 The reviewed state in hook runs
 
@@ -88,4 +88,4 @@ A hook run may add entries ([6.2](06-trust.md#62-trusting-a-package), rule 4). S
 | Built-in telemetry adapters for vendors, such as Linear, PostHog or an OTLP client | One general mechanism, a command or a file, covers every vendor. Vendor code in harnesspm would need its own updates, secrets and trust rules. | Many projects copy the same handler. |
 | A `harnesspm report` command with handlers chosen by the project | Reporting is the project's own rule ([14.8](14-telemetry.md#148-reporting-harness-problems)). Agents file reports with their own tools, and `harnesspm why` already gives the details. | Agents often lack a tool to file with, or reports need the same fields every time, or need counting. |
 | A per-unit opt-in for a nested project: the start folder's `harnesspm.json` (or the user scope) names a project below it and the scripts, hooks and MCP servers it wants, and `sync` writes them into the start folder's per-machine files | `-C <dir>` and `help` cover tools with no copy of the harness in the start folder ([10-cli.md](10-cli.md#-c-dir)). Hooks of a nested project were the main reason for it, and they stay out. | A session that starts above a project needs the project's hooks, such as checks of each edit or telemetry hooks. |
-| Codex Cloud support | Its agent runs outside the task's VM. In a probe, no file written in the VM during a task reached it, and skills came only from cloud plugins ([research](../research/agent-capabilities.md#cloud)). A setup step that prepares files never reached a task in five tries. Codex on a person's computer stays supported. | Codex Cloud is shown to load files that the setup prepares, or harnesspm gains a Codex plugin output (13.5). |
+| Codex Cloud support | Its agent runs outside the task's VM. In a probe, no file written in the VM during a task reached it, and skills came only from cloud plugins ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud)). A setup step that prepares files never reached a task in five tries. Codex on a person's computer stays supported. | Codex Cloud is shown to load files that the setup prepares, or harnesspm gains a Codex plugin output (13.5). |

@@ -16,7 +16,7 @@ A library knows how it should be used. An agent that works in a project using th
 - The same rule is written once per agent.
 - A developer's own workflow and context live in places that cloud sessions and other projects cannot see.
 
-[research/motivating-case.md](../research/motivating-case.md) shows these problems in a real chain of packages.
+[research/motivating-case.md](https://github.com/tenphi/harnesspm/blob/main/docs/research/motivating-case.md) shows these problems in a real chain of packages.
 
 ## 1.2 How it works
 

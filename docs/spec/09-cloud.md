@@ -20,7 +20,7 @@ cd /home/user/<repo> && npm ci
 
 The install runs as a person's would, before Claude Code starts, so nothing is held back, and its hooks work from the first session ([9.5](#95-what-real-sessions-confirmed)). To check, `harnesspm status` in a new session shows no held-back line.
 
-A later install by the agent, such as after a pull, writes what the default branch records only when the clone has `origin/HEAD` ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). The cloud clones seen so far had none ([research](../research/agent-capabilities.md#cloud-sessions)). The setup script can set it without network: `git -C /home/user/<repo> remote set-head origin main || true`, with the repository's default branch.
+A later install by the agent, such as after a pull, writes what the default branch records only when the clone has `origin/HEAD` ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). The cloud clones seen so far had none ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud-sessions)). The setup script can set it without network: `git -C /home/user/<repo> remote set-head origin main || true`, with the repository's default branch.
 
 When a cloud session holds entries back, `sync`, `status` and `doctor` print this line for the project: its absolute path, and the install that its lockfile asks for, with corepack when `packageManager` is set. Without a lockfile or `harnesspm.json`, they name "the install".
 
@@ -61,7 +61,7 @@ A cloud container is discarded later. When the agent cannot push, it shows the f
 
 ## 9.5 What real sessions confirmed
 
-In November 2026 Claude Code cloud sessions confirmed both paths. Details are in [research/agent-capabilities.md](../research/agent-capabilities.md#cloud-sessions). They are to be checked again ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
+In November 2026 Claude Code cloud sessions confirmed both paths. Details are in [research/agent-capabilities.md](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud-sessions). They are to be checked again ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)).
 
 - **Added harnesses**, in a probe: every output they use. User-level rules, skills and settings written by a setup script, `CLAUDE.local.md` and `.claude/settings.local.json` written by a `SessionStart` hook, hooks, MCP servers from the cached snapshot, and skills added during a session.
 - **The repository's harness**, in a rollout in a large Yarn 4 monorepo. The setup script's install wrote the hooks and held nothing back, and a package's edit hook ran in the first session. A setup script named by a relative path failed, and no new session started.

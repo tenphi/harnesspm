@@ -25,7 +25,7 @@ The words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT** and **MAY** have th
 
 ## Verification markers
 
-Statements about how an agent behaves are marked in [research/agent-capabilities.md](../research/agent-capabilities.md):
+Statements about how an agent behaves are marked in [research/agent-capabilities.md](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md):
 
 | Marker | Meaning |
 | --- | --- |
