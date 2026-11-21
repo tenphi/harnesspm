@@ -242,3 +242,5 @@ Commands name scripts and MCP servers in a short form, `<plugin name>:<name>`: `
 - a path points outside the package, or at a file the npm tarball would not include;
 - a link in a rule, skill or doc points at a file that will not be published;
 - a docs page in a generated index ([2.7](#27-docs)) has invalid frontmatter.
+
+A link in a code sample is text, so `check` skips it. Code samples are fenced code blocks and code spans, as [CommonMark](https://spec.commonmark.org/) reads them. A fence may be indented, as in a list item. A fence that is never closed runs to the end of the page. A link in an indented code block still counts: put a sample link in a fence.

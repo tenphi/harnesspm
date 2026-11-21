@@ -9,7 +9,7 @@ import { CodeGroup } from '@tenphi/cookbook/components';
 
 - Ask your agent to set up harnesspm, or run two commands yourself. Your agent then gets the harness of your dependencies.
 - Review and commit what it wrote. After that, every install keeps it current.
-- Two things stay with you: which packages may run tools, and turning those tools on in your own terminal.
+- Two things stay with you: which packages may run tools, and the permissions that your agent may not grant itself.
 
 This page is for a project that uses libraries. To ship a harness with your own library, see [Share a harness](./share-a-harness.mdx). To bring your own way of working to every repository, see [Bring your own harness](./bring-your-own.mdx).
 
@@ -66,14 +66,14 @@ With pnpm or Yarn, add their lockfile instead of `package-lock.json`. Everything
 Rules, docs and skills work at once. Scripts, hooks and MCP servers are code, so a package's tools stay off until you trust the package.
 
 1. Ask what is waiting: "Which harnesspm tools are pending, and what does each one do?"
-2. Say which packages you trust: "Trust `@acme/ui` in harnesspm." Your agent adds the package to `trust` in `harnesspm.json`.
-3. Turn the tools on in your own terminal:
+2. Say which packages you trust: "Trust `@acme/ui` in harnesspm." Your agent adds the package to `trust` in `harnesspm.json` and runs `npx harnesspm sync`. The package's scripts then work, with your agent's usual permission prompt.
+3. Turn on the rest in your own terminal:
 
 ```shell
 npx harnesspm approve
 ```
 
-Your agent cannot do step 3. harnesspm never lets an agent give itself permissions. [Trust and safety](./trust.md) says what trust covers, and when to use `"pin"`.
+`approve` writes what an agent may not grant itself: the package's hooks and MCP servers, and the allow rules that skip your agent's prompt. Your agent cannot do step 3. harnesspm never lets an agent give itself permissions. [Trust and safety](./trust.md) says what trust covers, and when to use `"pin"`.
 
 ## 4. Keep it current
 
