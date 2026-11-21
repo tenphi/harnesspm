@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2
+
+### Patch Changes
+
+- [#60](https://github.com/tenphi/harnesspm/pull/60) [`9d6b32f`](https://github.com/tenphi/harnesspm/commit/9d6b32fb711fa79bcc280b83a938c62dbf7253d1) Thanks [@tenphi](https://github.com/tenphi)! - `harnesspm check` no longer checks links in code samples (fenced code blocks and code spans), so a sample link no longer fails the check. A link in an indented code block still counts: put a sample link in a fence.
+
 ## 0.9.1
 
 ### Patch Changes
