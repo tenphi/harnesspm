@@ -103,3 +103,11 @@ Yarn 4 writes the package's files with the tarball's modes on an upgrade in plac
 - 🔍 npm refused the first publish of the bare name `harnesspm` with `E403 You do not have permission to publish "harnesspm"`, from an account that was logged in. The registry had no package by that name and none by `harness-pm`, `harness_pm` or `harness.pm` (all 404, Nov 2026), so npm most likely holds the name.
 - The package is `@tenphi/harnesspm`, in its owner's scope, so nobody else can take or block it. The command stays `harnesspm`, so `npx harnesspm …` works wherever it is installed.
 - Commands that may run where it is not installed name the scope: `npx -y @tenphi/harnesspm …`. A bare `npx -y harnesspm` would download whatever package someone else later publishes as `harnesspm`.
+
+## What a package ships
+
+`check` judges a package by what its tarball would hold ([spec 2.10](../spec/02-package-format.md#210-validation)).
+
+- 🔍 With `files` set, npm packs a file `files` lists even when the root `.gitignore` ignores it: `npm pack --dry-run --json` listed a git-ignored `docs/built.md` for `"files": ["docs/*.md"]` (npm 10.9.9, Nov 2026). So docs built at `prepack` ship, while git, and a check that asks git, never sees them.
+- 🔍 `npm pack --dry-run --json --ignore-scripts` still runs the package's `prepare` script. It skips `prepack`, but in a test package a `prepare` script that prints a line still printed it, and so it did with `npm_config_ignore_scripts=true` (npm 10.9.9, Nov 2026). In `@cube-dev/ui-kit`, whose `prepare` is `husky install && harnesspm sync`, one listing took 4.8 s and ran a sync. So `check` reads `files` itself and never runs npm.
+- This hid dead links in a real package: `@cube-dev/ui-kit` builds its docs into `docs/` at `prepack`, next to its tracked `docs/rules/`, and `check` read only `docs/rules/` ([#52](https://github.com/tenphi/harnesspm/issues/52)). Checked against what ships, harnesspm's own spec had 29 links into `docs/research/`, which doesn't ship. They now lead to GitHub.

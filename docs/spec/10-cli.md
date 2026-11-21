@@ -41,7 +41,7 @@ npx -y @tenphi/harnesspm -C work/app run uikit:colors surface
 
 - `run` keeps the caller's folder for the script, so file arguments stay valid. `HARNESSPM_PROJECT_DIR` is the named project.
 - The `run` event goes to the named project's telemetry handler. Its `run`, `help` and `why` events carry `outside: true` when the caller's folder is outside the project ([14.2](14-telemetry.md#142-events)).
-- Hooks and allow rules of the named project do not apply: the agent reads them only from the folder its session starts in ([research](../research/agent-capabilities.md#outside-the-start-folder)).
+- Hooks and allow rules of the named project do not apply: the agent reads them only from the folder its session starts in ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#outside-the-start-folder)).
 - harnesspm runs as the version npx started. It does not hand off to the named project's installed copy.
 
 ### The project in `help`
@@ -71,7 +71,7 @@ For every target:
 - `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
 - Each run sends a `help` event to the project's handler ([14.2](14-telemetry.md#142-events)), so a team can see whether agents follow the block's pointers.
 
-Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](../research/package-managers.md)).
+Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md)).
 
 ### The install hook
 

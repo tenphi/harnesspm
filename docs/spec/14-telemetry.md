@@ -94,7 +94,7 @@ Rules:
 | Claude Code | `PostToolUse` with the matcher `Read\|Skill`, `InstructionsLoaded` with the matcher `path_glob_match\|nested_traversal\|include`, `SessionStart`. All are `"async": true`. | `tool_input.file_path` of `Read`; `tool_input.skill` of `Skill`; `file_path` of a file-scoped rule that Claude Code loads through its `.claude/rules/` link, or of a workspace's `AGENTS.md`; `source` and `session_id` |
 | Codex | `SessionStart`, `"async": true` | `source` and `session_id` |
 
-Codex reads files and skills through shell commands. harnesspm cannot map a shell command to a unit reliably, so Codex sends no `read` or `skill` events. Codex also runs a project hook only after a person reviews it in `/hooks` ([research](../research/agent-capabilities.md#codex)).
+Codex reads files and skills through shell commands. harnesspm cannot map a shell command to a unit reliably, so Codex sends no `read` or `skill` events. Codex also runs a project hook only after a person reviews it in `/hooks` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#codex)).
 
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
@@ -102,7 +102,7 @@ A hook MUST never make the agent wait. The hooks are asynchronous, and the comma
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules its managed block names; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
-A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](../research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends nothing for the block: Claude Code loads the folder's `CLAUDE.md` when the agent opens a file there, and that load sends the rules. So each rule counts once.
+A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends nothing for the block: Claude Code loads the folder's `CLAUDE.md` when the agent opens a file there, and that load sends the rules. So each rule counts once.
 
 Not seen: reads through other tools, such as `cat` in a shell or a search, and the rules in the root block, which the agent gets in every session.
 
@@ -168,7 +168,7 @@ Reporting is the project's own rule, not a harnesspm feature. A team that wants 
 
 Add it with `npx harnesspm new rule reporting-harness-problems`, which writes `harness/dev.harnesspm/rules/reporting-harness-problems.md` in the project's own harness, paste the text, and run `npx harnesspm sync`. The agent files the ticket with its own tools, such as the tracker's MCP server. A tracker the agent cannot reach can be a file, such as `harness-reports.md`, that a person reads. An unattended run asks before it runs `npx harnesspm why`, so a team that runs agents that way allows `Bash(npx harnesspm why *)` in its Claude Code settings.
 
-In a headless Claude Code run, such a rule led the agent to report a failing harness tool with the `why` output, without being asked ([research](../research/agent-capabilities.md#claude-code)).
+In a headless Claude Code run, such a rule led the agent to report a failing harness tool with the `why` output, without being asked ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)).
 
 ## 14.9 Events from a project's own tools
 

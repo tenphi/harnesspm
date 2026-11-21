@@ -14,7 +14,8 @@ export interface CheckResult {
 }
 
 const SECRET_PATTERNS: [RegExp, string][] = [
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'a private key'],
+  // A key has a body: a header alone is an example or a placeholder. Encrypted PEM puts `Name: value` lines first.
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----\s*(?:[\w-]+: [^\n]*\n\s*)*[A-Za-z0-9+/=]{40,}/, 'a private key'],
   [/\bgh[pousr]_[A-Za-z0-9]{30,}\b/, 'a GitHub token'],
   [/\bsk-[A-Za-z0-9_-]{20,}\b/, 'an API key'],
   [/\bAKIA[0-9A-Z]{16}\b/, 'an AWS access key'],
@@ -72,6 +73,44 @@ function withoutCode(text: string): string {
 function docsFiles(dir: string): string[] {
   const keeps = gitKeeps(dir);
   return walkFiles(dir).filter((file) => keeps(relPosix(dir, file)));
+}
+
+/** A `files` pattern as a test of a path relative to the package root: the path itself, or a folder above it. */
+function filesPattern(pattern: string): ((rel: string) => boolean) | undefined {
+  const clean = pattern.replace(/^\.?\//, '').replace(/\/+$/, '');
+  if (clean === '' || /[[\]{}()+@]/.test(clean)) return undefined;
+  const source = clean
+    .split('**')
+    .map((part) => part.replace(/[.^$|\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]'))
+    .join('.*')
+    .replace(/\.\*\//g, '(?:.*/)?');
+  const re = new RegExp(`^${source}(?:/.*)?$`);
+  return (rel) => re.test(rel);
+}
+
+/**
+ * Whether npm packs a path, read from `files` in package.json as npm reads it (spec 2.10): a listed path, a folder
+ * and what is in it, or a glob, less `!` entries, plus the files npm always packs. npm packs by `files`, not by
+ * `.gitignore`, so docs built at `prepack` ship. `undefined` without `files`, or with a pattern this doesn't read,
+ * such as braces: then `check` asks git, as the index does. It never runs npm, whose `pack --dry-run` runs the
+ * package's `prepare` even with `--ignore-scripts`.
+ */
+function packs(root: string): ((rel: string) => boolean) | undefined {
+  const pkg = readJsonIfExists(path.join(root, 'package.json'));
+  if (!isRecord(pkg) || !Array.isArray(pkg['files'])) return undefined;
+  const include: ((rel: string) => boolean)[] = [];
+  const exclude: ((rel: string) => boolean)[] = [];
+  for (const entry of pkg['files']) {
+    if (typeof entry !== 'string') return undefined;
+    const test = filesPattern(entry.replace(/^!/, ''));
+    if (!test) return undefined;
+    (entry.startsWith('!') ? exclude : include).push(test);
+  }
+  const named = [pkg['main'], ...(typeof pkg['bin'] === 'string' ? [pkg['bin']] : isRecord(pkg['bin']) ? Object.values(pkg['bin']) : [])]
+    .filter((file): file is string => typeof file === 'string')
+    .map((file) => file.replace(/^\.\//, ''));
+  const always = (rel: string): boolean => /^(package\.json|(readme|licen[cs]e)(\..*)?)$/i.test(rel) || named.includes(rel);
+  return (rel) => always(rel) || (include.some((test) => test(rel)) && !exclude.some((test) => test(rel)));
 }
 
 /** `target` is a package root, or a harness/ folder, or an added harness folder. */
@@ -142,9 +181,12 @@ export function checkHarness(target: string): CheckResult {
       errors.push((error as Error).message);
     }
   }
+  // Judge the docs and links by what ships (spec 2.10). Without `files` to read, by the files git keeps.
+  const packed = packs(root);
+  const ships = (file: string): boolean => (packed === undefined ? fs.existsSync(file) : packed(relPosix(root, file)));
   // Docs pages in a generated index (spec 2.7): the index takes their title and description from the frontmatter.
-  const docs = units.docs ? docsFiles(units.docs.dir) : [];
-  if (units.docs && !isFile(path.join(units.docs.dir, 'llms.txt'))) {
+  const docs = units.docs ? (packed === undefined ? docsFiles(units.docs.dir) : walkFiles(units.docs.dir).filter(ships)) : [];
+  if (units.docs && !(isFile(path.join(units.docs.dir, 'llms.txt')) && ships(path.join(units.docs.dir, 'llms.txt')))) {
     for (const file of docs) {
       if (!/\.mdx?$/.test(file)) continue;
       try {
@@ -179,13 +221,14 @@ export function checkHarness(target: string): CheckResult {
   for (const file of [...new Set(scanned)]) {
     const text = fs.readFileSync(file, 'utf8');
     for (const [pattern, what] of SECRET_PATTERNS) if (pattern.test(text)) warnings.push(`${show(file)} looks like it contains ${what}`);
-    if (!file.endsWith('.md')) continue;
+    if (!/\.mdx?$/.test(file)) continue;
     for (const match of withoutCode(text).matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
       const link = match[1]!;
       if (/^[a-z][a-z0-9+.-]*:/i.test(link) || link.startsWith('/')) continue;
       const target = path.resolve(path.dirname(file), decodeURI(link));
       if (!inside(root, target)) errors.push(`${show(file)}: the link ${link} points outside the package`);
       else if (!fs.existsSync(target)) errors.push(`${show(file)}: the link ${link} points at a missing file`);
+      else if (isFile(target) && !ships(target)) errors.push(`${show(file)}: the link ${link} points at a file the package does not ship`);
     }
   }
   return { errors, warnings, alwaysOnBytes, plugin: pkg.plugin };

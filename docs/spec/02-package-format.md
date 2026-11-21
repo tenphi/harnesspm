@@ -141,7 +141,7 @@ paths: ["**/*.tsx", "**/*.ts"]
 | `paths`, with or without `description` | **File-scoped.** Active when the agent works on matching files. The description, if any, is the text of the pointer line. |
 | `description` only | **On demand.** Listed with its description. The agent reads it when relevant. |
 
-`paths` are globs from the project root, as Claude Code reads them. A pattern without a leading `/` also matches at any depth, so `harness/**` also matches a dependency's `node_modules/<package>/harness/` when the agent only reads it there. Start a pattern with `/`, such as `/harness/**`, to match only at the root ([research](../research/agent-capabilities.md#claude-code)). Pointer lines show patterns without the `/`.
+`paths` are globs from the project root, as Claude Code reads them. A pattern without a leading `/` also matches at any depth, so `harness/**` also matches a dependency's `node_modules/<package>/harness/` when the agent only reads it there. Start a pattern with `/`, such as `/harness/**`, to match only at the root ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)). Pointer lines show patterns without the `/`.
 
 Always-on rules cost context in every session. A package SHOULD keep them short and move details into on-demand rules, docs or skills. `harnesspm check` reports the size of a package's always-on text.
 
@@ -191,7 +191,7 @@ Review the change like an owner. Do not edit files.
 | `claude:` | copied into the frontmatter | ignored |
 | `codex:` | ignored | copied into the TOML file |
 
-Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key. Keys that widen what the agent may do are written only for the project, added harnesses and trusted packages ([6.1](06-trust.md#61-what-needs-trust)): `permissionMode`, `hooks` and `mcpServers` for Claude Code, which ignores the same keys in plugin sub-agents for security ([research](../research/agent-capabilities.md#skills-sub-agents-mcp-memory)), and `sandbox_mode` and `approval_policy` for Codex.
+Only `name`, `description` and the body are portable. Agent-specific settings, such as models and tool limits, go under the agent's own key. Keys that widen what the agent may do are written only for the project, added harnesses and trusted packages ([6.1](06-trust.md#61-what-needs-trust)): `permissionMode`, `hooks` and `mcpServers` for Claude Code, which ignores the same keys in plugin sub-agents for security ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#skills-sub-agents-mcp-memory)), and `sandbox_mode` and `approval_policy` for Codex.
 
 ## 2.7 Docs
 
@@ -203,7 +203,7 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 2. If `<dir>/llms.txt` exists, harnesspm uses it as the index. Its format is the [llms.txt](https://llmstxt.org/) convention: a Markdown list of links with short descriptions.
 3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. A page with invalid frontmatter is listed without it, and `sync` warns: it MUST NOT fail, because a project cannot fix a dependency's page. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
-5. A file that git ignores is not part of the docs: the index, the lock and `check` leave it out. Such a file, like an agent's local plan next to the pages, never reaches another clone, so counting it would make one machine's lock differ from CI's. This applies when the docs folder is in a git work tree and git does not ignore the folder itself. An installed package in `node_modules` counts whole.
+5. A file that git ignores is not part of the docs: the index and the lock leave it out. Such a file, like an agent's local plan next to the pages, never reaches another clone, so counting it would make one machine's lock differ from CI's. This applies when the docs folder is in a git work tree and git does not ignore the folder itself. An installed package in `node_modules` counts whole. `check` reads the docs as the tarball has them instead ([2.10](#210-validation)), so it also checks pages built at `prepack`, which git ignores but npm packs.
 
 ## 2.8 Unit IDs
 
@@ -242,5 +242,7 @@ Commands name scripts and MCP servers in a short form, `<plugin name>:<name>`: `
 - a path points outside the package, or at a file the npm tarball would not include;
 - a link in a rule, skill or doc points at a file that will not be published;
 - a docs page in a generated index ([2.7](#27-docs)) has invalid frontmatter.
+
+`check` judges a package by what its tarball would hold. It reads `files` in `package.json` as npm does: a listed path, a folder and what is in it, or a glob with `*`, `**` and `?`, less the `!` entries, plus the files npm always packs (`package.json`, the README, the license, `main` and `bin`). The docs pages are the docs folder's files that `files` packs, git-ignored or not, and a link in a `.md` or `.mdx` file must lead to a file that ships. `check` never runs npm for this: `npm pack --dry-run` runs the package's `prepare` script even with `--ignore-scripts` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#what-a-package-ships)). Without `files`, or with a pattern it does not read, such as braces, `check` reads the files on disk, without the docs files git ignores.
 
 A link in a code sample is text, so `check` skips it. Code samples are fenced code blocks and code spans, as [CommonMark](https://spec.commonmark.org/) reads them. A fence may be indented, as in a list item. A fence that is never closed runs to the end of the page. A link in an indented code block still counts: put a sample link in a fence.

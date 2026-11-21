@@ -119,3 +119,65 @@ test('check reports the problems that would ship', () => {
   assert.match(text, /looks like it contains a GitHub token/);
   assert.match(text, /skill "setup" should start with the plugin name/);
 });
+
+test('check judges docs by what npm packs: built pages git ignores, links to files that do not ship, and .mdx pages', () => {
+  const dir = library(
+    { docs: '../docs' },
+    {
+      'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nText.\n',
+      // Built at prepack, so git ignores it, but `files` ships it.
+      '.gitignore': 'docs/*.md\n',
+      'docs/built.md': '# Built\n\nSee [nothing](./nope.md).\n',
+      // Tracked, but it does not ship, so its links are not the package's.
+      'docs/rules/internal.md': '# Internal\n\nSee [code](../../src/x.ts).\n',
+      'src/x.ts': 'export {};\n',
+    },
+    { files: ['harness', 'docs/*.md', 'docs/*.mdx'] },
+  );
+  const built = run(dir, 'check');
+  assert.equal(built.status, 1);
+  assert.match(built.stdout + built.stderr, /docs\/built\.md: the link \.\/nope\.md points at a missing file/);
+  assert.doesNotMatch(built.stdout + built.stderr, /internal\.md/);
+
+  writeFiles(dir, { 'docs/built.md': '# Built\n\nSee [code](../src/x.ts).\n' });
+  assert.match(run(dir, 'check').stdout, /docs\/built\.md: the link \.\.\/src\/x\.ts points at a file the package does not ship/);
+
+  writeFiles(dir, { 'docs/built.md': '# Built\n\nText.\n', 'docs/page.mdx': '---\ntitle: Page\n---\n\nSee [gone](./gone.md).\n' });
+  assert.match(run(dir, 'check').stdout, /docs\/page\.mdx: the link \.\/gone\.md points at a missing file/);
+
+  writeFiles(dir, { 'docs/page.mdx': '---\ntitle: Page\n---\n\nSee [built](./built.md).\n' });
+  const ok = run(dir, 'check');
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+});
+
+test('a private key needs a body: a PEM header alone, as in a placeholder, is no secret', () => {
+  const placeholder = library({}, { 'harness/dev.harnesspm/rules/keys.md': '# Keys\n\n```\n-----BEGIN PRIVATE KEY-----\n```\n' }, { files: ['harness'] });
+  const quiet = run(placeholder, 'check');
+  assert.doesNotMatch(quiet.stdout + quiet.stderr, /private key/);
+  const key = library(
+    {},
+    { 'harness/dev.harnesspm/rules/keys.md': `# Keys\n\n-----BEGIN PRIVATE KEY-----\n${'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC'.repeat(2)}\n-----END PRIVATE KEY-----\n` },
+    { files: ['harness'] },
+  );
+  const loud = run(key, 'check');
+  assert.match(loud.stdout + loud.stderr, /keys\.md looks like it contains a private key/);
+});
+
+test('check reads files as npm does: globs across folders, and ! entries that leave a file out', () => {
+  const dir = library(
+    { docs: '../docs' },
+    {
+      'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nSee [the guide](../../../docs/guides/deep/guide.md) and [the license](../../../LICENSE).\n',
+      'docs/guides/deep/guide.md': '# Guide\n\nSee [the draft](../../draft.md).\n',
+      'docs/draft.md': '# Draft\n',
+      LICENSE: 'MIT\n',
+    },
+    { files: ['harness', 'docs/**/*.md', '!docs/draft.md'] },
+  );
+  const result = run(dir, 'check');
+  assert.equal(result.status, 1);
+  const text = result.stdout + result.stderr;
+  assert.match(text, /guide\.md: the link \.\.\/\.\.\/draft\.md points at a file the package does not ship/);
+  // npm always packs the license, and the glob reaches the nested guide.
+  assert.doesNotMatch(text, /usage\.md/);
+});
