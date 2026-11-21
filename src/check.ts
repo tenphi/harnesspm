@@ -40,6 +40,35 @@ function walkFiles(dir: string): string[] {
   return files.sort();
 }
 
+/** A fence line: its indent, its run of backticks or tildes, and the rest of the line. */
+const FENCE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+/** An escaped character, a code span (backticks closed by a run of the same length within one paragraph), or backticks that open nothing. */
+const CODE_SPAN = /\\[\s\S]|(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?(?<!`)\1(?!`)|`+/g;
+
+/**
+ * A Markdown page with its code samples blanked out, so that a link in a sample is not checked (spec 2.10):
+ * fenced code blocks and code spans, as CommonMark reads them. A fence that is never closed runs to the end of the page.
+ * A fence may be indented, as in a list item. Its closing fence is indented at most 3 columns more.
+ * Indented code blocks stay: telling one from a list item's paragraph needs a full Markdown parser.
+ */
+function withoutCode(text: string): string {
+  const lines = text.split(/\r?\n/);
+  let open: { char: string; length: number; indent: number } | undefined;
+  for (const [i, line] of lines.entries()) {
+    const fence = FENCE.exec(line);
+    if (open) {
+      if (fence && fence[2]![0] === open.char && fence[2]!.length >= open.length && fence[3]!.trim() === '' && fence[1]!.length <= open.indent + 3) open = undefined;
+      lines[i] = '';
+    } else if (fence && !(fence[2]![0] === '`' && fence[3]!.includes('`'))) {
+      // The info string of a backtick fence has no backticks: such a line starts a code span instead.
+      open = { char: fence[2]![0]!, length: fence[2]!.length, indent: fence[1]!.length };
+      lines[i] = '';
+    }
+  }
+  // Spaces keep the text around a span apart, so that `[a]` and `(b)` on each side of it do not become a link.
+  return lines.join('\n').replace(CODE_SPAN, (match: string, ticks?: string) => (ticks === undefined ? match : match.replace(/[^\n]/g, ' ')));
+}
+
 /** A docs folder's files without the ones git ignores, as the lock and the index count them (spec 2.7). */
 function docsFiles(dir: string): string[] {
   const keeps = gitKeeps(dir);
@@ -193,7 +222,7 @@ export function checkHarness(target: string): CheckResult {
     const text = fs.readFileSync(file, 'utf8');
     for (const [pattern, what] of SECRET_PATTERNS) if (pattern.test(text)) warnings.push(`${show(file)} looks like it contains ${what}`);
     if (!/\.mdx?$/.test(file)) continue;
-    for (const match of text.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
+    for (const match of withoutCode(text).matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
       const link = match[1]!;
       if (/^[a-z][a-z0-9+.-]*:/i.test(link) || link.startsWith('/')) continue;
       const target = path.resolve(path.dirname(file), decodeURI(link));

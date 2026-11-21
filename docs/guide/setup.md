@@ -8,7 +8,7 @@ description: Every step of setting up harnesspm in a project - install, init, wh
 
 - Install `@tenphi/harnesspm` as a dev dependency and run `npx harnesspm init` once.
 - Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json`, `package.json` and the package manager's lockfile.
-- Trust is the person's decision. An agent asks first, and the person turns the tools on in their own terminal.
+- Trust is the person's decision. An agent asks first. The person runs `npx harnesspm approve` in their own terminal for what an agent may not grant itself.
 - Add `npx harnesspm sync --check` to CI.
 
 You need Node.js 20 or later, and npm, pnpm, Yarn 1 or Yarn 4 with the `node-modules` linker. harnesspm writes files for Claude Code and Codex.
@@ -84,8 +84,8 @@ A package can ship scripts, hooks and MCP servers. They run only when your proje
 
 Trust is the person's decision, in two steps:
 
-1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself.
-2. The person runs `npx harnesspm approve` in their own terminal. It writes the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
+1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself. From then on, the package's scripts run through `harnesspm run`, with the agent's usual permission prompt.
+2. The person runs `npx harnesspm approve` in their own terminal. It writes what an agent may not grant itself: the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
 
 Step 1 looks like this:
 
@@ -96,13 +96,13 @@ Step 1 looks like this:
 }
 ```
 
-After step 2, the script of `@acme/ui` appears in the block as a tool. The commands at the top of the block say how to run it and how to see its options with `help acme-ui:tokens`:
+After step 1 and a `sync`, the script of `@acme/ui` appears in the block as a tool. The commands at the top of the block say how to run it and how to see its options with `help acme-ui:tokens`:
 
 ```markdown
 - Tool: `acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
-`@acme/ui` asks for its script to run without a prompt, so harnesspm also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).
+`@acme/ui` asks for its script to run without a prompt, so step 2 also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).
 
 ## 5. Keep it current
 

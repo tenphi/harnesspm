@@ -47,6 +47,57 @@ test('check reports a docs page with invalid frontmatter, unless the package has
   assert.equal(own.status, 0, own.stdout + own.stderr);
 });
 
+test('check skips links in code samples', () => {
+  const page = [
+    '# Images',
+    '',
+    '```md',
+    '![Architecture](./assets/architecture.svg)',
+    '```',
+    '',
+    '~~~~markdown',
+    'See [the guide](./fenced.md).',
+    // A shorter fence or one of the other character does not close it.
+    '~~~',
+    '```',
+    '~~~~',
+    '',
+    'Write `[a link](./span.md)`, or ``[one](./ticks.md) with a ` in it``.',
+    '',
+    '- A list:',
+    '  - with a fence in an item:',
+    '',
+    '    ```md',
+    '    ![Logo](./item.svg)',
+    '    ```',
+    '',
+  ].join('\n');
+  const dir = library({ docs: '../docs' }, { 'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nText.\n', 'docs/images.md': page }, { files: ['harness', 'docs'] });
+  const ok = run(dir, 'check');
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+
+  // A link outside code still counts.
+  writeFiles(dir, { 'docs/images.md': `${page}\nSee [the guide](./missing.md).\n` });
+  const missing = run(dir, 'check');
+  assert.equal(missing.status, 1);
+  const text = missing.stdout + missing.stderr;
+  assert.match(text, /the link \.\/missing\.md points at a missing file/);
+  assert.doesNotMatch(text, /architecture\.svg|fenced\.md|span\.md|ticks\.md|item\.svg/);
+});
+
+test('a fence that is never closed runs to the end of the page, as in CommonMark', () => {
+  const dir = library(
+    {},
+    { 'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nSee [before](./before.md).\n\n```md\n[after](./after.md)\n\n# Not a heading\n\n[later](./later.md)\n' },
+    { files: ['harness'] },
+  );
+  const result = run(dir, 'check');
+  assert.equal(result.status, 1);
+  const text = result.stdout + result.stderr;
+  assert.match(text, /the link \.\/before\.md points at a missing file/);
+  assert.doesNotMatch(text, /after\.md|later\.md/);
+});
+
 test('check reports the problems that would ship', () => {
   const dir = library(
     { extend: ['typo'], docs: '../docs' },
