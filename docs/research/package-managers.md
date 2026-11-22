@@ -111,3 +111,11 @@ Yarn 4 writes the package's files with the tarball's modes on an upgrade in plac
 - 🔍 With `files` set, npm packs a file `files` lists even when the root `.gitignore` ignores it: `npm pack --dry-run --json` listed a git-ignored `docs/built.md` for `"files": ["docs/*.md"]` (npm 10.9.9, Nov 2026). So docs built at `prepack` ship, while git, and a check that asks git, never sees them.
 - 🔍 `npm pack --dry-run --json --ignore-scripts` still runs the package's `prepare` script. It skips `prepack`, but in a test package a `prepare` script that prints a line still printed it, and so it did with `npm_config_ignore_scripts=true` (npm 10.9.9, Nov 2026). In `@cube-dev/ui-kit`, whose `prepare` is `husky install && harnesspm sync`, one listing took 4.8 s and ran a sync. So `check` reads `files` itself and never runs npm.
 - This hid dead links in a real package: `@cube-dev/ui-kit` builds its docs into `docs/` at `prepack`, next to its tracked `docs/rules/`, and `check` read only `docs/rules/` ([#52](https://github.com/tenphi/harnesspm/issues/52)). Checked against what ships, harnesspm's own spec had 29 links into `docs/research/`, which doesn't ship. They now lead to GitHub.
+
+## Git excludes below the git root
+
+harnesspm keeps per-machine files out of git through `.git/info/exclude` ([spec 4.1](../spec/04-outputs.md#41-principles)).
+
+- 🔍 A pattern in `.git/info/exclude` that starts with `/` is anchored at the top of the work tree, not at the folder git runs in. A project in `docs-site/` needs `/docs-site/.claude/`; `/.claude/` misses it (git 2.43, Nov 2026).
+- 🔍 `git rev-parse --show-toplevel --show-prefix --git-path info/exclude` prints the top folder, the path from it to the current folder (`docs-site/`, or an empty line at the top), and the exclude file, one per line, in the order asked.
+- 🔍 `git check-ignore -v -n` prints, for each path, the file and the pattern that decide it, also when that pattern starts with `!` and brings the path back. The file is named from the top of the work tree, such as `docs-site/.gitignore`. A path that no pattern matches gets empty fields. So `doctor` can tell a `!` pattern from an entry that matches nothing.

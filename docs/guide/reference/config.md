@@ -27,7 +27,7 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 | --- | --- | --- | --- |
 | `$schema` | string | — | The JSON schema, for editors. |
 | `exclude` | string[] | `[]` | Unit IDs or package names, such as `"@acme/styles"`, to drop, with everything only they extend. |
-| `replace` | object | `{}` | Unit ID → path of a project file that takes its place. |
+| `replace` | object | `{}` | Rule or skill ID → path of a project file, or skill folder, that takes its place. |
 | `patch` | object | `{}` | Rule ID → path of a patch that changes some of its sections. |
 | `trust` | object | `{}` | Package name → `true` (follows upgrades) or `"pin"` (each new version needs `harnesspm approve`). Lets the package's scripts, hooks, MCP servers and allow rules run. |
 | `telemetry` | object | off | Events and the handler that gets them. |

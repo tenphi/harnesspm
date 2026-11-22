@@ -147,6 +147,18 @@ test('local scope: the harness applies in one repository and is listed in harnes
   assert.doesNotMatch(status, /CLAUDE\.local\.md|harnesspm\.local\.json|\.codex/);
 });
 
+test('local scope in a project below the git root: its per-machine files stay out of git', () => {
+  const repo = project({}, {}, false);
+  const dir = path.join(repo, 'app');
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }), 'harnesspm.json': '{}\n' });
+  const notes = harness('notes', { 'dev.harnesspm/rules/context.md': '# Context\n\nThis app talks to the billing API.\n' });
+  assert.equal(run(dir, 'add', notes, '--local').status, 0);
+  assert.match(read(repo, '.git/info/exclude'), /^\/app\/harnesspm\.local\.json$/m);
+  assert.doesNotMatch(read(repo, '.git/info/exclude'), /^\/harnesspm\.local\.json$/m);
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: repo, encoding: 'utf8' }).stdout;
+  assert.doesNotMatch(status, /CLAUDE\.local\.md|harnesspm\.local\.json|\.codex/);
+});
+
 test('a repository without harnesspm gets only the outputs of added harnesses', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-plain-'));
   homeOf(dir);

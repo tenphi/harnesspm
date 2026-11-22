@@ -111,6 +111,8 @@ Point `docs` at your docs folder, relative to `harness/`:
 
 The block gets one line that points at an index of these pages, at the installed version. harnesspm uses your `llms.txt` as the index when the folder has one. Otherwise it lists every `.md` and `.mdx` page with its title and `description`. `check` fails on a page whose frontmatter is not valid YAML. Add `docs` to `files` too.
 
+Your docs folder can be one that your build writes and git ignores. Your users get it from the tarball. In your own repository, `sync` leaves it out, so the lock stays the same before and after a build, and `check` at `prepack` still reads it.
+
 ## Skills and sub-agents
 
 ```shell
@@ -173,6 +175,14 @@ Keep only the sections you change and edit them. Delete the others. To drop a se
 ```
 
 Because the rule reaches your repository through your own harness's `extends`, `new patch` registers the patch in `harness/plugin.json`, so your users get the change too. In the site's example, `@acme/ui` patches the colors rule of `@acme/colors`, so that apps on `@acme/ui` use its tokens.
+
+When an upstream skill does not fit your users, replace it with a skill folder of your own, in `harness/plugin.json`:
+
+```json
+"replace": { "acme-colors:skills/acme-colors-theme": "./skills/acme-colors-theme" }
+```
+
+The folder is not a skill of its own. It takes the upstream skill's ID and place, so its `SKILL.md` keeps the upstream `name`. Tools, hooks and other units can't be replaced: exclude them and add your own.
 
 With harnesspm in your repository, your own agents also read your harness, in the project layer. Contributors see what users see.
 

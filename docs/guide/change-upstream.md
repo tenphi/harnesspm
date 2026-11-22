@@ -7,7 +7,7 @@ description: Patch, replace or exclude any unit from a dependency, find where a 
 **In short**
 
 - `npx harnesspm why <ID>` names a unit's owner and source, and says how to change it.
-- In `harnesspm.json`, a `patch` changes a few sections of a rule, `replace` swaps a whole unit, and `exclude` drops a unit or a package.
+- In `harnesspm.json`, a `patch` changes a few sections of a rule, `replace` swaps a whole rule or skill, and `exclude` drops a unit or a package.
 - An agent can make these changes. The harness's owner decides how a change is saved.
 
 ## Find the source
@@ -65,12 +65,13 @@ When an upgrade changes a section that your patch replaces or removes, `sync` wa
 
 ```json
 {
-  "replace": { "acme-styles:rules/usage": "./harnesspm/styles-usage.md" },
-  "exclude": ["acme-colors:skills/acme-colors-theme", "acme-styles:hooks/check-edit"]
+  "replace": { "acme-styles:rules/usage": "./harnesspm/styles-usage.md", "acme-colors:skills/acme-colors-theme": "./harnesspm/acme-colors-theme" },
+  "exclude": ["acme-styles:hooks/check-edit"]
 }
 ```
 
-- `replace` puts your file in the unit's place. The unit keeps its ID.
+- `replace` puts your file in a rule's place, or your folder in a skill's place. The unit keeps its ID. A skill's folder has its own `SKILL.md`, with the skill's `name`.
+- Other units, such as tools and hooks, can't be replaced: exclude them and add your own.
 - `exclude` drops a unit by ID, or a whole package by name, such as `"@acme/styles"`, with everything only it extends.
 - An override that names a unit that does not exist gives a warning. It usually means the upstream unit was renamed.
 

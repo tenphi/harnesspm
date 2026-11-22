@@ -31,7 +31,7 @@ import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, shellWord, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -361,11 +361,7 @@ export function add(cwd: string, spec: string, out: Output, options: { local?: b
     writeList(file, [...list, source.spec]);
     out.log(`Added ${pkg.plugin} (${source.spec}) with ${scope} scope`);
   } else out.log(`${source.spec} is already added with ${scope} scope`);
-  if (scope === 'local') {
-    const exclude = gitExcludeFile(projectDir)!;
-    const text = readTextIfExists(exclude) ?? '';
-    if (!text.split('\n').includes('/harnesspm.local.json')) writeIfChanged(exclude, `${text.replace(/\s*$/, '')}${text.trim() ? '\n' : ''}/harnesspm.local.json\n`);
-  }
+  if (scope === 'local') addExclude(projectDir, 'harnesspm.local.json');
   sync(projectDir, out, { quiet: true });
   settingsAfterChange(out, options.hook !== false);
   printAddedRules(projectDir, source.spec, out);
@@ -720,8 +716,10 @@ export function why(cwd: string, id: string, out: Output): number {
           : `no: it stays off. A person turns it on with "${pkg.name}": true in "trust" in ${CONFIG_FILE}.`,
     );
   }
-  if (rule?.replacedBy) row('replaced', `by ${rule.replacedBy.by}: ${rel(rule.replacedBy.file!)}`);
+  const replacedBy = rule?.replacedBy ?? skill?.replacedBy;
+  if (replacedBy) row('replaced', `by ${replacedBy.by}: ${rel(replacedBy.file!)}`);
   if (rule && rule.original !== rule.source) row('original', rel(rule.original));
+  if (skill?.replacedBy) row('original', rel(path.join(skill.original, 'SKILL.md')));
   for (const p of rule?.patches ?? []) row('patch', `${p.patch} (from ${p.by})`);
   if (pkg.layer === 'added') {
     const rules = ['AGENTS.md', 'CONTRIBUTING.md'].map((f) => path.join(pkg.added!.source.dir, f)).filter((f) => fs.existsSync(f));

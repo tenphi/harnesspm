@@ -12,7 +12,7 @@ Package authors do not need this chapter. It defines what implementations write.
 
 1. **Native files only.** No agent has to understand a harnesspm format.
 2. **Commit only what reviewers need.** The managed block in `AGENTS.md` shows rule changes in pull requests. The lock shows every other unit change. All other outputs are per machine.
-3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. harnesspm never edits `.gitignore`. `harnesspm doctor` checks that every per-machine file is ignored and untracked ([10.5](10-cli.md#105-doctor)).
+3. **Per-machine outputs are excluded through `.git/info/exclude`.** That file belongs to the clone, is never committed, and is shared by worktrees. harnesspm never edits `.gitignore`. `harnesspm doctor` checks that every per-machine file is ignored and untracked ([10.5](10-cli.md#105-doctor)). Its patterns start at the git root, so a project below it, such as `docs-site/`, puts its folder in front of each entry (`/docs-site/.claude/skills/…`) and keeps them in a section of its own, named after its folder. Two projects in one repository never touch each other's entries.
 4. **Units of added harnesses never enter a tracked file.** harnesspm MUST refuse to write one there.
 5. **Outputs are marked.** Each generated file or block says it is generated and names the sources to edit.
 6. **harnesspm edits only its own entries** in files that people or agents also write, and keeps the rest unchanged.
@@ -126,7 +126,7 @@ A blank line follows the BEGIN marker and comes before the END marker, so Markdo
 
 ## 4.7 Files shared with people
 
-`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, so it can remove them later: `harnesspm/state.json` in the clone's git folder for project outputs, and `~/.harnesspm/state.json` for user-level ones. In a folder that is not a git repository, project outputs use `~/.harnesspm/state/<folder>-<hash>.json`, so harnesspm never creates a `.git` folder. A settings file that held only harnesspm's entries is deleted with them.
+`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, so it can remove them later: `harnesspm/state.json` in the clone's git folder for project outputs (`harnesspm/<folder>/state.json` for a project below the git root), and `~/.harnesspm/state.json` for user-level ones. An entry that is already in the file is not added twice, so a state file that is lost never doubles a hook. In a folder that is not a git repository, project outputs use `~/.harnesspm/state/<folder>-<hash>.json`, so harnesspm never creates a `.git` folder. A settings file that held only harnesspm's entries is deleted with them.
 
 ## 4.8 Why native files and not plugins
 

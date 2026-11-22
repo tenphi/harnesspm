@@ -101,6 +101,37 @@ test('a workspace that another workspace depends on is the project\'s own code, 
   assert.equal(run(dir, 'run', 'ui:tokens').stdout.trim(), 'tokens');
 });
 
+test('a workspace harness whose docs folder a build writes and git ignores: sync gives the same lock and blocks before and after the build', () => {
+  const dir = mono();
+  writeFiles(dir, {
+    'packages/ui/harness/plugin.json': JSON.stringify({ $schema: PLUGIN_SCHEMA, name: 'ui', extensions: { 'dev.harnesspm': { docs: '../docs' } } }),
+    '.gitignore': 'node_modules/\n/packages/ui/docs/\n',
+  });
+  assert.equal(run(dir, 'sync').status, 0);
+  const before = { lock: read(dir, 'harnesspm.lock.json'), web: read(dir, 'packages/web/AGENTS.md') };
+  assert.doesNotMatch(before.lock, /ui:docs/);
+
+  // The build writes the docs. sync --check still passes, and nothing changes.
+  writeFiles(dir, { 'packages/ui/docs/button.md': '# Button\n', 'packages/ui/docs/forms.md': '# Forms\n' });
+  const check = run(dir, 'sync', '--check');
+  assert.equal(check.status, 0, check.stdout + check.stderr);
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.equal(read(dir, 'harnesspm.lock.json'), before.lock);
+  assert.equal(read(dir, 'packages/web/AGENTS.md'), before.web);
+  assert.doesNotMatch(before.web, /ui:docs/);
+
+  // An exclude from before this fix stays quiet, built or not.
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ exclude: ['ui:docs'] }) });
+  assert.doesNotMatch(run(dir, 'sync').stderr, /ui:docs/);
+  fs.rmSync(path.join(dir, 'packages/ui/docs'), { recursive: true });
+  assert.doesNotMatch(run(dir, 'sync').stderr, /ui:docs/);
+
+  // A docs folder that git keeps is a unit, as before.
+  writeFiles(dir, { '.gitignore': 'node_modules/\n', 'harnesspm.json': '{}\n', 'packages/ui/docs/button.md': '# Button\n' });
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.match(read(dir, 'harnesspm.lock.json'), /"ui:docs"/);
+});
+
 test('pnpm-workspace.yaml and negated patterns', () => {
   const dir = project({}, { name: 'mono' });
   writeFiles(dir, {

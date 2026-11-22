@@ -13,7 +13,7 @@
       "items": { "type": "string" }
     },
     "replace": {
-      "description": "Unit ID → path of a project file that takes its place.",
+      "description": "Rule or skill ID → path of a project file, or skill folder with a SKILL.md, that takes its place.",
       "type": "object",
       "additionalProperties": { "type": "string" }
     },

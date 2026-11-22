@@ -140,7 +140,19 @@ export function checkHarness(target: string): CheckResult {
     if (!inside(root, full)) errors.push(`${label}: ${rel} points outside the package`);
     else if (mustExist === 'file' ? !isFile(full) : !isDir(full)) errors.push(`${label}: ${rel} does not exist`);
   };
-  for (const [id, file] of Object.entries(pkg.ext.replace)) checkPath(`replace ${id}`, file, 'file');
+  // A replacement has the shape of the unit it replaces: a rule's file, or a skill's folder (spec 3.4).
+  const replacedSkills: { dir: string; name: string }[] = [];
+  for (const [id, file] of Object.entries(pkg.ext.replace)) {
+    const skill = /:skills\/(.+)$/.exec(id)?.[1];
+    if (skill !== undefined) {
+      checkPath(`replace ${id}`, file, 'dir');
+      const dir = path.resolve(pkg.harnessDir, file);
+      if (isDir(dir) && inside(root, dir)) replacedSkills.push({ dir, name: skill });
+    } else {
+      checkPath(`replace ${id}`, file, 'file');
+      if (!id.includes(':rules/')) errors.push(`replace ${id}: replace works on rules and skills only. Exclude the unit and add one of your own instead.`);
+    }
+  }
   for (const [id, file] of Object.entries(pkg.ext.patch)) {
     checkPath(`patch ${id}`, file, 'file');
     if (!id.includes(':rules/')) errors.push(`patch ${id}: patches work on rules only`);
@@ -167,19 +179,27 @@ export function checkHarness(target: string): CheckResult {
       errors.push((error as Error).message);
     }
   }
-  for (const skill of units.skills) {
-    const file = path.join(skill.dir, 'SKILL.md');
+  // A skill's `name` is its folder's name. A replacement takes the name of the skill it replaces, as agents see it there.
+  const checkSkill = (dir: string, name: string, why: string): void => {
+    const file = path.join(dir, 'SKILL.md');
     try {
       const { data, hasFrontmatter } = parseFrontmatter(readText(file), file);
       if (!hasFrontmatter) errors.push(`${show(file)}: needs frontmatter with "name" and "description"`);
-      if (data['name'] !== skill.name) errors.push(`${show(file)}: "name" must be "${skill.name}", the folder name`);
+      if (data['name'] !== name) errors.push(`${show(file)}: "name" must be "${name}", ${why}`);
       if (typeof data['description'] !== 'string' || data['description'].trim() === '') errors.push(`${show(file)}: needs a "description"`);
-      if (!skill.name.startsWith(`${pkg.plugin}-`) && skill.name !== pkg.plugin) {
-        warnings.push(`skill "${skill.name}" should start with the plugin name, such as "${pkg.plugin}-${skill.name}"`);
-      }
     } catch (error) {
       errors.push((error as Error).message);
     }
+  };
+  for (const skill of units.skills) {
+    checkSkill(skill.dir, skill.name, 'the folder name');
+    if (!skill.name.startsWith(`${pkg.plugin}-`) && skill.name !== pkg.plugin) {
+      warnings.push(`skill "${skill.name}" should start with the plugin name, such as "${pkg.plugin}-${skill.name}"`);
+    }
+  }
+  for (const skill of replacedSkills) {
+    if (isFile(path.join(skill.dir, 'SKILL.md'))) checkSkill(skill.dir, skill.name, 'the name of the skill it replaces');
+    else errors.push(`replace: ${show(skill.dir)} needs a SKILL.md`);
   }
   // Judge the docs and links by what ships (spec 2.10). Without `files` to read, by the files git keeps.
   const packed = packs(root);

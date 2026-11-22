@@ -5,7 +5,7 @@ import { stringify } from 'yaml';
 import { AGENTS, WIDENING_AGENT_KEYS, type Agent } from './exec-units.ts';
 import type { Lock } from './lock.ts';
 import { tomlString } from './render.ts';
-import type { Resolution, ResolvedPackage } from './resolve.ts';
+import { skillAuthor, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged, type Runner } from './util.ts';
 
 export type Group = 'team' | 'added';
@@ -103,7 +103,11 @@ export function desiredEntries(
     pendingCounts.set(pkg, counts);
   };
 
-  for (const skill of mine(res.skills)) if (trust(skill.pkg).trusted) entries.claude.allow.push(`Skill(${skill.name})`);
+  // A replaced skill runs the files of the package that replaced it, so that package's trust decides (spec 6.1).
+  for (const skill of mine(res.skills)) {
+    const author = skillAuthor(skill);
+    if (author === undefined || trust(author).trusted) entries.claude.allow.push(`Skill(${skill.name})`);
+  }
   for (const script of mine(res.scripts)) {
     if (!trust(script.pkg).trusted) {
       pend(script.pkg, 'script');
@@ -288,17 +292,24 @@ function widening(entries: ExecEntries, prev: Owned, widen: boolean) {
 
 type JsonHooks = Record<string, { matcher?: string; hooks?: { type?: string; command?: string; timeout?: number; async?: boolean }[] }[]>;
 
-/** Replaces the owned hook entries in an agent's hooks object. */
+/**
+ * Replaces the owned hook entries in an agent's hooks object. An entry that is there already is not added again, so a
+ * state file that is missing, such as the first one of a project below the git root, never doubles a hook.
+ */
 function mergeHooks(hooks: JsonHooks, previous: HookEntry[], next: HookEntry[]): JsonHooks {
   const drop = new Set(previous.map(hookKey));
+  const keyOf = (event: string, g: JsonHooks[string][number], h: NonNullable<JsonHooks[string][number]['hooks']>[number]): string =>
+    hookKey({ event, ...(g.matcher !== undefined ? { matcher: g.matcher } : {}), command: h.command ?? '' });
   const result: JsonHooks = {};
+  const present = new Set<string>();
   for (const [event, groups] of Object.entries(hooks)) {
-    const kept = groups
-      .map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !drop.has(hookKey({ event, ...(g.matcher !== undefined ? { matcher: g.matcher } : {}), command: h.command ?? '' }))) }))
-      .filter((g) => g.hooks.length > 0);
+    const kept = groups.map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !drop.has(keyOf(event, g, h))) })).filter((g) => g.hooks.length > 0);
+    for (const g of kept) for (const h of g.hooks) present.add(keyOf(event, g, h));
     if (kept.length > 0) result[event] = kept;
   }
   for (const entry of next) {
+    if (present.has(hookKey(entry))) continue;
+    present.add(hookKey(entry));
     const list = (result[entry.event] ??= []);
     const handler = { type: 'command', command: entry.command, ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}), ...(entry.async ? { async: true } : {}) };
     list.push({ ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}), hooks: [handler] });

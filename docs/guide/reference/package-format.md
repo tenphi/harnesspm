@@ -74,7 +74,7 @@ harness/
 | --- | --- | --- |
 | `extends` | string[] | Packages whose harness this one passes on, resolved from this package's folder. |
 | `exclude` | string[] | Units or packages to drop from what it passes on. |
-| `replace` | object | Unit ID → a file that takes the unit's place. |
+| `replace` | object | Rule or skill ID → a rule file, or a skill folder with its `SKILL.md`, that takes the unit's place. |
 | `patch` | object | Rule ID → a patch that changes some of its sections. |
 | `docs` | string | The docs folder, relative to `harness/`, inside the package. |
 | `scripts` | object | Script name → `{ file, description?, usage?, allow? }`. `usage` is the arguments and options, which `harnesspm help <plugin>:<script>` prints. |

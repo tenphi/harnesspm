@@ -192,7 +192,7 @@ export interface PackageUnits {
   docs?: DocsSource;
 }
 
-/** Finds a package's units. Files in `skip` (replacements and patches) are not units. */
+/** Finds a package's units. Files and folders in `skip` (replacements and patches) are not units. */
 export function discoverUnits(pkg: HarnessPackage, skip: Set<string>): PackageUnits {
   const rulesDir = path.join(pkg.harnessDir, NS, 'rules');
   const rules: RuleSource[] = listDir(rulesDir)
@@ -203,7 +203,7 @@ export function discoverUnits(pkg: HarnessPackage, skip: Set<string>): PackageUn
     });
   const skillsDir = path.join(pkg.harnessDir, 'skills');
   const skills: SkillSource[] = listDir(skillsDir)
-    .filter((f) => isFile(path.join(skillsDir, f, 'SKILL.md')))
+    .filter((f) => isFile(path.join(skillsDir, f, 'SKILL.md')) && !skip.has(path.join(skillsDir, f)))
     .map((name) => ({ kind: 'skills', id: `${pkg.plugin}:skills/${name}`, name, pkg, dir: path.join(skillsDir, name) }));
   const units: PackageUnits = { rules, skills };
   if (pkg.ext.docs !== undefined) {

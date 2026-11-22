@@ -45,6 +45,14 @@ Nothing connects the two, so an agent in that application gets both instructions
 
 - UI Kit ships a probe library for agents to capture DOM and CSS. The command-line tool around it exists twice, once in UI Kit and once in an application, with hundreds of lines of difference.
 
+## Cookbook on harnesspm
+
+Observed when Cookbook started to pass on Glaze's harness with harnesspm 0.9 (Nov 2026).
+
+- **An upstream skill that does not fit.** Glaze's `glaze-theme` skill tells agents to search the code for `glaze(`, to inspect "the module that defines the theme", and to keep "the export the application already uses". In a Cookbook site, colors come from `theme.palette` in `docs.config.ts`, which Cookbook resolves with Glaze, so none of these exist there. The spec said `replace` takes any unit, but 0.9 applied it to rules only, and a skill of Cookbook's own with the same name warned on every sync. `replace` now takes a skill folder ([spec 3.4](../spec/03-resolution.md#34-priority)).
+- **A docs folder that a build writes.** Cookbook's facade workspace points `docs` at a folder its build copies from the repository's `docs/`, and git ignores it. Before a build there was no docs unit; after one there was, so the lock and the workspaces' blocks depended on whether a build ran, and `sync --check` failed on one side. Such a folder is now no unit for `sync` ([spec 2.7](../spec/02-package-format.md#27-docs), rule 6).
+- **A site below the git root.** Cookbook's guide creates a site in `docs-site/` inside the user's repository and runs `harnesspm init` there. 0.9 wrote the site's per-machine paths into `.git/info/exclude` as if `docs-site/` were the root, so git showed its links as untracked ([spec 4.1](../spec/04-outputs.md#41-principles)).
+
 ## What harnesspm changes here
 
 | Today | With harnesspm |
