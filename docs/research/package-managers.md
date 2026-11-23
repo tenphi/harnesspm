@@ -59,6 +59,10 @@ What follows for harnesspm:
 
 Also observed: pnpm's `node_modules/.pnpm` layout needs no special case. Resolving `extends` from each package's real folder finds the dependencies pnpm links next to it.
 
+## Workspace overrides
+
+🔍 With harnesspm 0.10.0, an npm workspace that depended on Cookbook caused its Glaze rule patches and skill replacement to appear in a second workspace that depended only on Glaze. A fixture with the same dependency shape reproduced the behavior on 0.10.0. Rules now use the overrides discovered for their workspace, and a skill keeps its original root link when its consumers disagree. [Issue #65](https://github.com/tenphi/harnesspm/issues/65)
+
 ## Lockfiles
 
 `harnesspm.lock.json` copies each harness package's tarball URL and integrity from the package manager's lockfile, so `harnesspm fetch` can download and check it without an install ([spec 13.6](../spec/13-open-questions.md#136-ci-without-an-install)).

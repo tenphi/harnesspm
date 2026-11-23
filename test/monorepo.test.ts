@@ -101,6 +101,171 @@ test('a workspace that another workspace depends on is the project\'s own code, 
   assert.equal(run(dir, 'run', 'ui:tokens').stdout.trim(), 'tokens');
 });
 
+test('workspace rules use only their own patches and replacements, while skills keep the shared original', () => {
+  const dir = project({}, { workspaces: ['packages/*'] });
+  const ui = path.join(dir, 'packages/ui');
+  writeFiles(dir, {
+    'packages/ui/package.json': JSON.stringify({ dependencies: { theme: '1' } }),
+    'packages/site/package.json': JSON.stringify({ dependencies: { site: '1' } }),
+    'packages/shop/package.json': JSON.stringify({ dependencies: { shop: '1' } }),
+    'packages/site/src/index.ts': '',
+  });
+  const fileRule = (text: string): string => `---\npaths: ['**/*.ts']\n---\n# Theme style\n\n## Colors\n\n${text}\n`;
+  installPackage(dir, 'theme', {
+    plugin: 'theme',
+    harness: {
+      'dev.harnesspm/rules/colors.md': rule('Theme colors', '## Palette\n\nOriginal palette.'),
+      'dev.harnesspm/rules/style.md': fileRule('Original style.'),
+      'dev.harnesspm/rules/shared.md': rule('Shared rule', 'Shared by all workspaces.'),
+      'skills/theme-builder/SKILL.md': skill('theme-builder', 'Build an original theme.'),
+    },
+  });
+  installPackage(dir, 'site', {
+    plugin: 'site',
+    ext: {
+      extends: ['theme'],
+      patch: { 'theme:rules/colors': './colors.patch.md', 'theme:rules/style': './style.patch.md' },
+      replace: { 'theme:skills/theme-builder': './replacement' },
+    },
+    harness: {
+      'colors.patch.md': '## Palette\n\nSite palette.\n\n## Site notes\n\nSite only.\n',
+      'style.patch.md': '## Colors\n\nSite style.\n',
+      'replacement/SKILL.md': skill('theme-builder', 'Build a site theme.'),
+    },
+  });
+  installPackage(dir, 'shop', {
+    plugin: 'shop',
+    ext: { extends: ['theme'], replace: { 'theme:rules/colors': './colors.md' }, patch: { 'theme:rules/style': './style.patch.md' } },
+    harness: {
+      'colors.md': rule('Shop colors', 'Shop palette.'),
+      'style.patch.md': '## Colors\n\nShop style.\n',
+    },
+  });
+
+  const sync = run(dir, 'sync');
+  assert.equal(sync.status, 0, sync.stdout + sync.stderr);
+  assert.match(sync.stderr, /theme:skills\/theme-builder: Keeping the original skill.*site/);
+  const root = read(dir, 'AGENTS.md');
+  assert.match(root, /theme:rules\/shared/);
+  assert.doesNotMatch(root, /theme:rules\/(colors|style)/);
+  assert.match(read(dir, 'packages/ui/AGENTS.md'), /Theme colors — Palette/);
+  assert.match(read(dir, 'packages/site/AGENTS.md'), /Theme colors — Palette, Site notes/);
+  assert.match(read(dir, 'packages/shop/AGENTS.md'), /Always-on rule: Shop colors/);
+  const styleFile = (workspace: string): string => {
+    const block = read(dir, `packages/${workspace}/AGENTS.md`);
+    const file = /, read (\S+) \(theme:rules\/style\)/.exec(block)?.[1];
+    assert.ok(file, block);
+    return path.relative(dir, path.resolve(dir, 'packages', workspace, file));
+  };
+  assert.match(read(dir, styleFile('ui')), /Original style\./);
+  assert.match(read(dir, styleFile('site')), /Site style\./);
+  assert.match(read(dir, styleFile('shop')), /Shop style\./);
+  assert.notEqual(styleFile('site'), styleFile('shop'));
+  assert.ok(!fs.existsSync(path.join(dir, '.claude/rules/harnesspm/theme/style.md')));
+  for (const agent of ['.claude', '.agents']) assert.match(read(dir, `${agent}/skills/theme-builder/SKILL.md`), /Build an original theme/);
+  const whySkill = run(dir, 'why', 'theme:skills/theme-builder');
+  assert.match(whySkill.stdout, /source\s+.*\/theme\/harness\/skills\/theme-builder\/SKILL\.md/);
+  assert.match(whySkill.stdout, /replacement\s+Keeping the original skill/);
+
+  const uiHelp = run(ui, 'help', 'theme');
+  assert.match(uiHelp.stdout, /Original palette\./);
+  assert.doesNotMatch(uiHelp.stdout, /Changed by|Site palette|Shop palette/);
+  const siteHelp = run(dir, '-C', 'packages/site/src', 'help', 'theme:rules/colors');
+  assert.match(siteHelp.stdout, /Changed by site.*\n\n[^]*Site palette\./);
+  assert.doesNotMatch(siteHelp.stdout, /Original palette|Shop palette/);
+  assert.match(run(dir, '-C', 'packages/shop', 'why', 'theme:rules/colors').stdout, /replaced\s+by shop/);
+  assert.match(run(dir, 'help', 'theme:rules/colors').stdout, /Applies in `packages\/site`\.[^]*Site palette\./);
+
+  const before = JSON.parse(read(dir, 'harnesspm.lock.json'));
+  writeFiles(dir, { 'node_modules/shop/harness/style.patch.md': '## Colors\n\nNew shop style.\n' });
+  assert.equal(run(dir, 'sync', '--check').status, 1);
+  assert.equal(run(dir, 'sync').status, 0);
+  const after = JSON.parse(read(dir, 'harnesspm.lock.json'));
+  assert.notEqual(before.units['theme:rules/style'].hash, after.units['theme:rules/style'].hash);
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+
+  const overlay = project({}, {}, false);
+  writeFiles(overlay, {
+    'harness/plugin.json': JSON.stringify({
+      name: 'overlay',
+      extensions: { 'dev.harnesspm': { replace: { 'theme:rules/style': './style.md' } } },
+    }),
+    'harness/style.md': fileRule('Local style.'),
+  });
+  const added = run(dir, 'add', overlay, '--local');
+  assert.equal(added.status, 0, added.stdout + added.stderr);
+  assert.equal(run(dir, 'sync', '--check').status, 0);
+  assert.match(read(dir, styleFile('site')), /Site style\./, 'the committed pointer keeps a readable team version');
+  assert.match(read(dir, 'CLAUDE.local.md'), /Instead of the rule theme:rules\/style in AGENTS\.md in `packages\/shop`, `packages\/site`, `packages\/ui`, read .*style\.md/);
+  assert.match(run(ui, 'help', 'theme:rules/style').stdout, /Local style\./);
+  assert.equal(run(dir, 'remove', overlay, '--local').status, 0);
+
+  // A project replacement is shared by every consumer, including workspaces that do not depend on site.
+  writeFiles(dir, {
+    'harnesspm.json': JSON.stringify({ replace: { 'theme:skills/theme-builder': './replacement' } }),
+    'replacement/SKILL.md': skill('theme-builder', 'Build a project theme.'),
+  });
+  assert.doesNotMatch(run(dir, 'sync').stderr, /Keeping the original skill/);
+  assert.match(read(dir, '.agents/skills/theme-builder/SKILL.md'), /Build a project theme/);
+  assert.match(run(dir, 'why', 'theme:skills/theme-builder').stdout, /replaced\s+by harnesspm\.json/);
+
+  writeFiles(dir, {
+    'harnesspm.json': '{}',
+    'packages/ui/package.json': JSON.stringify({ dependencies: { site: '1' } }),
+    'packages/shop/package.json': JSON.stringify({ dependencies: { site: '1' } }),
+  });
+  const shared = run(dir, 'sync');
+  assert.equal(shared.status, 0, shared.stdout + shared.stderr);
+  assert.doesNotMatch(shared.stderr, /Keeping the original skill/);
+  assert.match(read(dir, '.agents/skills/theme-builder/SKILL.md'), /Build a site theme/);
+  assert.match(read(dir, 'AGENTS.md'), /theme:rules\/colors/);
+  assert.ok(!fs.existsSync(path.join(dir, 'packages/site/AGENTS.md')));
+});
+
+test('workspace overrides follow local extends even when another workspace picks the package version', () => {
+  const dir = project({ theme: '1' }, { workspaces: ['packages/**'] });
+  writeFiles(dir, {
+    'packages/site/package.json': JSON.stringify({ dependencies: { site: '2' } }),
+    'packages/site/demo/package.json': JSON.stringify({ dependencies: { site: '1', theme: '1' } }),
+  });
+  installPackage(dir, 'theme', {
+    plugin: 'theme',
+    harness: { 'dev.harnesspm/rules/colors.md': rule('Original colors', '## Palette\n\nOriginal palette.') },
+  });
+  installPackage(dir, 'site', {
+    plugin: 'site',
+    version: '2.0.0',
+    ext: { extends: ['theme'], replace: { 'theme:rules/colors': './colors.md' } },
+    harness: { 'colors.md': rule('Site colors', '## Palette\n\nSite palette.') },
+  });
+  installPackage(path.join(dir, 'packages/site/demo'), 'site', { plugin: 'site', version: '1.0.0' });
+
+  const sync = run(dir, 'sync');
+  assert.equal(sync.status, 0, sync.stdout + sync.stderr);
+  assert.match(sync.stderr, /site: found versions .*using 2\.0\.0/);
+  assert.doesNotMatch(read(dir, 'AGENTS.md'), /theme:rules\/colors/);
+  const site = read(dir, 'packages/site/AGENTS.md');
+  assert.match(site, /For files in a nested workspace, follow the harness rules for that workspace/);
+  assert.match(site, /Always-on rule: Site colors/);
+  assert.match(read(dir, 'packages/site/demo/AGENTS.md'), /Always-on rule: Original colors/);
+  assert.match(run(dir, 'help', 'theme:rules/colors').stdout, /Original palette\./);
+  assert.match(run(dir, '-C', 'packages/site/demo', 'help', 'theme:rules/colors').stdout, /Original palette\./);
+
+  // The root patch applies in both workspaces and must detect drift in either upstream section.
+  writeFiles(dir, {
+    'harnesspm.json': JSON.stringify({ patch: { 'theme:rules/colors': './colors.patch.md' } }),
+    'colors.patch.md': '## Palette\n\nProject palette.\n',
+  });
+  assert.equal(run(dir, 'sync').status, 0);
+  for (const workspace of ['packages/site', 'packages/site/demo']) {
+    assert.match(run(dir, '-C', workspace, 'help', 'theme:rules/colors').stdout, /Project palette\./);
+  }
+  writeFiles(dir, { 'node_modules/site/harness/colors.md': rule('Site colors', '## Palette\n\nNew site palette.') });
+  const drift = run(dir, 'sync');
+  assert.equal(drift.status, 0, drift.stdout + drift.stderr);
+  assert.match(drift.stderr, /theme:rules\/colors: upstream changed the section "Palette" that colors\.patch\.md changes/);
+});
+
 test('a workspace harness whose docs folder a build writes and git ignores: sync gives the same lock and blocks before and after the build', () => {
   const dir = mono();
   writeFiles(dir, {

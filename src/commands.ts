@@ -26,7 +26,7 @@ import { reviewedState, type Reviewed } from './reviewed.ts';
 import { runMcp, runScript } from './run.ts';
 import { pathTools } from './outputs.ts';
 import { alwaysOnText, blockRange, helpTarget, ruleBodyWithoutTitle, type PathFor } from './render.ts';
-import { resolve, resolvePackageDir, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalRule, type FinalScript, type FinalSkill, type Resolution, type ResolvedPackage } from './resolve.ts';
+import { describeMembers, localRuleChanges, resolve, resolvePackageDir, rulesForDirectory, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalRule, type FinalScript, type FinalSkill, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
@@ -163,7 +163,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   printPending(out, report, projectDir);
   if (options.quiet) return 0;
   if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
-  const counts = `${plural(full.rules.length, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
+  const counts = `${plural(new Set(full.rules.map((r) => r.id)).size, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
   return 0;
@@ -533,7 +533,7 @@ export function status(cwd: string, out: Output): number {
   const { plan, report } = preview(projectDir, resolved);
   printPending(out, report, projectDir);
   if (resolved.team) {
-    const changes = resolved.team.rules.filter((r) => resolved.full.rules.find((f) => f.id === r.id)?.text !== r.text).map((r) => r.id);
+    const changes = [...new Set(localRuleChanges(resolved.team, resolved.full).map(({ id }) => id))];
     if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
     const agents = plan!.committed!.agentsMd;
     const bytes = Buffer.byteLength(agents);
@@ -674,7 +674,8 @@ export function why(cwd: string, id: string, out: Output): number {
     return file.startsWith(res.projectDir + path.sep) ? relPosix(res.projectDir, file) : file;
   };
   const excluded = res.excludedUnits.find((u) => u.id === id);
-  const rule = res.rules.find((r) => r.id === id);
+  const visibleRules = rulesForDirectory(res, cwd);
+  const rules = visibleRules.filter((r) => r.id === id);
   const skill = res.skills.find((s) => s.id === id);
   const docs = res.docs.find((d) => d.id === id);
   const exec: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions | undefined = [
@@ -684,15 +685,15 @@ export function why(cwd: string, id: string, out: Output): number {
     ...res.agents,
     ...res.permissions,
   ].find((u) => u.id === id);
-  const pkg = rule?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg;
+  const pkg = rules[0]?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg;
   if (!pkg) {
     if (excluded) {
       row('excluded', `by ${excluded.by}`);
       return 0;
     }
     const plugin = id.split(':')[0];
-    const all = [res.rules, res.skills, res.docs, res.scripts, res.hooks, res.mcp, res.agents, res.permissions].flatMap((units) => units.map((u) => u.id));
-    const near = all.filter((x) => x.startsWith(`${plugin}:`)).slice(0, 8);
+    const all = [visibleRules, res.skills, res.docs, res.scripts, res.hooks, res.mcp, res.agents, res.permissions].flatMap((units) => units.map((u) => u.id));
+    const near = [...new Set(all.filter((x) => x.startsWith(`${plugin}:`)))].slice(0, 8);
     throw new HarnessError(`No unit ${id}.${near.length > 0 ? ` Units of ${plugin}: ${near.join(', ')}` : ''}`);
   }
   if (pkg.layer !== 'added') {
@@ -701,8 +702,17 @@ export function why(cwd: string, id: string, out: Output): number {
   if (pkg.layer === 'project') row('owner', `project ${pkg.name} (harness/)`);
   else if (pkg.layer === 'added') row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${pkg.entry ? ', entry for this repository' : ''})`);
   else row('owner', `dependency ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`);
-  const source = rule?.source ?? (skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!));
-  row('source', rel(source));
+  if (rules.length > 0) {
+    for (const rule of rules) {
+      if (rules.length > 1) row('applies in', describeMembers(rule.members));
+      row('source', rel(rule.source));
+      if (rule.replacedBy) row('replaced', `by ${rule.replacedBy.by}: ${rel(rule.replacedBy.file!)}`);
+      if (rule.original !== rule.source) row('original', rel(rule.original));
+      for (const p of rule.patches) row('patch', `${p.patch} (from ${p.by})`);
+    }
+  } else {
+    row('source', rel(skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!)));
+  }
   if (exec?.kind === 'scripts') row('run', `${toolCommand(res.projectDir)} run ${pkg.plugin}:${exec.name}`);
   // Deny and ask rules only restrict, so they need no trust (spec 6.1).
   if (exec && exec.kind !== 'permissions' && pkg.layer === 'dependencies') {
@@ -716,11 +726,11 @@ export function why(cwd: string, id: string, out: Output): number {
           : `no: it stays off. A person turns it on with "${pkg.name}": true in "trust" in ${CONFIG_FILE}.`,
     );
   }
-  const replacedBy = rule?.replacedBy ?? skill?.replacedBy;
-  if (replacedBy) row('replaced', `by ${replacedBy.by}: ${rel(replacedBy.file!)}`);
-  if (rule && rule.original !== rule.source) row('original', rel(rule.original));
-  if (skill?.replacedBy) row('original', rel(path.join(skill.original, 'SKILL.md')));
-  for (const p of rule?.patches ?? []) row('patch', `${p.patch} (from ${p.by})`);
+  if (skill?.replacedBy) {
+    row('replaced', `by ${skill.replacedBy.by}: ${rel(skill.replacedBy.file!)}`);
+    row('original', rel(path.join(skill.original, 'SKILL.md')));
+  }
+  if (skill?.replacementConflict) row('replacement', skill.replacementConflict);
   if (pkg.layer === 'added') {
     const rules = ['AGENTS.md', 'CONTRIBUTING.md'].map((f) => path.join(pkg.added!.source.dir, f)).filter((f) => fs.existsSync(f));
     if (rules.length > 0) row('rules', rules.join(', '));
@@ -825,6 +835,7 @@ interface HelpView {
   projectDir: string;
   tools: ToolResolution;
   res: Resolution;
+  rules: FinalRule[];
   /** The command that runs the project's tools from the caller's folder, `-C` included. */
   command: string;
   /** The project's folder from the caller's, when the caller is outside it. */
@@ -855,6 +866,7 @@ function helpView(cwd: string, out: Output): HelpView | undefined {
     projectDir,
     tools,
     res,
+    rules: rulesForDirectory(res, cwd),
     command: toolCommand(projectDir),
     ...(base !== undefined ? { base } : {}),
     trusted: (pkg) => trustOf(pkg, res, lock).trusted,
@@ -896,11 +908,11 @@ export function projectHelp(cwd: string, out: Output, named: boolean): number {
   const lines = res.packages
     .filter((p) => p.layer !== 'added')
     .map((pkg) => {
-      const rules = res.rules.filter((r) => r.pkg === pkg);
+      const rules = view.rules.filter((r) => r.pkg === pkg);
       const always = rules.filter((r) => r.activation === 'always');
-      const covers = pkg.description ?? always.map((r) => r.title).join(', ');
+      const covers = pkg.description ?? [...new Set(always.map((r) => r.title))].join(', ');
       const parts = [
-        rules.length > 0 ? count(rules.length, 'rule') : '',
+        rules.length > 0 ? count(new Set(rules.map((r) => r.id)).size, 'rule') : '',
         res.docs.some((d) => d.pkg === pkg) ? 'docs' : '',
         count(res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined).length, 'tool'),
         count(res.mcp.filter((m) => m.pkg === pkg).length, 'MCP server'),
@@ -930,7 +942,8 @@ function changedBy(rule: FinalRule): string | undefined {
 
 function ruleHelp(view: HelpView, rule: FinalRule, level: number): string {
   const head = `${'#'.repeat(level)} ${rule.title} (${rule.id})`;
-  const about = [activationLine(rule, view.paths.rule(rule)), changedBy(rule)].filter((l) => l !== undefined).join(' ');
+  const where = view.rules.some((other) => other.id === rule.id && other !== rule) ? `Applies in ${describeMembers(rule.members)}.` : undefined;
+  const about = [where, activationLine(rule, view.paths.rule(rule)), changedBy(rule)].filter((l) => l !== undefined).join(' ');
   const body = demoteHeadings(ruleBodyWithoutTitle(rule), level - 1);
   return [head, about, ...(body !== '' ? [body] : [])].join('\n\n');
 }
@@ -962,7 +975,7 @@ function packageHelp(view: HelpView, pkg: ResolvedPackage): string {
   const where = pkg.layer === 'project' ? 'this project' : pkg.layer === 'added' ? `added ${pkg.added?.source.spec ?? pkg.plugin}` : `${pkg.version}${pkg.via !== undefined ? `, via ${pkg.via}` : ''}`;
   parts.push(`# ${pkg.name} (${where}), plugin ${pkg.plugin}${pkg.description !== undefined ? `\n\n${pkg.description}` : ''}`);
   const trusted = view.trusted(pkg);
-  const rules = res.rules.filter((r) => r.pkg === pkg);
+  const rules = view.rules.filter((r) => r.pkg === pkg);
   if (rules.length > 0) parts.push('## Rules', ...rules.map((r) => ruleHelp(view, r, 3)));
   const index = view.paths.docsIndex(pkg);
   if (index !== undefined) parts.push('## Docs', `- ${index} (${pkg.plugin}:docs)`);
@@ -1009,7 +1022,8 @@ export function targetHelp(cwd: string, target: string, out: Output): number {
   if (view === undefined) throw new HarnessError(`No command "${target}", and ${fromCaller(findProjectDir(cwd))} does not use harnesspm, so it has no packages, rules or tools. Run \`harnesspm help\`.`);
   const { res } = view;
   const pkg = res.packages.find((p) => p.name === target || p.plugin === target);
-  const rule = pkg === undefined ? res.rules.find((r) => r.id === target) : undefined;
+  const rules = pkg === undefined ? view.rules.filter((r) => r.id === target) : [];
+  const rule = rules[0];
   const script = pkg === undefined && rule === undefined ? res.scripts.find((s) => `${s.pkg.plugin}:${s.name}` === target || s.id === target) : undefined;
   const owner = pkg ?? rule?.pkg ?? script?.pkg;
   if (owner === undefined) {
@@ -1020,7 +1034,7 @@ export function targetHelp(cwd: string, target: string, out: Output): number {
   }
   helpIntro(view, out);
   out.log('');
-  out.log(pkg !== undefined ? packageHelp(view, pkg) : rule !== undefined ? ruleHelp(view, rule, 1) : scriptHelp(view, script!));
+  out.log(pkg !== undefined ? packageHelp(view, pkg) : rule !== undefined ? rules.map((r) => ruleHelp(view, r, 1)).join('\n\n') : scriptHelp(view, script!));
   // Units of added harnesses belong to a person: their use never reaches the team's handler (spec 14.2, rule 2).
   if (owner.layer !== 'added') {
     const repository = readIndex(res.projectDir)?.repository;
@@ -1068,7 +1082,7 @@ export function newUnit(cwd: string, kind: string, name: string, options: { to?:
   const show = (file: string): string => (file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
   if (kind === 'patch') {
     const { full } = resolveAll(projectDir, { withAdded: true });
-    const result = createPatch(projectDir, full, name, options);
+    const result = createPatch(projectDir, { ...full, rules: rulesForDirectory(full, cwd) }, name, options);
     out.log(`Wrote ${show(result.file)}, registered in ${show(result.registeredIn)}.`);
     out.log('Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.');
   } else {

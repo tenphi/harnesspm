@@ -8,18 +8,22 @@ description: How harnesspm resolves each workspace of a monorepo on its own depe
 
 - Nothing to configure. Run `npx harnesspm init` at the root, as in any project.
 - Each workspace gets the harness of its own dependencies. Backend workspaces do not get frontend rules.
-- Shared units go into the root `AGENTS.md`. A workspace with its own units gets its own block.
+- Shared rules with the same text go into the root `AGENTS.md`. Workspace rules and overrides go in workspace blocks.
 
 ## Workspaces
 
 harnesspm reads workspaces from the `workspaces` field of the root `package.json`, or from `pnpm-workspace.yaml`. It resolves each workspace from its own folder, on its own `dependencies`, `devDependencies` and `optionalDependencies`.
 
+A package can patch or replace a rule in the workspaces where it passes on that rule through `extends`. Run `harnesspm help <rule ID>` from the workspace, or use `harnesspm -C <workspace> help <rule ID>`, to see the text and who changed it.
+
+Each agent gets one version of a skill, linked at the root. If some consumers resolve a replacement and others resolve the original or a different replacement, harnesspm keeps the original, warns during sync, and explains the choice in `harnesspm why <skill ID>`.
+
 ## Where outputs go
 
 | Output | Where |
 | --- | --- |
-| Units that the root reaches, or that every workspace shares | The root `AGENTS.md` block |
-| Units of one workspace | A block in `<workspace>/AGENTS.md`, with paths relative to that folder |
+| Units that the root reaches, or that every workspace shares, when their content is the same | The root `AGENTS.md` block |
+| Workspace units and rules with different text across workspaces | A block in `<workspace>/AGENTS.md`, with paths relative to that folder |
 | `CLAUDE.md` with `@AGENTS.md` | Next to each workspace `AGENTS.md`, and each nested `AGENTS.md` that git tracks |
 | A `## Workspaces` section that names each workspace with a block | The root `AGENTS.md` block, first |
 | Skills, scripts, hooks, MCP servers, permissions | The root, where both agents read them |

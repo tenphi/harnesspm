@@ -15,7 +15,7 @@ import {
 import { discoverExecUnits, type AgentUnit, type HookUnit, type McpUnit, type PermissionsUnit, type ScriptUnit } from './exec-units.ts';
 import { applyPatch, type TouchedSection } from './sections.ts';
 import { findWorkspaces } from './workspaces.ts';
-import { HarnessError, compareVersions, gitIgnoresDir, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
+import { HarnessError, compareVersions, gitIgnoresDir, insideDir, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
 
 export interface ResolvedPackage extends HarnessPackage {
   /** The package whose `extends` brought this one in, when it is not a direct dependency. */
@@ -80,6 +80,10 @@ export interface FinalRule extends RuleMeta {
   text: string;
   replacedBy?: Override;
   patches: AppliedPatch[];
+  /** Where this version of the rule applies. The empty key is the repository root. */
+  members: Set<string>;
+  /** More than one override sequence applies to this rule. */
+  variant: boolean;
 }
 
 export interface FinalSkill extends SkillSource {
@@ -87,6 +91,45 @@ export interface FinalSkill extends SkillSource {
   /** The skill's own folder. `dir` is the folder in use: this one, or a replacement. */
   original: string;
   replacedBy?: Override;
+  replacementConflict?: string;
+}
+
+export function rulesById(rules: FinalRule[]): Map<string, FinalRule[]> {
+  const groups = new Map<string, FinalRule[]>();
+  for (const rule of rules) {
+    const group = groups.get(rule.id) ?? [];
+    group.push(rule);
+    groups.set(rule.id, group);
+  }
+  return groups;
+}
+
+/** Inside a workspace, select its rules. At the root, include workspace-only rules in the repository overview. */
+export function rulesForDirectory(res: Resolution, dir: string): FinalRule[] {
+  const ws = res.workspaces.findLast((ws) => insideDir(ws.dir, dir));
+  if (ws) return res.rules.filter((rule) => rule.members.has(ws.key));
+  return [...rulesById(res.rules).values()].flatMap((variants) => {
+    const root = variants.find((rule) => rule.members.has(''));
+    return root ? [root] : variants;
+  });
+}
+
+export const describeMembers = (members: Set<string>): string =>
+  [...members].map((key) => key === '' ? 'repository root' : `\`${key}\``).join(', ');
+
+/** Changes to the team's rule text on this machine, with the affected members of each version. */
+export function localRuleChanges(team: Resolution, full: Resolution): { id: string; changed?: FinalRule; members: Set<string> }[] {
+  const fullRules = rulesById(full.rules);
+  return [...rulesById(team.rules)].flatMap(([id, previous]) => {
+    const current = fullRules.get(id);
+    if (!current) return [{ id, members: new Set(previous.flatMap((rule) => [...rule.members])) }];
+    return current.flatMap((changed) => {
+      const members = new Set(previous
+        .filter((rule) => rule.text !== changed.text)
+        .flatMap((rule) => [...rule.members].filter((key) => changed.members.has(key))));
+      return members.size > 0 ? [{ id, changed, members }] : [];
+    });
+  });
 }
 
 /** Units that `replace` works on, and what a replacement is: a rule's file, or a skill's folder with its SKILL.md (spec 3.4). */
@@ -194,6 +237,7 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
     members.set(name, set);
   };
   const edges = new Map<string, Set<string>>();
+  const workspaceClosures = new Map<string, Map<string, Set<string>>>();
   const excludedPackages: { name: string; by: string }[] = [];
   const addOccurrence = (name: string, occurrence: Occurrence): void => {
     const list = occurrences.get(name) ?? [];
@@ -207,8 +251,9 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   };
 
   /** `excluded` maps a package name to whoever excluded it on this path. */
-  const visit = (pkg: HarnessPackage, depth: number, excluded: Map<string, string>, stack: string[], root: string): void => {
+  const visit = (pkg: HarnessPackage, depth: number, excluded: Map<string, string>, stack: string[], root: string): Set<string> => {
     const childExcluded = new Map(excluded);
+    const reached = new Set<string>();
     for (const name of pkg.ext.exclude.filter((e) => !isUnitId(e))) childExcluded.set(name, pkg.name);
     for (const name of pkg.ext.extends) {
       const by = childExcluded.get(name);
@@ -233,8 +278,15 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       addEdge(pkg.name, name);
       addOccurrence(name, { dir, depth: depth + 1, direct: false, via: pkg.name });
       addMember(name, root);
-      visit(child, depth + 1, childExcluded, [...stack, dir], root);
+      reached.add(name);
+      for (const descendant of visit(child, depth + 1, childExcluded, [...stack, dir], root)) reached.add(descendant);
     }
+    const closures = workspaceClosures.get(root) ?? new Map<string, Set<string>>();
+    const closure = closures.get(pkg.name) ?? new Set<string>();
+    for (const name of reached) closure.add(name);
+    closures.set(pkg.name, closure);
+    workspaceClosures.set(root, closures);
+    return reached;
   };
 
   // Each workspace is resolved on its own dependencies, from its own folder (spec 3.6).
@@ -370,6 +422,8 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
 
   const overrideFiles = new Set(overrides.flatMap((o) => (o.file !== undefined ? [o.file] : [])));
   const inScope = (o: Override, pkgName: string): boolean => o.scope === 'all' || o.scope.has(pkgName);
+  const appliesIn = (o: Override, key: string, owner: string): boolean =>
+    o.scope === 'all' || o.from?.dir === projectDir || workspaceClosures.get(key)?.get(o.by)?.has(owner) === true;
 
   const allRules: { source: RuleSource; pkg: ResolvedPackage }[] = [];
   const allSkills: FinalSkill[] = [];
@@ -434,23 +488,40 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       excludedUnits.push({ id: source.id, by: exclusion.by });
       continue;
     }
-    const relevant = overrides.filter((o) => o.target === source.id && inScope(o, pkg.name) && (o.file === undefined || isFile(o.file)));
-    const replace = relevant.filter((o) => o.kind === 'replace').at(-1);
+    const relevant = overrides.filter((o) => o.kind !== 'exclude' && o.target === source.id && inScope(o, pkg.name) && isFile(o.file!));
+    const variants = new Map<string, { members: Set<string>; replace?: Override; patches: Override[] }>();
+    // Workspaces also inherit root rules. Apply only the overrides available in each workspace.
+    for (const key of pkg.members.has('') ? everywhere : pkg.members) {
+      const applicable = relevant.filter((o) => appliesIn(o, key, pkg.name));
+      const replace = applicable.findLast((o) => o.kind === 'replace');
+      const patches = applicable.filter((o) => {
+        if (o.kind !== 'patch') return false;
+        if (!replace || o.order > replace.order) return true;
+        warnings.push(`${o.by}: the patch of ${source.id} is dropped, because ${replace.by} replaces the rule`);
+        return false;
+      });
+      const signature = JSON.stringify([replace?.order, ...patches.map((o) => o.order)]);
+      const variant = variants.get(signature) ?? { members: new Set<string>(), replace, patches };
+      variant.members.add(key);
+      variants.set(signature, variant);
+    }
+    for (const variant of variants.values()) {
+      rules.push(resolveRule(source, pkg, variant.replace, variant.patches, variant.members, variants.size > 1));
+    }
+  }
+
+  function resolveRule(source: RuleSource, pkg: ResolvedPackage, replace: Override | undefined, patchOverrides: Override[], members: Set<string>, variant: boolean): FinalRule {
     const from = replace?.file ?? source.file;
     let text = readText(from);
     const patches: AppliedPatch[] = [];
-    for (const p of relevant.filter((o) => o.kind === 'patch')) {
-      if (replace && p.order < replace.order) {
-        warnings.push(`${p.by}: the patch of ${source.id} is dropped, because ${replace.by} replaces the rule`);
-        continue;
-      }
+    for (const p of patchOverrides) {
       const patchName = relPosix(projectDir, p.file!);
       const result = applyPatch(text, readText(p.file!), patchName);
       text = result.text;
       warnings.push(...result.warnings);
       patches.push({ patch: patchName, by: p.by, sections: result.touched });
     }
-    rules.push({
+    return {
       ...ruleMeta(text, source.name, from),
       id: source.id,
       name: source.name,
@@ -460,7 +531,9 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       text,
       ...(replace ? { replacedBy: replace } : {}),
       patches,
-    });
+      members,
+      variant,
+    };
   }
 
   // Skills: a later package wins on the same name, with a warning (spec 2.9). The highest `replace` gives the folder.
@@ -471,8 +544,24 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
       excludedUnits.push({ id: found.id, by: exclusion.by });
       continue;
     }
-    const replace = overrides.filter((o) => o.kind === 'replace' && o.target === found.id && inScope(o, found.pkg.name) && replacementExists(o.target, o.file!)).at(-1);
-    const skill: FinalSkill = replace ? { ...found, dir: replace.file!, replacedBy: replace } : found;
+    const replacements = overrides.filter((o) => o.kind === 'replace' && o.target === found.id && inScope(o, found.pkg.name) && replacementExists(o.target, o.file!));
+    const winners = new Map<Override | undefined, Set<string>>();
+    for (const key of found.pkg.members) {
+      const replace = replacements.findLast((o) => appliesIn(o, key, found.pkg.name));
+      const keys = winners.get(replace) ?? new Set<string>();
+      keys.add(key);
+      winners.set(replace, keys);
+    }
+    let skill = found;
+    if (winners.size > 1) {
+      const details = [...winners].map(([replace, keys]) => `${replace ? `The replacement from ${replace.by}` : 'The original'} applies in ${describeMembers(keys)}.`);
+      const replacementConflict = ['Keeping the original skill because its consumers resolve different versions.', ...details].join(' ');
+      warnings.push(`${found.id}: ${replacementConflict}`);
+      skill = { ...found, replacementConflict };
+    } else {
+      const replace = winners.keys().next().value;
+      if (replace) skill = { ...found, dir: replace.file!, replacedBy: replace };
+    }
     const previous = skillsByName.get(skill.name);
     if (previous && !(skill.pkg.entry && previous.pkg.plugin === skill.pkg.plugin)) warnings.push(`skill "${skill.name}" comes from ${previous.pkg.name} and ${skill.pkg.name}; using ${skill.pkg.name}`);
     skillsByName.set(skill.name, skill);

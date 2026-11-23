@@ -25,7 +25,7 @@ import {
   wrapBlock,
   type PathFor,
 } from './render.ts';
-import { skillAuthor, type FinalRule, type Resolution, type ResolvedPackage } from './resolve.ts';
+import { describeMembers, localRuleChanges, rulesById, skillAuthor, type FinalRule, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { headings } from './sections.ts';
 import { AGENT_EVENTS, INDEX_FILE, describeSend, sameSend, telemetryState, type EventType, type Send, type TelemetryIndex } from './telemetry.ts';
 import {
@@ -35,6 +35,7 @@ import {
   exists,
   gitExclude,
   gitKeeps,
+  hash,
   isDir,
   isFile,
   isSymlink,
@@ -186,7 +187,10 @@ export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage)
     if (best) return relPosix(projectDir, path.join(projectDir, STATE_DIR, 'pkgs', best.name, path.relative(best.dir, file)));
     return show(file);
   };
-  const generatedRule = (rule: FinalRule): string => path.join(generatedRoot(rule.pkg), 'rules', rule.pkg.plugin, `${rule.name}.md`);
+  const generatedRule = (rule: FinalRule): string => {
+    const dir = path.join(generatedRoot(rule.pkg), 'rules', rule.pkg.plugin);
+    return path.join(rule.variant ? path.join(dir, '.workspaces', hash(JSON.stringify([...rule.members].sort()))) : dir, `${rule.name}.md`);
+  };
   const paths: PathFor = {
     rule: (rule) => (rule.patches.length > 0 ? show(generatedRule(rule)) : display(rule.source)),
     docsIndex: (pkg) => {
@@ -207,18 +211,17 @@ function changesSection(team: Resolution, full: Resolution, rulePath: (rule: Fin
   const added = new Set(full.packages.filter((p) => p.layer === 'added').map((p) => p.name));
   const lines: string[] = [];
   const texts: string[] = [];
-  for (const rule of team.rules) {
-    const changed = full.rules.find((r) => r.id === rule.id);
+  for (const { id, changed, members } of localRuleChanges(team, full)) {
+    const where = team.workspaces.length > 0 && members.size !== team.workspaces.length + 1 ? ` in ${describeMembers(members)}` : '';
     if (!changed) {
-      const by = full.excludedUnits.find((u) => u.id === rule.id)?.by;
-      if (by !== undefined && added.has(by)) lines.push(`- Ignore the rule ${rule.id} in AGENTS.md: ${by} turns it off on this machine.`);
+      const by = full.excludedUnits.find((u) => u.id === id)?.by;
+      if (by !== undefined && added.has(by)) lines.push(`- Ignore the rule ${id} in AGENTS.md${where}: ${by} turns it off on this machine.`);
       continue;
     }
-    if (changed.text === rule.text) continue;
     const by = [changed.replacedBy?.by, ...changed.patches.map((p) => p.by)].filter((b): b is string => b !== undefined && added.has(b));
     const who = [...new Set(by)].join(', ');
-    if (changed.activation === 'always') texts.push(alwaysOnText(changed, `${rule.id}, changed by ${who} on this machine; follow this text`));
-    else lines.push(`- Instead of the rule ${rule.id} in AGENTS.md, read ${rulePath(changed)} (changed by ${who})`);
+    if (changed.activation === 'always') texts.push(alwaysOnText(changed, `${id}, changed by ${who} on this machine; follow this text${where}`));
+    else lines.push(`- Instead of the rule ${id} in AGENTS.md${where}, read ${rulePath(changed)} (changed by ${who})`);
   }
   if (lines.length === 0 && texts.length === 0) return undefined;
   return ["## Changes to this repository's rules", ...texts, ...(lines.length > 0 ? [lines.join('\n')] : [])].join('\n\n');
@@ -290,18 +293,25 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     into.add(`/${relPosix(projectDir, linkPath)}`);
   };
 
+  const teamPatched = new Set(team?.rules.filter((rule) => rule.patches.length > 0).map(tools.generatedRule));
   // Generated rule files: patched rules that agents read from a file, with this machine's text.
   for (const rule of full.rules) {
     if (rule.activation === 'always' || isUserLevel(rule.pkg)) continue;
     if (rule.pkg.layer !== 'added' && !team) continue;
-    const teamPatched = (team?.rules.find((r) => r.id === rule.id)?.patches.length ?? 0) > 0;
-    if (rule.patches.length > 0 || teamPatched) generated.set(tools.generatedRule(rule), rule.text);
+    const file = tools.generatedRule(rule);
+    if (rule.patches.length > 0 || teamPatched.has(file)) generated.set(file, rule.text);
   }
 
   // File-scoped team rules also get a native Claude Code rule (spec 4.3, note 3).
   if (team) {
-    for (const rule of full.rules.filter((r) => r.activation === 'file' && r.pkg.layer !== 'added')) {
+    for (const variants of rulesById(full.rules).values()) {
+      const rule = variants[0]!;
+      if (rule.activation !== 'file' || rule.pkg.layer === 'added') continue;
+      // A repository-wide native rule cannot carry different text for different workspaces.
+      if (variants.some((other) => other.text !== rule.text)) continue;
       const changed = rule.text !== readText(rule.original);
+      const members = new Set(variants.flatMap((other) => [...other.members]));
+      if (changed && full.workspaces.some((ws) => !members.has(ws.key))) continue;
       const target = changed ? tools.generatedRule(rule) : stable(rule.source);
       if (changed) generated.set(target, rule.text);
       addLink(path.join(projectDir, '.claude', 'rules', 'harnesspm', rule.pkg.plugin, `${rule.name}.md`), target, teamExcludes);
@@ -327,11 +337,21 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     const teamGenerated = new Map<string, string>();
     const teamLock = lock;
     const teamTools = pathTools(team, () => teamGen, teamGenerated, warnings);
+    for (const rule of team.rules) {
+      if (rule.activation !== 'always' && rule.patches.length > 0) teamGenerated.set(teamTools.generatedRule(rule), rule.text);
+    }
     // One command form inside the project and outside it, where `-C` is the only difference (spec 4.6, 10.1).
     const prefix = (pkg: ResolvedPackage): string | undefined => (trustOf(pkg, team, teamLock).trusted ? NPX_ANY : undefined);
     // The root block holds what the root reaches and what every workspace shares (spec 3.6, 4.5).
     const keys = team.workspaces.map((ws) => ws.key);
     const shared = (pkg: ResolvedPackage): boolean => pkg.members.has('') || (keys.length > 0 && keys.every((k) => pkg.members.has(k)));
+    const rootRules: FinalRule[] = [];
+    const workspaceRules = new Map(keys.map((key) => [key, [] as FinalRule[]]));
+    for (const variants of rulesById(team.rules).values()) {
+      const first = variants[0]!;
+      if (shared(first.pkg) && variants.every((rule) => rule.text === first.text)) rootRules.push(first);
+      else for (const rule of variants) for (const key of rule.members) workspaceRules.get(key)?.push(rule);
+    }
     const workspaces: NonNullable<Plan['committed']>['workspaces'] = [];
     const withBlocks: string[] = [];
     for (const ws of team.workspaces) {
@@ -344,8 +364,13 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
           return index === undefined ? undefined : toWs(index);
         },
       };
-      const own = team.packages.filter((p) => !shared(p) && p.members.has(ws.key));
-      const content = renderSections(sectionsFor(team, own, wsPaths, prefix, { compact: true }), wsPaths, { compact: true });
+      const rules = workspaceRules.get(ws.key)!;
+      const includeOtherUnits = (pkg: ResolvedPackage): boolean => !shared(pkg) && pkg.members.has(ws.key);
+      const units = renderSections(sectionsFor(team, team.packages, wsPaths, prefix, { compact: true, rules, includeOtherUnits }), wsPaths, { compact: true });
+      const nested = keys.some((key) => key.startsWith(`${ws.key}/`));
+      const content = units !== '' && nested
+        ? `This block applies to this workspace. For files in a nested workspace, follow the harness rules for that workspace.\n\n${units}`
+        : units;
       const agentsFile = path.join(ws.dir, 'AGENTS.md');
       const existing = readTextIfExists(agentsFile);
       const agentsMd = content !== '' ? upsertBlock(existing, wrapBlock(content, true)) : extractBlock(existing) !== undefined ? removeBlock(existing) : existing;
@@ -353,10 +378,10 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
       if (content === '') continue;
       withBlocks.push(ws.key);
       // Telemetry maps a load of this file to the always-on rules its block holds (spec 14.4).
-      const always = team.rules.filter((r) => r.activation === 'always' && own.includes(r.pkg)).map((r) => r.id);
+      const always = rules.filter((r) => r.activation === 'always').map((r) => r.id);
       if (always.length > 0) blockUnits.set(path.join(realOrSame(ws.dir), 'AGENTS.md'), always);
     }
-    const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages.filter(shared), teamTools.paths, prefix, { compact: true }), teamTools.paths, { compact: true })]
+    const rootContent = [workspacesSection(withBlocks), renderSections(sectionsFor(team, team.packages, teamTools.paths, prefix, { compact: true, rules: rootRules, includeOtherUnits: shared }), teamTools.paths, { compact: true })]
       .filter((part) => part !== undefined && part !== '')
       .join('\n\n');
     const block = rootContent !== '' ? wrapBlock(rootContent, true) : wrapBlock('No harness units yet.');

@@ -2,7 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parse } from 'yaml';
-import type { Resolution } from './resolve.ts';
+import { rulesById, type FinalRule, type Resolution } from './resolve.ts';
 import type { Send } from './telemetry.ts';
 import { gitKeeps, hash, isFile, isRecord, readJsonIfExists, readText, readTextIfExists, relPosix } from './util.ts';
 
@@ -141,6 +141,41 @@ export function packageManagerLock(projectDir: string): (name: string, version: 
   };
 }
 
+/** Keep a single hash per rule ID, recording which workspaces receive each text when they differ. */
+function ruleHash(variants: FinalRule[]): string {
+  const members = new Map<string, string>();
+  for (const rule of variants) {
+    const digest = hash(rule.text);
+    for (const key of rule.members) members.set(key, digest);
+  }
+  return workspaceHash(members);
+}
+
+/** Preserve old hashes when all workspaces have identical content. */
+function workspaceHash(members: Map<string, string>): string {
+  const hashes = new Set(members.values());
+  return hashes.size === 1 ? hashes.values().next().value! : hash(JSON.stringify(sortKeys(Object.fromEntries(members))));
+}
+
+function patchHashes(variants: FinalRule[]): Lock['patches'][string] {
+  const sections = new Map<string, Map<string, Map<string, string>>>();
+  for (const rule of variants) {
+    for (const applied of rule.patches) {
+      if (applied.sections.length === 0) continue;
+      const headings = sections.get(applied.patch) ?? new Map<string, Map<string, string>>();
+      for (const section of applied.sections) {
+        const members = headings.get(section.heading) ?? new Map<string, string>();
+        for (const key of rule.members) members.set(key, section.hash);
+        headings.set(section.heading, members);
+      }
+      sections.set(applied.patch, headings);
+    }
+  }
+  return Object.fromEntries([...sections].map(([patch, headings]) => [
+    patch, Object.fromEntries([...headings].map(([heading, members]) => [heading, workspaceHash(members)])),
+  ]));
+}
+
 /** `telemetry` is the handler to record: harnesspm.json's for a person's sync, the previous one for a model run (spec 14.5). */
 export function buildLock(res: Resolution, previous: Lock | undefined, telemetry?: Send): Lock {
   const packages: Record<string, LockPackage> = {};
@@ -158,7 +193,12 @@ export function buildLock(res: Resolution, previous: Lock | undefined, telemetry
     packages[pkg.name] = entry;
   }
   const units: Lock['units'] = {};
-  for (const rule of res.rules) units[rule.id] = { kind: 'rules', hash: hash(rule.text) };
+  const patches: Lock['patches'] = {};
+  for (const [id, variants] of rulesById(res.rules)) {
+    units[id] = { kind: 'rules', hash: ruleHash(variants) };
+    const sections = patchHashes(variants);
+    if (Object.keys(sections).length > 0) patches[id] = sections;
+  }
   for (const skill of res.skills) units[skill.id] = { kind: 'skills', hash: hashDir(skill.dir) };
   for (const docs of res.docs) units[docs.id] = { kind: 'docs', hash: docsHash(docs.dir) };
   for (const script of res.scripts) units[script.id] = { kind: 'scripts', hash: isFile(script.file) ? hash(readText(script.file)) : 'missing' };
@@ -166,14 +206,6 @@ export function buildLock(res: Resolution, previous: Lock | undefined, telemetry
   for (const server of res.mcp) units[server.id] = { kind: 'mcp', hash: hash(JSON.stringify(server.config)) };
   for (const perms of res.permissions) units[perms.id] = { kind: 'permissions', hash: hash(JSON.stringify([perms.deny, perms.ask])) };
   for (const agent of res.agents) units[agent.id] = { kind: 'agents', hash: hash(readText(agent.file)) };
-  const patches: Lock['patches'] = {};
-  for (const rule of res.rules) {
-    for (const applied of rule.patches) {
-      if (applied.sections.length === 0) continue;
-      const byPatch = (patches[rule.id] ??= {});
-      byPatch[applied.patch] = Object.fromEntries(applied.sections.map((s) => [s.heading, s.hash]));
-    }
-  }
   return { lockfileVersion: 1, packages: sortKeys(packages), units: sortKeys(units), patches: sortKeys(patches), ...(telemetry !== undefined ? { telemetry: { send: telemetry } } : {}) };
 }
 

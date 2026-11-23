@@ -68,6 +68,7 @@ Paths start at the current folder. The tools run here too, with -C.
 For every target:
 
 - Commands carry `-C <dir>` when `help` was given one, and paths start at the caller's folder, as in the project section.
+- In a workspace, `help` and `why` use the rule text resolved for that workspace. At the repository root, they use the root's version when it has one and label differing workspace versions for a rule the root does not use.
 - `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
 - Each run sends a `help` event to the project's handler ([14.2](14-telemetry.md#142-events)), so a team can see whether agents follow the block's pointers.
 

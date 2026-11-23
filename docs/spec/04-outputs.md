@@ -46,7 +46,7 @@ Notes:
 
 1. `CLAUDE.local.md` counts as a `CLAUDE.md` for Claude Code. In a repository with only `AGENTS.md`, harnesspm MUST start `CLAUDE.local.md` with `@AGENTS.md`, or Claude would stop reading `AGENTS.md`.
 2. harnesspm owns `.codex/` and writes it on each machine. If a team already commits `.codex/config.toml`, harnesspm does not touch it and `harnesspm status` lists the units Codex is missing. The team moves those settings into `harness/`, which feeds both agents.
-3. A file-scoped rule has two outputs for Claude Code on purpose: the link activates it natively on matching files, and the pointer line in the shared block serves Codex.
+3. A file-scoped rule has two outputs for Claude Code on purpose: the link activates it natively on matching files, and the pointer line in the shared block serves Codex. If an override changes its text in only some workspaces, both agents use the workspace blocks.
 4. File-scoped and on-demand rules of added harnesses are pointer lines with absolute paths, in `CLAUDE.local.md` and the user-level blocks. They get no `.claude/rules/` link, because Claude Code treats a link to a file outside the working folder as an external import that needs approval. Patched rules and docs indexes of added harnesses are generated into `~/.harnesspm/generated/`, because a repository may have no `node_modules`.
 5. An added harness's `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the local block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 6. With agent events on, harnesspm also writes its own telemetry hooks into the same hook files, and the index they read into `node_modules/.harnesspm/telemetry.json` ([14.4](14-telemetry.md#144-agent-events)).
@@ -72,6 +72,7 @@ These go to the agents' user-level folders, so they work in every repository, in
 2. A workspace's `AGENTS.md` gets a `CLAUDE.md` that imports it, like every nested `AGENTS.md` ([4.3](#43-project-outputs), note 7). Both files are committed.
 3. Skills and executable units are written at the root.
 4. The root block starts with a `## Workspaces` section that names each workspace with a block of its own. Claude Code loads a workspace's block only when the agent opens a file there with its file tools, and Codex only when it starts in that folder ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). The root block is always on, so an agent that works through the shell still learns that the block exists.
+5. When a rule's text differs, each workspace's block points to its version. Patched versions that agents read from files have distinct paths. A workspace block with nested workspaces tells agents to use the nested workspace's rules when editing its files.
 
 ## 4.6 Managed blocks
 
