@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0
+
+### Minor Changes
+
+- [#63](https://github.com/tenphi/harnesspm/pull/63) [`38b7d55`](https://github.com/tenphi/harnesspm/commit/38b7d55bc8eb663ae91ef597f828e8c76cb91690) Thanks [@tenphi](https://github.com/tenphi)! - `replace` now works on skills: map a skill ID to a folder with its own `SKILL.md`, which keeps the skill's name, ID and place. A package that passes on another package's harness can adapt an upstream skill for its users, and the folder is not a skill of its own, so nothing warns about two skills with one name. A replaced skill gets the trust of the package that replaced it. For other units, such as tools and hooks, `replace` warns and points to `exclude`, and `check` fails on it; the spec now says so.
+
+### Patch Changes
+
+- [#63](https://github.com/tenphi/harnesspm/pull/63) [`38b7d55`](https://github.com/tenphi/harnesspm/commit/38b7d55bc8eb663ae91ef597f828e8c76cb91690) Thanks [@tenphi](https://github.com/tenphi)! - A docs folder of your own harness that your build writes and git ignores no longer makes the lock and the `AGENTS.md` blocks depend on whether a build ran: `sync` leaves it out, built or not, and `check` still reads the built pages. An `exclude` of that docs unit no longer warns that it does not exist.
+
+- [#63](https://github.com/tenphi/harnesspm/pull/63) [`38b7d55`](https://github.com/tenphi/harnesspm/commit/38b7d55bc8eb663ae91ef597f828e8c76cb91690) Thanks [@tenphi](https://github.com/tenphi)! - A project in a subfolder of a git repository, such as `docs-site/`, now keeps its per-machine files out of git: `sync` writes its entries in `.git/info/exclude` from the git root (`/docs-site/.claude/skills/…`), in a section named after its folder, and keeps its own state file, so two projects in one repository never touch each other's entries. The next sync moves the entries an older version wrote into the root's section. A hook already in a settings file is not added a second time. `doctor` names the `!` pattern and file that bring a file back, and asks for a sync when no pattern matches.
+
 ## 0.9.2
 
 ### Patch Changes
