@@ -187,12 +187,40 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+/** Where a project's per-machine files are excluded from git (spec 4.1). */
+export interface GitExclude {
+  /** The clone's exclude file, usually `.git/info/exclude` at the git root. */
+  file: string;
+  /** The top folder of the work tree. */
+  root: string;
+  /** The project's folder from `root`, such as `docs-site/`, or `''` at the root. Patterns in `file` start from `root`, so every entry starts with it. */
+  prefix: string;
+}
+
+/** The clone's exclude file and the project's path inside the work tree, or undefined outside a git repository. */
+export function gitExclude(projectDir: string): GitExclude | undefined {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel', '--show-prefix', '--git-path', 'info/exclude'], { cwd: projectDir, encoding: 'utf8' });
+  if (result.status !== 0) return undefined;
+  const [root = projectDir, prefix = '', p = ''] = result.stdout.split('\n');
+  return { file: path.isAbsolute(p) ? p : path.join(projectDir, p), root, prefix };
+}
+
 /** The file that holds this clone's git excludes, or undefined outside a git repository. */
 export function gitExcludeFile(projectDir: string): string | undefined {
-  const result = spawnSync('git', ['rev-parse', '--git-path', 'info/exclude'], { cwd: projectDir, encoding: 'utf8' });
-  if (result.status !== 0) return undefined;
-  const p = result.stdout.trim();
-  return path.isAbsolute(p) ? p : path.join(projectDir, p);
+  return gitExclude(projectDir)?.file;
+}
+
+/** An exclude entry for a path from the project folder, such as `CLAUDE.local.md`: anchored at the git root, as git reads it. */
+export const excludeEntry = (prefix: string, rel: string): string => `/${prefix}${rel.replace(/^\/+/, '')}`;
+
+/** Adds one entry to the clone's exclude file, after everything else in it, unless it is there already. */
+export function addExclude(projectDir: string, rel: string): void {
+  const exclude = gitExclude(projectDir);
+  if (!exclude) return;
+  const entry = excludeEntry(exclude.prefix, rel);
+  const text = readTextIfExists(exclude.file) ?? '';
+  if (text.split('\n').includes(entry)) return;
+  writeIfChanged(exclude.file, `${text.replace(/\s*$/, '')}${text.trim() ? '\n' : ''}${entry}\n`);
 }
 
 /**
@@ -208,6 +236,11 @@ export function gitKeeps(dir: string): (rel: string) => boolean {
   if (listed.status !== 0) return () => true;
   const kept = new Set(listed.stdout.split('\0'));
   return (rel) => kept.has(rel);
+}
+
+/** Whether git ignores the folder `dir` itself. False outside a work tree, or when git is missing. */
+export function gitIgnoresDir(dir: string): boolean {
+  return spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status === 0;
 }
 
 export function listDir(dir: string): string[] {

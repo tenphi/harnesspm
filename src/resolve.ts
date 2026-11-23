@@ -15,7 +15,7 @@ import {
 import { discoverExecUnits, type AgentUnit, type HookUnit, type McpUnit, type PermissionsUnit, type ScriptUnit } from './exec-units.ts';
 import { applyPatch, type TouchedSection } from './sections.ts';
 import { findWorkspaces } from './workspaces.ts';
-import { HarnessError, compareVersions, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
+import { HarnessError, compareVersions, gitIgnoresDir, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
 
 export interface ResolvedPackage extends HarnessPackage {
   /** The package whose `extends` brought this one in, when it is not a direct dependency. */
@@ -54,6 +54,8 @@ export interface Override {
   file?: string;
   /** Who declared it: a package name or `harnesspm.json`. */
   by: string;
+  /** The package that declared it. Undefined for `harnesspm.json`. */
+  from?: ResolvedPackage;
   /** Lower numbers come from lower layers, or from packages further upstream. */
   order: number;
   scope: Set<string> | 'all';
@@ -82,7 +84,20 @@ export interface FinalRule extends RuleMeta {
 
 export interface FinalSkill extends SkillSource {
   pkg: ResolvedPackage;
+  /** The skill's own folder. `dir` is the folder in use: this one, or a replacement. */
+  original: string;
+  replacedBy?: Override;
 }
+
+/** Units that `replace` works on, and what a replacement is: a rule's file, or a skill's folder with its SKILL.md (spec 3.4). */
+const replaceable = (id: string): 'rule' | 'skill' | undefined => (id.includes(':rules/') ? 'rule' : id.includes(':skills/') ? 'skill' : undefined);
+const replacementExists = (id: string, file: string): boolean => (replaceable(id) === 'skill' ? isFile(path.join(file, 'SKILL.md')) : isFile(file));
+
+/**
+ * The package whose files a skill uses: the one whose `replace` put them in the skill's place, else its own. Trust
+ * follows these files (spec 6.1). Undefined when `harnesspm.json` replaced the skill with a file of the project.
+ */
+export const skillAuthor = (skill: FinalSkill): ResolvedPackage | undefined => (skill.replacedBy ? skill.replacedBy.from : skill.pkg);
 
 export interface FinalDocs extends DocsSource {
   pkg: ResolvedPackage;
@@ -341,15 +356,17 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
 
   // Overrides, lowest first: upstream packages, then downstream ones, then the project's harness, then harnesspm.json.
   const overrides: Override[] = [];
-  const add = (by: string, scope: Override['scope'], exclude: string[], replace: Record<string, string>, patch: Record<string, string>, baseDir: string): void => {
-    for (const target of exclude.filter(isUnitId)) overrides.push({ kind: 'exclude', target, by, order: overrides.length, scope });
-    for (const [target, file] of Object.entries(replace)) overrides.push({ kind: 'replace', target, file: path.resolve(baseDir, file), by, order: overrides.length, scope });
-    for (const [target, file] of Object.entries(patch)) overrides.push({ kind: 'patch', target, file: path.resolve(baseDir, file), by, order: overrides.length, scope });
+  const add = (from: ResolvedPackage | undefined, scope: Override['scope'], ext: Pick<ProjectConfig, 'exclude' | 'replace' | 'patch'>, baseDir: string): void => {
+    const by = from?.name ?? CONFIG_FILE;
+    const base = { by, ...(from ? { from } : {}), scope };
+    for (const target of ext.exclude.filter(isUnitId)) overrides.push({ kind: 'exclude', target, ...base, order: overrides.length });
+    for (const [target, file] of Object.entries(ext.replace)) overrides.push({ kind: 'replace', target, file: path.resolve(baseDir, file), ...base, order: overrides.length });
+    for (const [target, file] of Object.entries(ext.patch)) overrides.push({ kind: 'patch', target, file: path.resolve(baseDir, file), ...base, order: overrides.length });
   };
-  for (const pkg of packages.filter((p) => p.layer !== 'added')) add(pkg.name, pkg.closure, pkg.ext.exclude, pkg.ext.replace, pkg.ext.patch, pkg.harnessDir);
-  add(CONFIG_FILE, 'all', config.exclude, config.replace, config.patch, projectDir);
+  for (const pkg of packages.filter((p) => p.layer !== 'added')) add(pkg, pkg.closure, pkg.ext, pkg.harnessDir);
+  add(undefined, 'all', config, projectDir);
   // Added harnesses sit above everything, so their changes reach every unit below them.
-  for (const pkg of packages.filter((p) => p.layer === 'added')) add(pkg.name, 'all', pkg.ext.exclude, pkg.ext.replace, pkg.ext.patch, pkg.harnessDir);
+  for (const pkg of packages.filter((p) => p.layer === 'added')) add(pkg, 'all', pkg.ext, pkg.harnessDir);
 
   const overrideFiles = new Set(overrides.flatMap((o) => (o.file !== undefined ? [o.file] : [])));
   const inScope = (o: Override, pkgName: string): boolean => o.scope === 'all' || o.scope.has(pkgName);
@@ -362,11 +379,15 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   const allMcp: FinalMcp[] = [];
   const allPermissions: FinalPermissions[] = [];
   const allAgents: FinalAgent[] = [];
+  // Docs of the project layer that a build writes: git ignores the folder, or it is not built yet (spec 2.7, rule 6).
+  const builtDocs = new Set<string>();
   for (const pkg of packages) {
     const units = discoverUnits(pkg, overrideFiles);
     for (const source of units.rules) allRules.push({ source, pkg });
-    for (const skill of units.skills) allSkills.push({ ...skill, pkg });
-    if (units.docs) allDocs.push({ ...units.docs, pkg });
+    for (const skill of units.skills) allSkills.push({ ...skill, pkg, original: skill.dir });
+    const built = pkg.layer === 'project' && pkg.ext.docs !== undefined && (!units.docs || (gitIgnoresDir(units.docs.dir) && !gitIgnoresDir(pkg.dir)));
+    if (built) builtDocs.add(`${pkg.plugin}:docs`);
+    else if (units.docs) allDocs.push({ ...units.docs, pkg });
     const problems: string[] = [];
     const exec = discoverExecUnits(pkg, problems);
     for (const problem of problems) warnings.push(`${pkg.name}: ${problem}`);
@@ -387,10 +408,16 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
     const owner = knownIds.get(o.target);
     // Without the team layers, an added harness's change to a team unit has nothing to point at yet.
     if (owner === undefined && !team && addedNames.has(o.by)) continue;
+    // Built docs of the project layer are never a unit, built or not, so excluding them changes nothing.
+    if (owner === undefined && o.kind === 'exclude' && builtDocs.has(o.target)) continue;
     if (owner === undefined) warnings.push(`${o.by}: ${o.kind} names ${o.target}, which does not exist. It may have been renamed upstream.`);
     else if (!inScope(o, owner)) warnings.push(`${o.by}: ${o.kind} names ${o.target}, which ${o.by} does not pass on`);
-    else if (o.kind !== 'exclude' && !o.target.includes(':rules/')) warnings.push(`${o.by}: ${o.kind} works on rules only: ${o.target}`);
-    if (o.file !== undefined && !isFile(o.file)) warnings.push(`${o.by}: ${o.kind} file not found: ${relPosix(projectDir, o.file)}`);
+    else if (o.kind === 'patch' && replaceable(o.target) !== 'rule') warnings.push(`${o.by}: patch works on rules only: ${o.target}`);
+    else if (o.kind === 'replace' && replaceable(o.target) === undefined) warnings.push(`${o.by}: replace works on rules and skills only: ${o.target}. Exclude it and add a unit of your own instead.`);
+    if (o.file !== undefined && !(o.kind === 'replace' ? replacementExists(o.target, o.file) : isFile(o.file))) {
+      const skillFolder = o.kind === 'replace' && replaceable(o.target) === 'skill';
+      warnings.push(`${o.by}: ${skillFolder ? 'replace needs a skill folder with a SKILL.md' : `${o.kind} file not found`}: ${relPosix(projectDir, o.file)}`);
+    }
   }
 
   const excludedUnits: { id: string; by: string }[] = [];
@@ -436,14 +463,16 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
     });
   }
 
-  // Skills: a later package wins on the same name, with a warning (spec 2.9).
+  // Skills: a later package wins on the same name, with a warning (spec 2.9). The highest `replace` gives the folder.
   const skillsByName = new Map<string, FinalSkill>();
-  for (const skill of allSkills) {
-    const exclusion = excludedBy(skill.id, skill.pkg.name);
+  for (const found of allSkills) {
+    const exclusion = excludedBy(found.id, found.pkg.name);
     if (exclusion) {
-      excludedUnits.push({ id: skill.id, by: exclusion.by });
+      excludedUnits.push({ id: found.id, by: exclusion.by });
       continue;
     }
+    const replace = overrides.filter((o) => o.kind === 'replace' && o.target === found.id && inScope(o, found.pkg.name) && replacementExists(o.target, o.file!)).at(-1);
+    const skill: FinalSkill = replace ? { ...found, dir: replace.file!, replacedBy: replace } : found;
     const previous = skillsByName.get(skill.name);
     if (previous && !(skill.pkg.entry && previous.pkg.plugin === skill.pkg.plugin)) warnings.push(`skill "${skill.name}" comes from ${previous.pkg.name} and ${skill.pkg.name}; using ${skill.pkg.name}`);
     skillsByName.set(skill.name, skill);

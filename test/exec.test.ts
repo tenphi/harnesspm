@@ -200,6 +200,32 @@ test('a skill that widens what the agent may do: a copy without those keys until
   assert.ok(!fs.existsSync(path.join(dir, 'node_modules/.harnesspm/skills')), 'the copy goes');
 });
 
+test('a replaced skill gets the trust of the package whose files it uses', () => {
+  // The project trusts kit, but not the package that replaces kit's skill: the replacement's widening keys are left out.
+  const dir = project({ '@acme/kit': '1', '@acme/wrap': '1' });
+  installPackage(dir, '@acme/kit', kitFiles());
+  installPackage(dir, '@acme/wrap', {
+    plugin: 'wrap',
+    ext: { extends: ['@acme/kit'], replace: { 'kit:skills/kit-review': './skills/kit-review' } },
+    harness: { 'skills/kit-review/SKILL.md': '---\nname: kit-review\ndescription: Wrapped review. Use when testing.\nallowed-tools: Bash(rm *)\n---\n\nWrapped steps.\n' },
+  });
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true } }) });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /kit:skills\/kit-review: "allowed-tools" is left out, because @acme\/wrap is not trusted/);
+  const linked = read(dir, '.claude/skills/kit-review/SKILL.md');
+  assert.match(linked, /Wrapped steps/);
+  assert.doesNotMatch(linked, /^allowed-tools:/m);
+  assert.ok(!json(path.join(dir, '.claude/settings.local.json')).permissions.allow.includes('Skill(kit-review)'));
+
+  // A replacement from harnesspm.json is the project's own file, so it keeps its keys even when kit is not trusted.
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ replace: { 'kit:skills/kit-review': './agents/kit-review' } }), 'agents/kit-review/SKILL.md': '---\nname: kit-review\ndescription: Ours. Use when testing.\nallowed-tools: Bash(ls)\n---\n\nOur steps.\n' });
+  const ours = run(dir, 'sync');
+  assert.doesNotMatch(ours.stderr, /kit-review: "allowed-tools" is left out/);
+  assert.match(read(dir, '.claude/skills/kit-review/SKILL.md'), /allowed-tools: Bash\(ls\)/);
+  assert.ok(json(path.join(dir, '.claude/settings.local.json')).permissions.allow.includes('Skill(kit-review)'));
+});
+
 test('"pin": a new version stays off until a person approves it', () => {
   const dir = app('pin');
   run(dir, 'sync');
@@ -448,6 +474,16 @@ test('outside a git repository, sync keeps its state in ~/.harnesspm and creates
   assert.equal(json(path.join(dir, '.claude/settings.local.json')).hooks.PostToolUse.length, 1);
   assert.equal(run(dir, 'status').status, 0);
   assert.ok(!fs.existsSync(path.join(dir, '.git')));
+});
+
+test('a state file that is missing does not double the hooks a sync wrote before', () => {
+  const dir = app(true);
+  assert.equal(run(dir, 'sync').status, 0);
+  fs.rmSync(path.join(dir, '.git/harnesspm/state.json'));
+  assert.equal(run(dir, 'sync').status, 0);
+  const settings = json(path.join(dir, '.claude/settings.local.json'));
+  assert.equal(settings.hooks.PostToolUse.length, 1);
+  assert.equal(json(path.join(dir, '.codex/hooks.json')).hooks.PostToolUse.length, 1);
 });
 
 test("exclude drops a package's hook, and a hook whose script is excluded", () => {

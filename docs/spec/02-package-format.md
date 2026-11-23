@@ -94,7 +94,7 @@ The extension folder name is the harnesspm namespace, `dev.harnesspm`. See [13-o
 | --- | --- | --- |
 | `extends` | string[] | Packages whose harness this harness passes on. Resolved from this package's own folder. See [03-resolution.md](03-resolution.md#33-extends). |
 | `exclude` | string[] | Units or whole packages to drop from what this harness passes on. |
-| `replace` | object | Unit ID → path of a file that takes that unit's place. |
+| `replace` | object | Rule or skill ID → path of what takes that unit's place: a rule file, or a skill folder with its `SKILL.md`. See [3.4](03-resolution.md#34-priority). |
 | `patch` | object | Rule ID → path of a patch that changes some of its sections. See [2.5](#25-rules). |
 | `docs` | string | The folder with the package's docs. See [2.7](#27-docs). |
 | `scripts` | object | Script name → script definition. See [05-executables.md](05-executables.md#51-scripts). |
@@ -115,7 +115,7 @@ Unknown fields inside the extension MUST make `harnesspm check` fail, so typos d
 | MCP server | `mcp.json` | Agent Plugins MCP configuration | The agent starts it. |
 | Permission | `<ns>/permissions.json`, and `allow` on scripts | See [05-executables.md](05-executables.md#54-permissions) | The agent applies it. |
 
-`<ns>` is the extension folder, `dev.harnesspm`. A file that `replace` or `patch` names is not a unit of its own, even inside `rules/`.
+`<ns>` is the extension folder, `dev.harnesspm`. A file or folder that `replace` or `patch` names is not a unit of its own, even inside `rules/` or `skills/`.
 
 An agent picks a skill by its `description`. Say what the skill does, then, after "Use when", the situations and the words people use when they need it. Being picked is likely, not certain. When a skill must run in a situation, also add an always-on rule that names it: "To trace UI text, use the `uikit-text-origin` skill."
 
@@ -204,6 +204,7 @@ Only `name`, `description` and the body are portable. Agent-specific settings, s
 3. Otherwise harnesspm builds the index from every `.md` and `.mdx` page. A page's title is its frontmatter `title`, else its first heading, else its file name. Its frontmatter `description` follows the link. A page with invalid frontmatter is listed without it, and `sync` warns: it MUST NOT fail, because a project cannot fix a dependency's page. To leave pages out, write an `llms.txt`.
 4. The index points at the files of the **installed** version. See [04-outputs.md](04-outputs.md#42-stable-package-paths).
 5. A file that git ignores is not part of the docs: the index and the lock leave it out. Such a file, like an agent's local plan next to the pages, never reaches another clone, so counting it would make one machine's lock differ from CI's. This applies when the docs folder is in a git work tree and git does not ignore the folder itself. An installed package in `node_modules` counts whole. `check` reads the docs as the tarball has them instead ([2.10](#210-validation)), so it also checks pages built at `prepack`, which git ignores but npm packs.
+6. In the project layer, a docs folder that git ignores, while it keeps the package's folder, is no docs unit for `sync`: a build writes it, so counting it would make the lock and the managed blocks depend on whether a build ran. A docs folder that does not exist is no unit either. An `exclude` that names such a unit gives no warning. `check` still reads the built pages.
 
 ## 2.8 Unit IDs
 

@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnesspmHome } from './homes.ts';
-import { HarnessError, agentOf, caller, gitExcludeFile, insideDir, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
+import { HarnessError, addExclude, agentOf, caller, insideDir, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
 
 export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'help', 'read', 'skill', 'session'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -207,13 +207,7 @@ export function note(projectDir: string, message: string): void {
 function excludeFromGit(projectDir: string, file: string): void {
   const rel = path.relative(projectDir, file);
   if (rel.startsWith('..') || path.isAbsolute(rel)) return;
-  const exclude = gitExcludeFile(projectDir);
-  if (!exclude) return;
-  const entry = `/${toPosix(rel)}`;
-  const text = readTextIfExists(exclude) ?? '';
-  if (text.split('\n').includes(entry)) return;
-  fs.mkdirSync(path.dirname(exclude), { recursive: true });
-  fs.writeFileSync(exclude, `${text.replace(/\s*$/, '')}${text.trim() ? '\n' : ''}${entry}\n`);
+  addExclude(projectDir, toPosix(rel));
 }
 
 const DELIVER = fileURLToPath(new URL(`./deliver${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url));

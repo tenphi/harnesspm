@@ -269,6 +269,48 @@ test('S2: a middle package changes what it passes on, and the project builds on 
   assert.match(run(dir, 'help', '@tenphi/tasty').stdout, /### Style values \(tasty:rules\/style-values\)\n\nAlways on\. Changed by harnesspm\.json: this is the text agents get here\.\n\nOurs\.\n/);
 });
 
+test('a middle package replaces an upstream skill with a folder of its own, which keeps the skill\'s ID and place', () => {
+  const dir = chain();
+  const tasty = path.join(dir, 'node_modules/@cube-dev/ui-kit/node_modules/@tenphi/tasty');
+  writeFiles(tasty, { 'harness/skills/tasty-theme/SKILL.md': skill('tasty-theme', 'Change the theme where glaze() is called. Use when testing.') });
+  const uikit = path.join(dir, 'node_modules/@cube-dev/ui-kit');
+  const manifest = JSON.parse(read(uikit, 'harness/plugin.json'));
+  manifest.extensions['dev.harnesspm'].replace = { 'tasty:skills/tasty-theme': './skills/tasty-theme' };
+  writeFiles(uikit, {
+    'harness/plugin.json': JSON.stringify(manifest),
+    'harness/skills/tasty-theme/SKILL.md': skill('tasty-theme', 'Change the theme in the UI Kit palette. Use when testing.'),
+    'harness/skills/tasty-theme/palette.md': '# Palette\n',
+  });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /works on|comes from/, 'no warning: the replacement is not a skill of its own');
+  assert.match(read(dir, '.claude/skills/tasty-theme/SKILL.md'), /in the UI Kit palette/);
+  assert.match(read(dir, '.agents/skills/tasty-theme/palette.md'), /# Palette/, "the replacement's other files come along");
+  const lock = JSON.parse(read(dir, 'harnesspm.lock.json'));
+  assert.ok(lock.units['tasty:skills/tasty-theme'], 'the unit keeps its ID');
+  assert.equal(lock.units['uikit:skills/tasty-theme'], undefined);
+  const why = run(dir, 'why', 'tasty:skills/tasty-theme').stdout;
+  assert.match(why, /source +node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/harness\/skills\/tasty-theme\/SKILL\.md/);
+  assert.match(why, /replaced +by @cube-dev\/ui-kit: node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/harness\/skills\/tasty-theme/);
+  assert.match(why, /original +node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/skills\/tasty-theme\/SKILL\.md/);
+  assert.match(run(dir, 'help', '@tenphi/tasty').stdout, /- tasty-theme: read node_modules\/\.harnesspm\/pkgs\/@cube-dev\/ui-kit\/harness\/skills\/tasty-theme\/SKILL\.md \(tasty:skills\/tasty-theme\)/);
+
+  // The project replaces it again, and its own folder wins; a folder without SKILL.md is skipped with a warning.
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ replace: { 'tasty:skills/tasty-theme': './agents/tasty-theme', 'uikit:skills/uikit-review': './agents/nothing' } }), 'agents/tasty-theme/SKILL.md': skill('tasty-theme', 'Ours. Use when testing.') });
+  const again = run(dir, 'sync');
+  assert.match(again.stderr, /harnesspm\.json: replace needs a skill folder with a SKILL\.md: agents\/nothing/);
+  assert.match(read(dir, '.claude/skills/tasty-theme/SKILL.md'), /Ours\./);
+  assert.match(read(dir, '.claude/skills/uikit-review/SKILL.md'), /name: uikit-review/, 'a replacement that is not there leaves the skill as it is');
+});
+
+test('replace works on rules and skills; for other units it warns and points to exclude', () => {
+  const dir = chain();
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ replace: { 'uikit:docs': './agents/docs' }, patch: { 'uikit:skills/uikit-review': './agents/review.patch.md' } }), 'agents/docs/index.md': '# Docs\n', 'agents/review.patch.md': '## Steps\n' });
+  const result = run(dir, 'sync');
+  assert.match(result.stderr, /harnesspm\.json: replace works on rules and skills only: uikit:docs\. Exclude it and add a unit of your own instead\./);
+  assert.match(result.stderr, /harnesspm\.json: patch works on rules only: uikit:skills\/uikit-review/);
+});
+
 test('a package excluded by a middle package is dropped with what only it extends', () => {
   const dir = chain();
   const uikit = path.join(dir, 'node_modules/@cube-dev/ui-kit');
@@ -463,6 +505,52 @@ test('a skill that is gone is unlinked on the next sync; a person\'s own skill i
   assert.ok(!fs.existsSync(path.join(dir, '.claude/skills/uikit-review')));
   assert.ok(fs.existsSync(path.join(dir, '.claude/skills/my-own/SKILL.md')));
   assert.ok(!read(dir, '.git/info/exclude').includes('uikit-review'));
+});
+
+test('a project below the git root anchors its excludes at the git root, in a section of its own', () => {
+  const repo = project({ '@acme/kit': '1' }, {}, false);
+  const kit = { plugin: 'kit', harness: { 'skills/kit-review/SKILL.md': skill('kit-review'), 'dev.harnesspm/rules/forms.md': '---\npaths: ["**/*.tsx"]\n---\n\n# Forms\n\nUse the Form component.\n' } };
+  installPackage(repo, '@acme/kit', kit);
+  const dir = path.join(repo, 'docs-site');
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'site', version: '1.0.0', devDependencies: { '@acme/kit': '1' } }), 'harnesspm.json': '{}\n', 'harnesspm.local.json': '{}\n' });
+  installPackage(dir, '@acme/kit', kit);
+  writeFiles(repo, { '.gitignore': 'node_modules/\n' });
+  const ignored = (rel: string): boolean => spawnSync('git', ['check-ignore', '-q', rel], { cwd: repo }).status === 0;
+
+  // What 0.9 wrote for the subfolder project: the root's section, with paths from its own folder, and a link now gone.
+  fs.mkdirSync(path.join(dir, '.claude/skills'), { recursive: true });
+  fs.symlinkSync('../../node_modules/@acme/kit/harness/skills/kit-review', path.join(dir, '.claude/skills/kit-old'));
+  writeFiles(repo, { '.git/info/exclude': '# git ls-files --others --exclude-from=.git/info/exclude\n\n# BEGIN harnesspm (generated by `harnesspm sync`; per-machine outputs)\n/.claude/skills/kit-old\n/node_modules/.harnesspm/\n# END harnesspm\n' });
+
+  assert.equal(run(dir, 'sync').status, 0);
+  let exclude = read(repo, '.git/info/exclude');
+  assert.ok(exclude.startsWith('# git ls-files'), "a person's lines stay");
+  assert.ok(!exclude.includes('# BEGIN harnesspm (generated'), "the root's section, which 0.9 wrote for this project, is gone");
+  assert.ok(!fs.existsSync(path.join(dir, '.claude/skills/kit-old')), 'its link that this sync no longer writes is removed');
+  assert.match(exclude, /^# BEGIN harnesspm in docs-site\/ \(generated by `harnesspm sync`; per-machine outputs\)\n/m);
+  assert.match(exclude, /^# END harnesspm in docs-site\/$/m);
+  assert.match(exclude, /^\/docs-site\/\.claude\/skills\/kit-review$/m);
+  assert.match(exclude, /^\/docs-site\/harnesspm\.local\.json$/m);
+  assert.doesNotMatch(exclude, /^\/\.claude\//m, 'no entry misses the project folder');
+  for (const rel of ['.claude/skills/kit-review', '.agents/skills/kit-review', '.claude/rules/harnesspm/kit/forms.md', 'harnesspm.local.json']) {
+    assert.ok(ignored(`docs-site/${rel}`), `git ignores docs-site/${rel}`);
+  }
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: repo, encoding: 'utf8' }).stdout;
+  assert.doesNotMatch(status, /docs-site\/\.(claude|agents)\//, 'git status shows no per-machine file');
+  assert.equal(run(dir, 'doctor').status, 0, run(dir, 'doctor').stdout);
+  assert.ok(fs.existsSync(path.join(repo, '.git/harnesspm/docs-site/state.json')), 'the project keeps its own state file');
+
+  // A second project at the root keeps its own section: neither sync touches the other's entries.
+  writeFiles(repo, { 'harnesspm.json': '{}\n' });
+  assert.equal(run(repo, 'sync').status, 0);
+  assert.equal(run(dir, 'sync').status, 0);
+  exclude = read(repo, '.git/info/exclude');
+  assert.match(exclude, /^# BEGIN harnesspm \(generated[^\n]*\n(?:\/[^\n]*\n)*\/\.claude\/skills\/kit-review\n/m);
+  assert.match(exclude, /^\/docs-site\/\.claude\/skills\/kit-review$/m);
+  assert.ok(ignored('.claude/skills/kit-review') && ignored('docs-site/.claude/skills/kit-review'));
+  assert.ok(fs.existsSync(path.join(repo, '.git/harnesspm/state.json')) && fs.existsSync(path.join(repo, '.git/harnesspm/docs-site/state.json')));
+  assert.match(run(dir, 'sync').stdout, /Nothing changed/);
+  assert.match(run(repo, 'sync').stdout, /Nothing changed/);
 });
 
 test('skills with the same name: the later package wins, with a warning', () => {

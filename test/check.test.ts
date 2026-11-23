@@ -181,3 +181,30 @@ test('check reads files as npm does: globs across folders, and ! entries that le
   // npm always packs the license, and the glob reaches the nested guide.
   assert.doesNotMatch(text, /usage\.md/);
 });
+
+test('check: a skill replacement is a skill folder with the name of the skill it replaces, and not a skill of its own', () => {
+  const dir = library(
+    { extends: ['@tenphi/glaze'], replace: { 'glaze:skills/glaze-theme': './skills/glaze-theme' } },
+    { 'harness/skills/glaze-theme/SKILL.md': skill('glaze-theme', 'Change the theme in docs.config.ts. Use when testing.') },
+    { files: ['harness'] },
+  );
+  const ok = run(dir, 'check');
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.doesNotMatch(ok.stdout + ok.stderr, /should start with the plugin name/, 'the replacement keeps the upstream name');
+
+  writeFiles(dir, {
+    'harness/plugin.json': JSON.stringify({
+      $schema: PLUGIN_SCHEMA,
+      name: 'mylib',
+      extensions: { 'dev.harnesspm': { replace: { 'glaze:skills/glaze-theme': './skills/other', 'glaze:skills/glaze-palette': './skills/missing', 'glaze:scripts/inspect': './inspect.mjs' } } },
+    }),
+    'harness/skills/other/SKILL.md': skill('other'),
+    'harness/inspect.mjs': '',
+  });
+  const result = run(dir, 'check');
+  assert.equal(result.status, 1);
+  const out = result.stdout + result.stderr;
+  assert.match(out, /harness\/skills\/other\/SKILL\.md: "name" must be "glaze-theme", the name of the skill it replaces/);
+  assert.match(out, /replace glaze:skills\/glaze-palette: \.\/skills\/missing does not exist/);
+  assert.match(out, /replace glaze:scripts\/inspect: replace works on rules and skills only\. Exclude the unit and add one of your own instead\./);
+});

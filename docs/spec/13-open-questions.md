@@ -18,7 +18,7 @@ Notes that Claude Code or Codex save by themselves (Claude Code auto memory, Cod
 
 **Decision:** rules can be patched by Markdown section ([02-package-format.md](02-package-format.md#25-rules)). A patch replaces, adds or removes sections and keeps the rest. Upgrades that change a patched section are reported.
 
-Variables and slots were the other options. A patch covers the same cases, including "change a few words", when authors split rules into small sections. One mechanism is enough. Patches work on rules only. Extend them to skills if people start replacing whole skills to change one step.
+Variables and slots were the other options. A patch covers the same cases, including "change a few words", when authors split rules into small sections. One mechanism is enough. Patches work on rules only. `replace` works on rules and skills, the units people adapt as text. Extend patches to skills if people start replacing whole skills to change one step.
 
 ### 13.3 Extension namespace
 

@@ -32,7 +32,7 @@ Keep always-on rules short. One topic per file, split into small `##` sections, 
 ## 3. Pass on upstream harness
 
 - List the packages it builds on in `extends` in `plugin.json`.
-- To change one of their rules for all users, prefer a patch: `npx harnesspm new patch <rule ID>` registers it in `harness/plugin.json`. Keep and edit only the sections that change. Use `replace` for a whole unit and `exclude` to drop one. Find IDs in the `AGENTS.md` block or with `npx harnesspm why <ID>`.
+- To change one of their rules for all users, prefer a patch: `npx harnesspm new patch <rule ID>` registers it in `harness/plugin.json`. Keep and edit only the sections that change. Use `replace` for a whole rule or skill, and `exclude` to drop a unit. Find IDs in the `AGENTS.md` block or with `npx harnesspm why <ID>`.
 
 ## 4. Check and publish
 

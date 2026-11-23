@@ -50,12 +50,12 @@ Packages in the dependency layer are ordered **upstream first**: a package comes
 | --- | --- |
 | A project entry repeats a unit ID of its own harness | The entry's unit wins. |
 | `exclude` names a unit or a package | It is dropped, with everything only it extends. |
-| `replace` names a unit | The new file takes the unit's ID and place. |
+| `replace` names a rule or a skill | The new rule file, or the new skill folder, takes the unit's ID and place. A skill's new `SKILL.md` keeps the skill's `name`. Other units can't be replaced: exclude them and add one of your own. |
 | `patch` names a rule | Its sections change as defined in [02-package-format.md](02-package-format.md#25-rules). |
 | Two skills have the same name | The later one wins, with a warning. |
 | An override names a unit that does not exist | Warning. It usually means an upstream unit was renamed. |
 
-For one rule, harnesspm takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. A patch from a layer below the winning `replace` is dropped with a warning.
+For one rule, harnesspm takes the original or the highest `replace`, then applies every patch from the layers above it, lowest layer first. A patch from a layer below the winning `replace` is dropped with a warning. For one skill, it takes the original or the highest `replace`. A replaced skill runs the files of the package that replaced it, so that package's trust applies to it ([6.1](06-trust.md#61-what-needs-trust)).
 
 When an upgrade changes a section that a patch replaces or removes, `harnesspm sync` warns and names the section, because the patch may now be out of date. The lock stores a hash of each such section to detect this.
 
@@ -96,7 +96,7 @@ Workspaces come from the `workspaces` field of the root `package.json` or from `
 | --- | --- | --- |
 | `$schema` | — | The JSON schema, for editors. |
 | `exclude` | `[]` | Packages or unit IDs to drop. |
-| `replace` | `{}` | Unit ID → path of a project file that takes its place. |
+| `replace` | `{}` | Rule or skill ID → path of a project file, or skill folder, that takes its place. |
 | `patch` | `{}` | Rule ID → path of a project patch that changes some of its sections. |
 | `trust` | `{}` | Which packages may run executable units. See [06-trust.md](06-trust.md). |
 | `telemetry` | off | Which events to send, and the handler that gets them. See [14-telemetry.md](14-telemetry.md). |
