@@ -64,7 +64,7 @@ Rules:
 - every harness package: name, version, plugin name, tarball URL and integrity, so `harnesspm fetch` can download it without an install; for a `"pin"` package, also the approved version. The URL and integrity come from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. pnpm records a URL only for a package outside the registry;
 - the project's own harness, and each workspace's: name, plugin name and `"project": true`, without a version. The project layer is always trusted and its unit hashes show every change, so a release that raises the project's version leaves the lock as it is. A lock with that version, as harnesspm 0.3 wrote it, still counts as up to date, and the next `sync` drops it;
 - every unit: ID, kind, content hash. A docs unit's content is its `llms.txt` and its `.md` and `.mdx` pages that git does not ignore ([2.7](02-package-format.md#27-docs)), so a change to another file in its folder, such as source code next to the pages, leaves the lock as it is;
-- every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported;
+- every patch: a hash of each section it replaces or removes, so an upgrade that changes one is reported. A rule or patched section with different text across workspaces has a hash that covers each workspace's version;
 - the telemetry handler that a person's sync recorded ([14.5](14-telemetry.md#145-trust)).
 
 The lock holds no per-machine state, so every machine writes the same lock. `harnesspm status` shows which executable units are pending on this machine, and why.

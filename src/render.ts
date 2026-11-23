@@ -141,11 +141,12 @@ export function sectionsFor(
   packages: ResolvedPackage[],
   paths: PathFor,
   runPrefix: (pkg: ResolvedPackage) => string | undefined = () => undefined,
-  options: { compact?: boolean } = {},
+  options: { compact?: boolean; rules?: FinalRule[]; includeOtherUnits?: (pkg: ResolvedPackage) => boolean } = {},
 ): Section[] {
   return packages.map((pkg) => {
-    const index = paths.docsIndex(pkg);
-    const prefix = runPrefix(pkg);
+    const other = options.includeOtherUnits?.(pkg) ?? true;
+    const index = other ? paths.docsIndex(pkg) : undefined;
+    const prefix = other ? runPrefix(pkg) : undefined;
     const line = (s: { name: string; description?: string; id: string }): string =>
       options.compact ? `- Tool: \`${pkg.plugin}:${s.name}\` — ${s.description} (${s.id})` : `- Script: \`${prefix} run ${pkg.plugin}:${s.name}\` — ${s.description} (${s.id})`;
     const scripts = prefix === undefined ? [] : res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined).map(line);
@@ -155,7 +156,7 @@ export function sectionsFor(
     return {
       heading: packageHeading(pkg),
       target: helpTarget(pkg),
-      rules: res.rules.filter((r) => r.pkg === pkg),
+      rules: (options.rules ?? res.rules).filter((r) => r.pkg === pkg),
       ...(index !== undefined ? { docsIndex: { path: index, id: `${pkg.plugin}:docs` } } : {}),
       ...(scripts.length > 0 ? { scripts } : {}),
       ...(hooks.length > 0 ? { hooks } : {}),

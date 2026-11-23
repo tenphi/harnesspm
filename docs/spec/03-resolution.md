@@ -74,10 +74,12 @@ harnesspm warns and names the versions.
 Workspaces come from the `workspaces` field of the root `package.json` or from `pnpm-workspace.yaml`.
 
 1. Each workspace is resolved on its own dependencies, from its own folder. Backend workspaces do not get frontend rules.
-2. Units that the root reaches, or that every workspace shares, are written once, at the root.
+2. Units that the root reaches, or that every workspace shares, are written once at the root. A rule with different text across workspaces is written in the workspaces that use it.
 3. A workspace's own `harness/` belongs to that workspace. A workspace that another workspace depends on is still the project's own code, so it is in the project layer and trusted.
 4. Executable units are written at the root, where both agents read them.
 5. One version per package applies to the whole repository ([3.5](#35-one-package-several-versions)).
+6. For a rule, a package's `patch` or `replace` applies where that package passes on the rule through `extends`. Root rules are available in every workspace, and each workspace gets its own overrides. Overrides from the root's own harness, `harnesspm.json` and added harnesses still apply across the repository within their usual scope.
+7. Each agent gets one version of a skill, linked at the root. If its consumers resolve different replacements, or some resolve the original, harnesspm keeps the original and warns. `harnesspm why <skill ID>` explains which workspaces disagreed.
 
 ## 3.7 Project configuration
 
