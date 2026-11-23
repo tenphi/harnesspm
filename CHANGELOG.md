@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1
+
+### Patch Changes
+
+- [#66](https://github.com/tenphi/harnesspm/pull/66) [`690bd5e`](https://github.com/tenphi/harnesspm/commit/690bd5ed1a0d6207ba767d20c45026e305f528f8) Thanks [@tenphi](https://github.com/tenphi)! - Keep monorepo rule patches and replacements scoped to the workspaces that use them, and keep the original skill when consumers disagree.
+
 ## 0.10.0
 
 ### Minor Changes
