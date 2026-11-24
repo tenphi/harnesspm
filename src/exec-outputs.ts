@@ -297,13 +297,24 @@ type JsonHooks = Record<string, { matcher?: string; hooks?: { type?: string; com
  * state file that is missing, such as the first one of a project below the git root, never doubles a hook.
  */
 function mergeHooks(hooks: JsonHooks, previous: HookEntry[], next: HookEntry[]): JsonHooks {
-  const drop = new Set(previous.map(hookKey));
+  // An owned entry that stays keeps its place, so several owners of one file, such as the projects below a parent
+  // folder (spec 4.10), do not move each other's entries on every sync.
+  const wanted = new Map(next.map((entry) => [hookKey(entry), entry]));
+  const owned = new Set(previous.map(hookKey));
+  const handlerOf = (entry: HookEntry) => ({ type: 'command', command: entry.command, ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}), ...(entry.async ? { async: true } : {}) });
   const keyOf = (event: string, g: JsonHooks[string][number], h: NonNullable<JsonHooks[string][number]['hooks']>[number]): string =>
     hookKey({ event, ...(g.matcher !== undefined ? { matcher: g.matcher } : {}), command: h.command ?? '' });
   const result: JsonHooks = {};
   const present = new Set<string>();
   for (const [event, groups] of Object.entries(hooks)) {
-    const kept = groups.map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !drop.has(keyOf(event, g, h))) })).filter((g) => g.hooks.length > 0);
+    const kept = groups
+      .map((g) => ({
+        ...g,
+        hooks: (g.hooks ?? [])
+          .filter((h) => !owned.has(keyOf(event, g, h)) || wanted.has(keyOf(event, g, h)))
+          .map((h) => (owned.has(keyOf(event, g, h)) ? handlerOf(wanted.get(keyOf(event, g, h))!) : h)),
+      }))
+      .filter((g) => g.hooks.length > 0);
     for (const g of kept) for (const h of g.hooks) present.add(keyOf(event, g, h));
     if (kept.length > 0) result[event] = kept;
   }
@@ -311,8 +322,7 @@ function mergeHooks(hooks: JsonHooks, previous: HookEntry[], next: HookEntry[]):
     if (present.has(hookKey(entry))) continue;
     present.add(hookKey(entry));
     const list = (result[entry.event] ??= []);
-    const handler = { type: 'command', command: entry.command, ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}), ...(entry.async ? { async: true } : {}) };
-    list.push({ ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}), hooks: [handler] });
+    list.push({ ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}), hooks: [handlerOf(entry)] });
   }
   return result;
 }

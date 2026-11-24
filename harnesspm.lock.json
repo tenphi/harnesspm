@@ -65,7 +65,7 @@
     },
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "d356d0a9919dfae1"
+      "hash": "9e3da18faa30f4bd"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",
@@ -81,7 +81,7 @@
     },
     "harnesspm:skills/harnesspm-import": {
       "kind": "skills",
-      "hash": "c20dd78843f5a5e7"
+      "hash": "dafae2a336f447cb"
     },
     "harnesspm:skills/harnesspm-improve": {
       "kind": "skills",

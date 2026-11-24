@@ -5,6 +5,7 @@
 - harnesspm writes each agent's **native** files, where the agent already looks.
 - Of the outputs, only the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files and `harnesspm.lock.json` are committed. Everything else is written on each machine and kept out of git.
 - People never edit outputs. Every output names its source.
+- A session that starts in a folder above the repositories gets their hooks and a pointer to their harness after a `sync` in that folder ([4.10](#410-sessions-that-start-in-a-parent-folder)).
 
 Package authors do not need this chapter. It defines what implementations write.
 
@@ -127,7 +128,7 @@ A blank line follows the BEGIN marker and comes before the END marker, so Markdo
 
 ## 4.7 Files shared with people
 
-`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, so it can remove them later: `harnesspm/state.json` in the clone's git folder for project outputs (`harnesspm/<folder>/state.json` for a project below the git root), and `~/.harnesspm/state.json` for user-level ones. An entry that is already in the file is not added twice, so a state file that is lost never doubles a hook. In a folder that is not a git repository, project outputs use `~/.harnesspm/state/<folder>-<hash>.json`, so harnesspm never creates a `.git` folder. A settings file that held only harnesspm's entries is deleted with them.
+`CLAUDE.md` files, `~/.codex/AGENTS.md`, `.claude/settings.local.json` and `~/.claude/settings.json` are also written by people, or by the agent itself (Claude Code saves "don't ask again" approvals into `.claude/settings.local.json`). In these files, and in `~/.claude.json`, `.codex/hooks.json` and `~/.codex/config.toml`, harnesspm changes only its managed block or the entries it created. It records its entries in a per-machine state file, so it can remove them later: `harnesspm/state.json` in the clone's git folder for project outputs (`harnesspm/<folder>/state.json` for a project below the git root), and `~/.harnesspm/state.json` for user-level ones. An entry that is already in the file is not added twice, so a state file that is lost never doubles a hook. In a folder that is not a git repository, project outputs use `~/.harnesspm/state/<folder>-<hash>.json`, so harnesspm never creates a `.git` folder. The entries of each project in a parent folder ([4.10](#410-sessions-that-start-in-a-parent-folder)) use `~/.harnesspm/state/parents/<folder>-<hash>/<project>-<hash>.json`, so two projects never take each other's. A settings file that held only harnesspm's entries is deleted with them.
 
 ## 4.8 Why native files and not plugins
 
@@ -151,3 +152,27 @@ Codex reads one file per folder, `AGENTS.override.md` before `AGENTS.md`, from i
 - a block in a folder that has an `AGENTS.override.md`.
 
 A new block goes at the end of its file, and `sync` keeps a block where it is. So moving the root block to the top of `AGENTS.md` keeps it in the part Codex reads.
+
+## 4.10 Sessions that start in a parent folder
+
+A session often starts in a folder above the repositories it works on: a Claude Code cloud session with several repositories starts in `/home/user`, a person opens their folder of clones, and a job runner starts in its work folder. Claude Code reads settings only from the folder a session starts in, and Codex reads `AGENTS.md` only from its project root down to that folder ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#outside-the-start-folder)). So no hook of the repositories runs, and their rules do not load at the start.
+
+`npx -y @tenphi/harnesspm sync` in a **parent folder** fixes that. A parent folder is not in a git repository and has projects right below it: subfolders with a `harnesspm.json`. Its sync writes, for each project:
+
+| Output | Where | What |
+| --- | --- | --- |
+| Hooks | `.claude/settings.local.json` and `.codex/hooks.json` of the parent folder | The project's hooks and telemetry hooks with the same events, matchers and timeouts. Each starts harnesspm with `-C <project>`. |
+| Pointer block | A managed block in the parent folder's `AGENTS.md`, and `@AGENTS.md` in its `CLAUDE.md` | Each project's name and absolute path, its `AGENTS.md`, and `npx -y @tenphi/harnesspm -C <path> help`. A project that is not installed is listed too: `help` fetches its harness. |
+
+Rules:
+
+1. **Explicit.** Only a sync in the parent folder starts these outputs. Then each project's own sync, such as an install's, keeps its entries there current. A project never writes into a folder above it that has no pointer block. A project linked into the folder is found by its real path, so only a sync in the folder updates its entries.
+2. **Clean.** A sync in the folder removes the entries of projects that are gone. When none is left, it removes the block and the import it added too.
+3. **Hooks only.** Allow rules, MCP servers, sub-agents and skills stay in the project, because they name commands and files that work only from there. The pointer block says how to reach them.
+4. **The runner.** A hook starts the project's installed CLI file with `node` when that harnesspm runs parent hooks (0.11.0 or later), else `npx -y @tenphi/harnesspm`. A newer harnesspm may sync the parent folder than the one the project installed.
+5. **Trust.** The project's trust applies as in the project ([06-trust.md](06-trust.md#62-trusting-a-package)). A sync by the agent's model writes the pointer block, and keeps or removes hooks, but adds none: not even what the project's default branch records, which [6.2](06-trust.md#62-trusting-a-package), rule 4, allows in the project. The folder is the person's, and the agent may have cloned the project itself. The environment's setup script runs as a person, so a cloud session starts with the hooks. With `CI=true` the outputs are written too: they are per machine.
+6. **Paths.** Every path is absolute. These files are per machine: a parent folder is not in a git repository. The home folder is never a parent folder, because its `.claude/` and `.codex/` hold the user-level settings of every session.
+7. **Where hooks run.** A session in the parent folder edits files of every repository below it, so every project's hook sees them. A hook that `-C` starts from outside its project runs in the project, as in a session there, and harnesspm skips it when its JSON names a file outside the project (`tool_input.file_path` or `notebook_path`).
+8. **Inside a repository.** Claude Code also reads the `CLAUDE.md` files above the folder a session starts in, so a session inside one of the repositories sees the block too. It names the repositories next to it. Their hooks stay in the parent folder's settings, which that session does not read.
+
+A job runner that clones during the session writes these outputs after the session started. Claude Code reads them at the next start or resume of the session. Tools work at once: the agent reads the clone's `AGENTS.md`, whose block commands say how to use `-C` (S18).

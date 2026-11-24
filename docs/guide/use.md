@@ -53,7 +53,20 @@ npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run it, fro
 - `-C <dir>` goes before the command, as in `git -C`. Every command takes it.
 - The script runs in the current folder, so file arguments stay valid. The `run` event goes to the clone's telemetry handler.
 - A clone that is not installed works too. `help` fetches its harness packages first, and `help <tool>` never runs the script; fetching only downloads and checks integrity. Self-contained scripts then run. A script that needs a package of the clone's install says so and names the install command.
-- The clone's hooks and allow rules do not apply: agents read them only from the folder the session starts in.
+- The clone's hooks and allow rules do not apply: agents read them only from the folder the session starts in. A sync in that folder fixes the hooks, below.
+
+### Sessions that start above your repositories
+
+When you start sessions in a folder that holds several clones, such as `~/work` with `app` and `ui-kit` in it, run this once there, after the clones are installed:
+
+```bash
+cd ~/work && npx -y @tenphi/harnesspm sync
+```
+
+- Each repository's hooks then run in sessions that start in `~/work`, with `-C <repository>`, so edit checks and telemetry work there too.
+- A block in `~/work/AGENTS.md`, which `~/work/CLAUDE.md` imports, names each repository, its `AGENTS.md` and its `help` command, so the agent knows where the rules are.
+- Each repository's own sync, such as its install's, keeps its entries there current. Allow rules, MCP servers and skills stay in the repositories.
+- A job runner that starts in a work folder runs the same command in its checkout step, after the install. The outputs reach the session at its next start or resume; tools work at once through the block commands.
 - Keep the block near the top of `AGENTS.md`: agents often read only the first lines. `status` warns when the block starts past line 30.
 
 ## Upgrades

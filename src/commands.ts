@@ -17,7 +17,8 @@ import { checkHarness } from './check.ts';
 import { checkLocalFiles, excludeWritable, formatFinding, type Finding } from './doctor.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
-import { heldEntries, trustOf } from './exec-outputs.ts';
+import { emptyEntries, heldEntries, trustOf } from './exec-outputs.ts';
+import { childProjects, hasParentOutputs, isParentFolder, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked, locateLocked } from './fetch.ts';
@@ -31,7 +32,7 @@ import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, shellWord, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -145,8 +146,8 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   const before = readLock(projectDir);
   const keepCommitted = process.env['CI'] === 'true' && options.write !== true;
   let keptCommitted = false;
+  const model = caller() === 'model';
   if (mode !== 'none') {
-    const model = caller() === 'model';
     const plan = computePlan(resolved.team, full, { widen: !model });
     warnings.push(...plan.warnings);
     keptCommitted = keepCommitted && plan.committed !== undefined;
@@ -156,7 +157,28 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
     report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
     if (reviewed?.ok === false && (applied.teamHeld || plan.telemetryHeld !== undefined)) report.why = reviewed.reason;
     report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
+    // A parent folder above the project, once a sync ran there, gets this project's hooks too (spec 4.10). The agent's
+    // model never adds one there, not even what the default branch records: the folder is the person's.
+    const parent = path.dirname(projectDir);
+    if (plan.exec.team && hasParentOutputs(parent)) {
+      const written = writeParent(parent, projectDir, plan.exec.team, runner(projectDir, NPX_LOCAL).shell, !model);
+      changed.push(...written.changed, ...writePointer(parent));
+      report.held.push(...written.held);
+    }
   }
+  // Sync in a parent folder: the projects' hooks and a pointer to their harness, for sessions that start here, and
+  // nothing left of projects that are gone (spec 4.10).
+  const parentSync = mode === 'none' && parentToSync(projectDir);
+  const children = parentSync ? childProjects(projectDir) : [];
+  for (const child of children) {
+    const sub = resolveAll(child, { withAdded: false });
+    warnings.push(...sub.warnings.map((w) => `${path.basename(child)}: ${w}`));
+    const plan = sub.team ? computePlan(sub.team, sub.full, { widen: !model }) : undefined;
+    const written = writeParent(projectDir, child, plan?.exec.team ?? emptyEntries(), runner(child, NPX_LOCAL).shell, !model);
+    changed.push(...written.changed);
+    report.held.push(...written.held);
+  }
+  if (parentSync) changed.push(...removeGone(projectDir, children), ...writePointer(projectDir));
   if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir));
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   printWarnings(out, warnings);
@@ -164,7 +186,9 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   if (options.quiet) return 0;
   if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(new Set(full.rules.map((r) => r.id)).size, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
-  const what = mode === 'none' ? 'Nothing to do in this folder' : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
+  const above = `Sessions that start here get the hooks of ${plural(children.length, 'project')} below: ${children.map((c) => path.basename(c)).join(', ')}`;
+  const gone = 'No projects below this folder any more: removed what an earlier sync wrote for them';
+  const what = mode === 'none' ? (children.length > 0 ? above : parentSync ? gone : 'Nothing to do in this folder') : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
   return 0;
 }
@@ -240,6 +264,8 @@ const LOCKFILES = Object.keys(INSTALLS);
  * downloads from the npm registry.
  */
 function setupLine(projectDir: string): string | undefined {
+  // A folder above projects: its sync, after the projects' installs (spec 4.10).
+  if (isParentFolder(projectDir)) return `cd ${/^[\w./-]+$/.test(projectDir) ? projectDir : `'${projectDir.replaceAll("'", "'\\''")}'`} && ${NPX_ANY} sync`;
   const lock = LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
   if (lock === undefined || !isFile(path.join(projectDir, CONFIG_FILE))) return undefined;
   const pkg = readJsonIfExists(path.join(projectDir, 'package.json'));
@@ -817,7 +843,37 @@ export function run(cwd: string, ref: string, args: string[], agent: string | un
     const reason = notAvailable(projectDir, tools, 'scripts');
     if (reason !== undefined) throw new HarnessError(reason);
   }
-  return runScript(tools.res, ref, args, agent, tools.installed ? {} : { install: installCommand(projectDir) });
+  const context = tools.installed ? {} : { install: installCommand(projectDir) };
+  // A hook from a parent folder (spec 4.10): it runs in its project, as in a session there, and not for a file outside it.
+  if (agent !== undefined && !insideDir(projectDir)) {
+    const input = hookInput();
+    if (fileOutside(input, projectDir)) return Promise.resolve(0);
+    return runScript(tools.res, ref, args, agent, { ...context, cwd: projectDir, input });
+  }
+  return runScript(tools.res, ref, args, agent, context);
+}
+
+/** The hook's JSON on stdin, or nothing when there is none to read. */
+function hookInput(): Buffer {
+  try {
+    return fs.readFileSync(0);
+  } catch {
+    return Buffer.alloc(0);
+  }
+}
+
+/** Whether a hook's JSON names a file, such as the one an `Edit` changed, that is outside the project. */
+function fileOutside(input: Buffer, projectDir: string): boolean {
+  try {
+    const payload: unknown = JSON.parse(input.toString('utf8'));
+    if (!isRecord(payload) || !isRecord(payload['tool_input'])) return false;
+    const file = payload['tool_input']['file_path'] ?? payload['tool_input']['notebook_path'];
+    if (typeof file !== 'string' || file === '') return false;
+    const base = typeof payload['cwd'] === 'string' ? payload['cwd'] : process.cwd();
+    return !insideDir(projectDir, path.resolve(base, file));
+  } catch {
+    return false;
+  }
 }
 
 export function mcp(cwd: string, ref: string, agent: string | undefined): number {

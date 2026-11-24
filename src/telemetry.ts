@@ -367,10 +367,21 @@ export function configDir(cwd: string): string | undefined {
 }
 
 /**
+ * The session of a hook's event (spec 14.4). Claude Code's commands see `CLAUDE_CODE_SESSION_ID`, and `run` events use it,
+ * so a Claude Code hook uses it too when it is set: on a person's machine it can differ from the payload's `session_id`.
+ */
+export function hookSession(payload: Record<string, unknown>, agent: string | undefined, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const fromEnv = agent === 'claude' ? env['CLAUDE_CODE_SESSION_ID'] : undefined;
+  if (fromEnv !== undefined && fromEnv !== '') return fromEnv;
+  return typeof payload['session_id'] === 'string' ? payload['session_id'] : undefined;
+}
+
+/**
  * `harnesspm track --agent <agent>`: the command of harnesspm's agent hooks. It reads the hook's JSON
  * on stdin, maps it to an event, hands the event off and exits 0 at once. It never prints.
+ * `project` comes from `-C`: a hook in a folder above the project names it, because the session's folder is not in it (spec 4.10).
  */
-export function track(args: string[]): number {
+export function track(args: string[], project?: string): number {
   let projectDir: string | undefined;
   try {
     const at = args.indexOf('--agent');
@@ -378,16 +389,17 @@ export function track(args: string[]): number {
     const payload: unknown = JSON.parse(fs.readFileSync(0, 'utf8'));
     if (!isRecord(payload)) return 0;
     const cwd = typeof payload['cwd'] === 'string' ? payload['cwd'] : process.cwd();
-    projectDir = configDir(cwd);
+    projectDir = project !== undefined ? configDir(project) : configDir(cwd);
     if (projectDir === undefined) return 0;
     const state = readTelemetryState(projectDir);
     if (state.send === undefined) return 0;
     const index = readIndex(projectDir);
     if (!index) return 0;
-    const session = typeof payload['session_id'] === 'string' ? payload['session_id'] : undefined;
+    const session = hookSession(payload, agent);
     // The index has the remote, so a hook never waits for git.
     const ctx: EventContext = { projectDir, project: index.project, repository: index.repository ?? '', workspaces: index.workspaces };
-    sendEvents(state, ctx, agentEvents(payload, index).map(({ type, ...rest }) => ({ type, caller: 'agent', agent, session, ...rest })), cwd);
+    const outside = outsideField(projectDir, cwd);
+    sendEvents(state, ctx, agentEvents(payload, index).map(({ type, ...rest }) => ({ type, caller: 'agent', agent, session, ...rest, ...outside })), cwd);
   } catch (error) {
     if (projectDir !== undefined) note(projectDir, `track: ${(error as Error).message}`);
   }

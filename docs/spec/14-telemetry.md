@@ -65,8 +65,8 @@ Every event has these fields:
 | `harnesspm` | The harnesspm version. |
 | `caller` | `person`; `agent` when the agent's model ran it ([6.2](06-trust.md#62-trusting-a-package), rule 4); `hook` when the agent ran it through a hook or an MCP server; `ci` when `CI=true`. |
 | `agent` | `claude` or `codex`, when known. |
-| `session` | The agent's session ID, when known. |
-| `outside` | `true` when harnesspm runs from a folder outside the project, such as through `-C` ([10.1](10-cli.md#-c-dir)). Missing inside the project. Its `workspace` is `.`. `run`, `help` and `why` set it: the commands that `-C` serves. Agent events come from the project's own hooks, so they never need it. It lets a handler tell an agent that works from another repository from a session inside the project whose hooks are missing. |
+| `session` | The agent's session ID, when known. For Claude Code it is `CLAUDE_CODE_SESSION_ID` as its commands see it, so a hook's event and a command's event agree; a hook falls back to the payload's `session_id` ([14.4](#144-agent-events)). |
+| `outside` | `true` when harnesspm runs from a folder outside the project, such as through `-C` ([10.1](10-cli.md#-c-dir)). Missing inside the project. Its `workspace` is `.`. `run`, `help` and `why` set it: the commands that `-C` serves. Agent events set it when the hook's `cwd` is outside the project, as in a session that started in a parent folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). It lets a handler tell an agent that works from another repository from a session inside the project whose hooks are missing. |
 
 ```json
 {"schema":"harnesspm.event/1","type":"run","time":"2026-11-13T10:00:00.000Z","project":"app","repository":"github.com/acme/app","workspace":".","harnesspm":"0.2.0","caller":"agent","agent":"claude","session":"77c89d39-1164-4bc0-b046-7a3e9bc97863","unit":"uikit:scripts/probe","package":"@cube-dev/ui-kit","version":"0.206.1","exit":0,"outcome":"ok","duration":812}
@@ -91,7 +91,7 @@ Rules:
 
 | Agent | Hooks harnesspm writes | What harnesspm reads from the hook's JSON |
 | --- | --- | --- |
-| Claude Code | `PostToolUse` with the matcher `Read\|Skill`, `InstructionsLoaded` with the matcher `path_glob_match\|nested_traversal\|include`, `SessionStart`. All are `"async": true`. | `tool_input.file_path` of `Read`; `tool_input.skill` of `Skill`; `file_path` of a file-scoped rule that Claude Code loads through its `.claude/rules/` link, or of a workspace's `AGENTS.md`; `source` and `session_id` |
+| Claude Code | `PostToolUse` with the matcher `Read\|Skill`, `InstructionsLoaded` with the matcher `path_glob_match\|nested_traversal\|include`, `SessionStart`. All are `"async": true`. | `tool_input.file_path` of `Read`; `tool_input.skill` of `Skill`; `file_path` of a file-scoped rule that Claude Code loads through its `.claude/rules/` link, or of a workspace's `AGENTS.md`; `source`; `cwd`; `session_id`, when `CLAUDE_CODE_SESSION_ID` is not set |
 | Codex | `SessionStart`, `"async": true` | `source` and `session_id` |
 
 Codex reads files and skills through shell commands. harnesspm cannot map a shell command to a unit reliably, so Codex sends no `read` or `skill` events. Codex also runs a project hook only after a person reviews it in `/hooks` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#codex)).
@@ -101,6 +101,10 @@ A hook MUST never make the agent wait. The hooks are asynchronous, and the comma
 1. It is `node <project>/node_modules/@tenphi/harnesspm/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package; each workspace's `AGENTS.md`, with the always-on rules its managed block names; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
+
+The session of an event is the one Claude Code's commands see in `CLAUDE_CODE_SESSION_ID`, which `run` events use. On a person's machine a hook's `session_id` can differ from it, which split one session into one with only hook events and one with only command events ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#settings-hooks-permissions)). Without the variable, the hook uses `session_id`. That hooks see the same variable as commands is not confirmed yet ([13.11](13-open-questions.md#1311-agent-behavior-not-confirmed-yet)). Either way nothing is lost: where a hook's variable equals its `session_id`, the event is as before; where it equals the commands', the split closes.
+
+In a parent folder the command is `… -C <project> track --agent <agent>`. `-C` names the project, because the session's `cwd` is above it, and the events carry `outside: true` ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)).
 
 A workspace's block reaches Claude Code in two loads: its `CLAUDE.md` with `nested_traversal`, then the `AGENTS.md` it imports with `include` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#settings-hooks-permissions)). The index lists only the `AGENTS.md`, so each rule is sent once per load, with `via: auto`. A `Read` of that file, which the root block's `## Workspaces` section asks for ([4.5](04-outputs.md#45-monorepos)), sends nothing for the block: Claude Code loads the folder's `CLAUDE.md` when the agent opens a file there, and that load sends the rules. So each rule counts once.
 
