@@ -196,10 +196,12 @@ function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, 
   }
 }
 
-// Agent hooks call `harnesspm track` on every matching tool call, so it loads only what it needs (spec 14.4).
-if (process.argv[2] === 'track') {
+// Agent hooks call `harnesspm track` on every matching tool call, so it loads only what it needs (spec 14.4). A hook in a
+// folder above the project names the project with `-C <dir>` (spec 4.10).
+const tracked = process.argv[2] === 'track' ? 3 : process.argv[2] === '-C' && process.argv[4] === 'track' ? 5 : 0;
+if (tracked > 0) {
   const { track } = await import('./telemetry.ts');
-  process.exitCode = track(process.argv.slice(3));
+  process.exitCode = track(process.argv.slice(tracked), tracked === 5 ? path.resolve(process.argv[3]!) : undefined);
 } else {
   await main();
 }

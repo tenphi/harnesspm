@@ -108,6 +108,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Answer** | An exit code that a script declares as the tool doing its job, not failing, such as `1` for a lint that found problems or `2` for a hook that blocks. Listed in the script's `answers`. |
 | **Handler** | The command or file that gets a project's events. Named in `harnesspm.json`, and active only as a person's sync recorded it in the lock. |
 | **Telemetry** | The events a project collects about how agents and people use its harness. Off unless the project turns it on. |
+| **Parent folder** | A folder that is not in a git repository, with projects right below it, such as `/home/user` in a Claude Code cloud session with several repositories, or a person's folder of clones. A session that starts there reads no settings of the projects, so `sync` in it writes their hooks there ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). |
 
 ## 1.6 Base scenarios
 
@@ -132,8 +133,9 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
 | S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx harnesspm doctor`. |
 | S17 | A teammate's merged change adds a hook, an MCP server or an allow rule | Nothing. The next install writes it on every machine, also when an agent runs the install. |
-| S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @tenphi/harnesspm -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone do not run there. |
+| S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @tenphi/harnesspm -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone run there only after a `sync` in that folder (S20). |
 | S19 | A repository has many harness packages or workspaces, and its `AGENTS.md` must stay inside the agents' limits | Nothing. The managed block names each rule and tool in one line. Agents print a package's rules with `help <package>` and a tool's options with `help <tool>`. |
+| S20 | A session starts in a folder above several repositories, such as a Claude Code cloud session with more than one, a person's folder of clones, or a job runner's work folder | `npx -y @tenphi/harnesspm sync` in that folder, after the installs: in the environment's setup script, once on a person's machine, or in the runner's checkout step. Each repository's hooks run there, and a block in that folder's `AGENTS.md` names each repository and its `help` command. A later sync of a repository keeps its entries there current. |
 
 ## 1.7 What is committed
 

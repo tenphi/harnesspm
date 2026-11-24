@@ -64,6 +64,10 @@ const MISSING_MODULE = /\b(?:ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND)\b/;
  */
 export interface RunContext {
   install?: string;
+  /** Where the script runs. Default: the caller's folder. */
+  cwd?: string;
+  /** stdin for the script, already read, such as a hook's JSON. Default: harnesspm's own stdin. */
+  input?: Buffer;
 }
 
 export function runScript(res: Resolution, ref: string, args: string[], agent: string | undefined, context: RunContext = {}): Promise<number> {
@@ -77,11 +81,21 @@ export function runScript(res: Resolution, ref: string, args: string[], agent: s
   if (!isFile(script.file)) throw new HarnessError(`Script ${ref}: ${script.file} does not exist`);
   const [command, prefix] = interpreter(script.file);
   const started = Date.now();
-  // The script runs in the caller's folder, so file arguments stay valid, also with -C (spec 10.1). stdout streams as it
-  // is. stderr passes through too, and its tail shows whether a dependency was missing.
-  const child = spawn(command, [...prefix, ...args], { stdio: ['inherit', 'inherit', 'pipe'], cwd: process.cwd(), env: environment(script.pkg, res, agent) });
+  // The script runs in the caller's folder, so file arguments stay valid, also with -C (spec 10.1); a hook from a parent
+  // folder runs in its project (spec 4.10). stdout streams as it is. stderr passes through too, and its tail shows
+  // whether a dependency was missing.
+  const child = spawn(command, [...prefix, ...args], {
+    stdio: [context.input !== undefined ? 'pipe' : 'inherit', 'inherit', 'pipe'],
+    cwd: context.cwd ?? process.cwd(),
+    env: environment(script.pkg, res, agent),
+  });
+  if (context.input !== undefined) {
+    // A script that exits without reading its stdin closes the pipe: that is not an error.
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(context.input);
+  }
   let tail = '';
-  child.stderr.on('data', (chunk: Buffer) => {
+  child.stderr?.on('data', (chunk: Buffer) => {
     process.stderr.write(chunk);
     tail = (tail + chunk.toString('utf8')).slice(-4096);
   });

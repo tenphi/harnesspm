@@ -31,6 +31,16 @@ To check, start a new session and run `npx harnesspm status`: it shows no "held 
 
 When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. What the default branch records is the exception, but only when the clone has `origin/HEAD`, and cloud clones have none. So that the agent's later installs, such as after a pull, write what is merged, add `git -C /home/user/<repo> remote set-head origin main || true` to the setup script, with your default branch. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` print the line for the setup script when they hold entries back.
 
+### Several repositories
+
+A session with more than one repository starts in `/home/user`, above the clones. Claude Code reads settings only from that folder, so no repository's hooks run there. After the installs, add one line to the setup script:
+
+```bash
+cd /home/user && npx -y @tenphi/harnesspm sync || true
+```
+
+It writes each repository's hooks into `/home/user/.claude/settings.local.json`, and a block in `/home/user/AGENTS.md` that names each repository, its `AGENTS.md` and its `help` command. Later installs of a repository keep its entries there current. A session with one repository starts in its clone and runs that clone's own hooks. It also sees the block, because Claude Code reads `CLAUDE.md` files above the folder a session starts in.
+
 ### For a team
 
 Environments are personal, unless an organization Owner shares one. So each person sets the setup script in their own environment. Commit a script that starts with `cd /home/user/<repo>`, and give people the lines to paste:
