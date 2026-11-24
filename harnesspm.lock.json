@@ -37,7 +37,7 @@
     },
     "cookbook:rules/usage": {
       "kind": "rules",
-      "hash": "ccc07561507e79dd"
+      "hash": "da5b637fb99cec32"
     },
     "glaze:docs": {
       "kind": "docs",
@@ -121,6 +121,11 @@
     }
   },
   "patches": {
+    "cookbook:rules/usage": {
+      "harnesspm/patches/cookbook-usage.patch.md": {
+        "Checking a site": "8c07b0302c38534d"
+      }
+    },
     "glaze:rules/colors": {
       "node_modules/@tenphi/cookbook/harness/dev.harnesspm/patches/glaze-colors.patch.md": {
         "Checking a theme": "caf25f3b5adae6a8",

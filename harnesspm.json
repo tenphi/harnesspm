@@ -1,3 +1,6 @@
 {
-  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json"
+  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
+  "patch": {
+    "cookbook:rules/usage": "./harnesspm/patches/cookbook-usage.patch.md"
+  }
 }
