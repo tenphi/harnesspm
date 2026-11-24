@@ -1,12 +1,68 @@
 {
   "lockfileVersion": 1,
   "packages": {
+    "@tenphi/cookbook": {
+      "version": "0.34.1",
+      "plugin": "cookbook",
+      "resolved": "https://registry.npmjs.org/@tenphi/cookbook/-/cookbook-0.34.1.tgz",
+      "integrity": "sha512-1CNTKucxqB51pB58eGtPGyeaHGX/RFKdBqFo/0UXWxiE3Hm+qoA7JsGl7jWdRi21RcKIHfSzoWWVK1BvbJrnMQ=="
+    },
+    "@tenphi/eslint-plugin-tasty": {
+      "version": "1.21.3",
+      "plugin": "tasty-lint",
+      "resolved": "https://registry.npmjs.org/@tenphi/eslint-plugin-tasty/-/eslint-plugin-tasty-1.21.3.tgz",
+      "integrity": "sha512-LVH2iFapiJSbYHg9TEss2N7ZrEbUhrFHvnCOcNfAj/BD3DSd/W0CXg+jIfbs+4UdAyJw5kQTpiSQTb+LnVqMMQ=="
+    },
+    "@tenphi/glaze": {
+      "version": "3.2.0",
+      "plugin": "glaze",
+      "resolved": "https://registry.npmjs.org/@tenphi/glaze/-/glaze-3.2.0.tgz",
+      "integrity": "sha512-KcI9hpEeBQtf5Yy93KwQ+APrPPO3a8/HHXSVeRmuqCLhAo1SSjVBpZX5HGzDFPczAwqCbu9/fWYjxVVLY658dQ=="
+    },
     "@tenphi/harnesspm": {
       "plugin": "harnesspm",
       "project": true
+    },
+    "@tenphi/tasty": {
+      "version": "3.19.2",
+      "plugin": "tasty",
+      "resolved": "https://registry.npmjs.org/@tenphi/tasty/-/tasty-3.19.2.tgz",
+      "integrity": "sha512-/ZYcAgC955SXmXvz7qkWA8KqQ7NOaclonvZzFrlKvlZbyUpXW7nqgCaaV6ejSe+tH8jdYxlkBsdtLmrxsSa92w=="
     }
   },
   "units": {
+    "cookbook:docs": {
+      "kind": "docs",
+      "hash": "b0d69e54f51e7da8"
+    },
+    "cookbook:rules/usage": {
+      "kind": "rules",
+      "hash": "ccc07561507e79dd"
+    },
+    "glaze:docs": {
+      "kind": "docs",
+      "hash": "01faa2a9664b0f07"
+    },
+    "glaze:rules/colors": {
+      "kind": "rules",
+      "hash": "15fa5385fe652e48"
+    },
+    "glaze:scripts/color": {
+      "kind": "scripts",
+      "hash": "83a0a05025c783ae"
+    },
+    "glaze:scripts/contrast": {
+      "kind": "scripts",
+      "hash": "0f19c41b5b03c811"
+    },
+    "glaze:scripts/inspect": {
+      "kind": "scripts",
+      "hash": "b01aa78b18b19580"
+    },
+    "glaze:skills/glaze-theme": {
+      "kind": "skills",
+      "hash": "6e582a1e4ec20240"
+    },
     "harnesspm:docs": {
       "kind": "docs",
       "hash": "d356d0a9919dfae1"
@@ -30,7 +86,56 @@
     "harnesspm:skills/harnesspm-improve": {
       "kind": "skills",
       "hash": "7543189ff8b9b71d"
+    },
+    "tasty-lint:docs": {
+      "kind": "docs",
+      "hash": "50acc956f953f5c8"
+    },
+    "tasty-lint:hooks/check-edit": {
+      "kind": "hooks",
+      "hash": "60de055481a08446"
+    },
+    "tasty-lint:rules/usage": {
+      "kind": "rules",
+      "hash": "872e87965e9f0635"
+    },
+    "tasty-lint:scripts/check": {
+      "kind": "scripts",
+      "hash": "3eb16188031919f9"
+    },
+    "tasty-lint:scripts/check-edit": {
+      "kind": "scripts",
+      "hash": "2e2b9a26fbbe5ec9"
+    },
+    "tasty:docs": {
+      "kind": "docs",
+      "hash": "ef7f2b98d4db3107"
+    },
+    "tasty:rules/usage": {
+      "kind": "rules",
+      "hash": "4dcb59226237ea9e"
+    },
+    "tasty:scripts/styles": {
+      "kind": "scripts",
+      "hash": "81cc5cdaf184d3e4"
     }
   },
-  "patches": {}
+  "patches": {
+    "glaze:rules/colors": {
+      "node_modules/@tenphi/cookbook/harness/dev.harnesspm/patches/glaze-colors.patch.md": {
+        "Checking a theme": "caf25f3b5adae6a8",
+        "Where colors come from": "ce40127f100138c6"
+      }
+    },
+    "tasty-lint:rules/usage": {
+      "node_modules/@tenphi/cookbook/harness/dev.harnesspm/patches/tasty-lint-usage.patch.md": {
+        "After you change styles": "b5a2a1dc94cb8a0d"
+      }
+    },
+    "tasty:rules/usage": {
+      "node_modules/@tenphi/cookbook/harness/dev.harnesspm/patches/tasty-usage.patch.md": {
+        "Checking styles": "6fc039e8c6929820"
+      }
+    }
+  }
 }
