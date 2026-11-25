@@ -294,19 +294,27 @@ export function gitIgnoresDir(dir: string): boolean {
 }
 
 /**
- * The file whose pattern makes git ignore `rel`, a path in `projectDir` that need not exist, such as `.gitignore` or
- * `.git/info/exclude`. Null when git does not ignore it, undefined outside a work tree or when git is missing.
+ * The file whose pattern makes git ignore `rel`, a path in `projectDir` that need not exist (a folder ends in `/`): a
+ * `.gitignore` or `.git/info/exclude` by its path from the git root, or a global excludes file by its absolute path.
+ * Null when git does not ignore it, undefined outside a work tree.
  */
 export function gitIgnoreSource(projectDir: string, rel: string): string | null | undefined {
-  const result = spawnSync('git', ['check-ignore', '-v', rel], { cwd: projectDir, encoding: 'utf8' });
+  // -z, so git does not quote a path with non-ASCII characters.
+  const result = spawnSync('git', ['check-ignore', '-z', '-v', '--stdin'], { cwd: projectDir, encoding: 'utf8', input: `${rel}\0` });
   if (result.status === 1) return null;
-  if (result.status !== 0) {
-    // Git also fails inside a work tree, as on an exclude file it cannot read: then nothing is known to be ignored.
-    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: projectDir, encoding: 'utf8' });
-    return inside.status === 0 && inside.stdout.trim() === 'true' ? null : undefined;
+  // Git also fails inside a work tree, as on an exclude file it cannot read, in a repository it calls unsafe, or when
+  // it is missing: then nothing is known to be ignored.
+  if (result.status !== 0) return hasGitAbove(projectDir) ? null : undefined;
+  const [source = '', , pattern = ''] = result.stdout.split('\0');
+  return source !== '' && !pattern.startsWith('!') ? source : null;
+}
+
+/** Whether `dir` or a folder above it holds `.git`, whether or not git can read it. */
+function hasGitAbove(dir: string): boolean {
+  for (let current = path.resolve(dir); ; current = path.dirname(current)) {
+    if (fs.existsSync(path.join(current, '.git'))) return true;
+    if (path.dirname(current) === current) return false;
   }
-  const decided = /^(.*?):\d+:(.*)\t/.exec(result.stdout);
-  return decided && !decided[2]!.startsWith('!') ? decided[1]! : null;
 }
 
 /** Whether a file written at `rel` stays out of every commit: git ignores it, or there is no work tree. */

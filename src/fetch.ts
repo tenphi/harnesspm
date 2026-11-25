@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
-import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
+import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, DOCS_PROBE, docsIgnoreAdvice, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
 import { HarnessError, ensureDir, gitKeepsOut, isInside, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
@@ -113,10 +113,12 @@ export function fetchLocked(projectDir: string): FetchReport {
       return false;
     }
   };
-  if (plan.teamExcludes?.includes(DOCS_EXCLUDE)) excluded([DOCS_EXCLUDE]);
-  const copies = gitKeepsOut(projectDir, '.harnesspm/docs/llms.txt');
-  if (!copies && plan.teamExcludes?.includes(DOCS_EXCLUDE)) {
-    report.warnings.push(`The docs copies are not written: git does not ignore .harnesspm/, and .git/info/exclude cannot be written. Add this line to .gitignore: ${DOCS_EXCLUDE}`);
+  const wanted = plan.teamExcludes?.includes(DOCS_EXCLUDE) === true;
+  const listed = wanted && excluded([DOCS_EXCLUDE]);
+  const copies = gitKeepsOut(projectDir, DOCS_PROBE);
+  if (!copies && wanted) {
+    const why = listed ? '' : ', and .git/info/exclude cannot be written';
+    report.warnings.push(`The docs copies are not written: git does not ignore .harnesspm/${why}. ${docsIgnoreAdvice(projectDir)}`);
   }
   const ours = (file: string): boolean => isInside(state, file) || (copies && isInside(docsRoot, file));
   for (const root of plan.generatedRoots) if (ours(root)) fs.rmSync(root, { recursive: true, force: true });

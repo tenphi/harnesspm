@@ -429,6 +429,53 @@ test("S21: every dependency's docs are copied where search finds them, and nothi
   assert.doesNotMatch(read(dir, '.git/info/exclude'), /\.rgignore|^\/\.harnesspm\/$/m);
 });
 
+test('only a .gitignore of the repository that ignores the docs folder clears the .gitignore warning', () => {
+  // Below the git root, in a folder whose name git would quote.
+  const root = project();
+  const dir = path.join(root, 'ü', 'app');
+  writeFiles(dir, { 'package.json': JSON.stringify({ name: 'app', version: '1.0.0', devDependencies: { '@acme/ui': '^1.0.0' } }), 'harnesspm.json': '{}\n' });
+  installPackage(dir, '@acme/ui', { plugin: 'acme-ui', ext: { docs: '../docs' }, files: { 'docs/button.md': '# Button\n' } });
+  const warns = (files: Record<string, string>): boolean => {
+    writeFiles(root, files);
+    const result = run(dir, 'sync');
+    assert.equal(result.status, 0, result.stderr);
+    return /\.gitignore does not ignore \.harnesspm\//.test(result.stderr);
+  };
+  assert.ok(warns({ '.gitignore': 'node_modules\n/.harnesspm/\n' }), 'the root .gitignore line does not match ü/app/.harnesspm/');
+  assert.match(run(dir, 'sync').stderr, /Add this line to the \.gitignore in ü\/app\/: \/\.harnesspm\//, 'the folder whose .gitignore needs it');
+  assert.ok(!warns({ 'ü/app/.gitignore': '/.harnesspm/\n' }), "the project's own .gitignore");
+  // A pattern for some files does not ignore the folder.
+  assert.ok(warns({ 'ü/app/.gitignore': '*.txt\n*.md\n' }));
+  // Prettier never reads a global excludes file, even one named .gitignore.
+  const global = path.join(root, 'global', '.gitignore');
+  writeFiles(root, { 'global/.gitignore': '.harnesspm/\n' });
+  spawnSync('git', ['config', 'core.excludesFile', global], { cwd: root });
+  assert.ok(warns({ 'ü/app/.gitignore': '' }));
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' }).stdout;
+  assert.doesNotMatch(status, /\.harnesspm/, '.git/info/exclude keeps the copies out of git all along');
+});
+
+test('a sync that cannot write .git/info/exclude leaves no docs copies for git to take', () => {
+  const dir = project({ '@acme/ui': '^1.0.0' });
+  installPackage(dir, '@acme/ui', { plugin: 'acme-ui', ext: { docs: '../docs' }, files: { 'docs/button.md': '# Button\n' } });
+  // A file where the folder should be fails every write to .git/info/exclude, as a read-only .git does.
+  fs.rmSync(path.join(dir, '.git/info'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.git/info'), '');
+  assert.notEqual(run(dir, 'sync').status, 0);
+  assert.ok(!fs.existsSync(path.join(dir, '.harnesspm')), 'no copies');
+  assert.ok(!fs.existsSync(path.join(dir, '.rgignore')));
+  // A .gitignore that brings the folder back keeps the copies out too, once the exclude can be written.
+  fs.rmSync(path.join(dir, '.git/info'));
+  writeFiles(dir, { '.gitignore': 'node_modules\n!/.harnesspm/\n' });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /\.gitignore does not ignore \.harnesspm\//);
+  assert.ok(!fs.existsSync(path.join(dir, '.harnesspm')), 'no copies git would not ignore');
+  writeFiles(dir, { '.gitignore': 'node_modules\n' });
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.equal(read(dir, '.harnesspm/docs/acme-ui/button.md'), '# Button\n', 'written once git ignores them');
+});
+
 test('one version per package: a direct dependency wins over a nested copy', () => {
   const dir = chain();
   const pkg = JSON.parse(read(dir, 'package.json'));

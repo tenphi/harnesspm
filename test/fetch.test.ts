@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { homeOf, installPackage, PLUGIN_SCHEMA, project, read, run, writeFiles } from './helpers.ts';
+import { homeOf, installPackage, PLUGIN_SCHEMA, project, read, run, runWith, writeFiles } from './helpers.ts';
 
 function npm(cwd: string, home: string, ...args: string[]): string {
   const result = spawnSync('npm', [...args, '--no-audit', '--no-fund', '--silent'], { cwd, encoding: 'utf8', env: { ...process.env, HOME: home, npm_config_cache: path.join(home, '.npm') } });
@@ -174,6 +174,11 @@ test('when .git/info/exclude cannot be written, fetch still succeeds and writes 
   assert.ok(!fs.existsSync(path.join(dir, '.rgignore')));
   assert.ok(fs.existsSync(path.join(dir, 'node_modules/.harnesspm/pkgs/@acme/ui')), 'the stable paths are still written');
 
+  // A pattern for some of the files, such as the index, does not keep the pages out.
+  writeFiles(dir, { '.gitignore': 'node_modules\n*.txt\n' });
+  assert.match(run(dir, 'fetch').stderr, /The docs copies are not written/);
+  assert.ok(!fs.existsSync(path.join(dir, '.harnesspm')));
+
   // A .gitignore that lists the folder keeps the copies out of git without .git/info/exclude.
   writeFiles(dir, { '.gitignore': 'node_modules\n/.harnesspm/\n' });
   const listed = run(dir, 'fetch');
@@ -181,4 +186,10 @@ test('when .git/info/exclude cannot be written, fetch still succeeds and writes 
   assert.equal(read(dir, '.harnesspm/docs/acme-ui/button.md'), '# Button\n', 'the copies are written');
   assert.match(listed.stderr, /\.rgignore not written, so search tools skip the docs copies/);
   assert.ok(!fs.existsSync(path.join(dir, '.rgignore')), 'git would not ignore the .rgignore');
+
+  // When git refuses to run, as in a repository another user owns, nothing is known to be ignored, so no copies.
+  fs.rmSync(path.join(dir, '.harnesspm'), { recursive: true });
+  const refused = runWith(dir, { GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' }, 'fetch');
+  assert.equal(refused.status, 0, refused.stderr);
+  assert.ok(!fs.existsSync(path.join(dir, '.harnesspm')));
 });
