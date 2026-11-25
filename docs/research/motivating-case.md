@@ -41,6 +41,10 @@ A real chain of packages, surveyed in November 2026. It shows the manual work ha
 
 Nothing connects the two, so an agent in that application gets both instructions.
 
+## Docs sites
+
+A docs site may render more of a package than its docs folder. tasty.style builds its docs with Cookbook from Tasty's repository and renders the README as its Introduction page, so a docs page's link to `../README.md` leads to that page on the site. A copy of the docs folder alone, such as the one harnesspm writes for search, cannot follow such a link. Changing it in the package to a GitHub URL would send the site's readers away from the site, so the copy points it at the installed package instead.
+
 ## Tools
 
 - UI Kit ships a probe library for agents to capture DOM and CSS. The command-line tool around it exists twice, once in UI Kit and once in an application, with hundreds of lines of difference.

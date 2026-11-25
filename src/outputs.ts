@@ -38,12 +38,14 @@ import {
   hash,
   isDir,
   isFile,
+  isInside,
   isSymlink,
   linkIfChanged,
   listDir,
   readText,
   readTextIfExists,
   realpath,
+  relativeLinks,
   relPosix,
   remoteKey,
   runner,
@@ -196,14 +198,18 @@ export const isUserLevel = (pkg: ResolvedPackage): boolean => pkg.layer === 'add
 export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage) => string, generated: Map<string, string>, warnings: string[]) {
   const projectDir = res.projectDir;
   const show = (abs: string): string => (abs.startsWith(projectDir + path.sep) ? relPosix(projectDir, abs) : abs);
-  const display = (file: string): string => {
+  /** A dependency's file at its stable path under `node_modules/.harnesspm/pkgs/` (spec 4.3), or undefined for any other file. */
+  const stablePath = (file: string): string | undefined => {
     let best: ResolvedPackage | undefined;
     for (const pkg of res.packages) {
       if (pkg.layer !== 'dependencies') continue;
       if ((file === pkg.dir || file.startsWith(pkg.dir + path.sep)) && (!best || pkg.dir.length > best.dir.length)) best = pkg;
     }
-    if (best) return relPosix(projectDir, path.join(projectDir, STATE_DIR, 'pkgs', best.name, path.relative(best.dir, file)));
-    return show(file);
+    return best ? path.join(projectDir, STATE_DIR, 'pkgs', best.name, path.relative(best.dir, file)) : undefined;
+  };
+  const display = (file: string): string => {
+    const stable = stablePath(file);
+    return stable !== undefined ? relPosix(projectDir, stable) : show(file);
   };
   const generatedRule = (rule: FinalRule): string => {
     const dir = path.join(generatedRoot(rule.pkg), 'rules', rule.pkg.plugin);
@@ -235,15 +241,38 @@ export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage)
       return show(file);
     },
   };
-  return { show, display, generatedRule, docsCopy, paths };
+  return { show, display, stablePath, generatedRule, docsCopy, paths };
 }
 
-/** The files of a docs copy, absolute path → text: the pages the index lists, and the package's own `llms.txt` (spec 4.3, note 8). */
-function docsCopyFiles(docsDir: string, copy: string): Map<string, string> {
+/**
+ * The files of a docs copy, absolute path → text: the pages the index lists, and the package's own `llms.txt` (spec 4.3, note 8).
+ * A link that leaves the docs folder, such as `../README.md`, would lead nowhere in the copy, so it points at the
+ * file in the installed package instead. The page keeps that link for the package's own readers, such as its website.
+ */
+function docsCopyFiles(docsDir: string, copy: string, stablePath: (file: string) => string | undefined): Map<string, string> {
   const files = new Map<string, string>();
-  for (const page of docsPages(docsDir)) files.set(path.join(copy, path.relative(docsDir, page)), readText(page));
+  const add = (source: string, rel: string): void => {
+    const copied = path.join(copy, rel);
+    const text = readText(source);
+    let out = '';
+    let last = 0;
+    for (const { link, index } of relativeLinks(text)) {
+      let target: string;
+      try {
+        target = path.resolve(path.dirname(path.join(docsDir, rel)), decodeURI(link));
+      } catch {
+        continue;
+      }
+      const stable = isInside(docsDir, target) || !fs.existsSync(target) ? undefined : stablePath(target);
+      if (stable === undefined) continue;
+      out += text.slice(last, index) + encodeURI(relPosix(path.dirname(copied), stable));
+      last = index + link.length;
+    }
+    files.set(copied, out + text.slice(last));
+  };
+  for (const page of docsPages(docsDir)) add(page, path.relative(docsDir, page));
   const llms = path.join(docsDir, 'llms.txt');
-  if (isFile(llms)) files.set(path.join(copy, 'llms.txt'), readText(llms));
+  if (isFile(llms)) add(llms, 'llms.txt');
   return files;
 }
 
@@ -384,7 +413,7 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
     for (const docs of team.docs) {
       const copy = teamTools.docsCopy(docs.pkg);
       if (copy === undefined) continue;
-      for (const [file, text] of docsCopyFiles(docs.dir, copy)) teamGenerated.set(file, text);
+      for (const [file, text] of docsCopyFiles(docs.dir, copy, teamTools.stablePath)) teamGenerated.set(file, text);
       docsCopies.set(docs.pkg, copy);
     }
     const rgFile = path.join(projectDir, '.rgignore');

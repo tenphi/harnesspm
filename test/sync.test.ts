@@ -345,13 +345,20 @@ test('a docs page with invalid frontmatter does not fail sync: it is listed with
   assert.equal(run(dir, 'sync', '--check').status, 0);
 });
 
+const BUTTON_PAGE = '# Button\n\nThe primary action. See [the intro](../../README.md#setup), [the index](../llms.txt) and [the site](https://example.com/).\n\n```md\n[the intro](../../README.md)\n```\n';
+
 test("S21: every dependency's docs are copied where search finds them, and nothing new reaches git", (t) => {
   const dir = project({ '@acme/ui': '^1.0.0', '@acme/lib': '^1.0.0' });
   writeFiles(dir, { '.gitignore': 'node_modules\n' });
   installPackage(dir, '@acme/ui', {
     plugin: 'acme-ui',
     ext: { docs: '../docs' },
-    files: { 'docs/llms.txt': '# UI\n\n- [Button](guides/button.md)\n', 'docs/guides/button.md': '# Button\n\nThe primary action.\n', 'docs/logo.png': 'not a page', 'README.md': '# Intro\n' },
+    files: {
+      'docs/llms.txt': '# UI\n\n- [Button](guides/button.md)\n- [Overview](../README.md)\n',
+      'docs/guides/button.md': BUTTON_PAGE,
+      'docs/logo.png': 'not a page',
+      'README.md': '# Intro\n',
+    },
   });
   fs.symlinkSync(path.join('..', 'README.md'), path.join(dir, 'node_modules/@acme/ui/docs/intro.md'));
   // A workspace package: node_modules links to the repository's own folder. It is copied too, so the committed
@@ -368,8 +375,12 @@ test("S21: every dependency's docs are copied where search finds them, and nothi
   const agents = read(dir, 'AGENTS.md');
   const copies = 'node_modules/.harnesspm/docs';
   assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/acme-ui\/llms\.txt \(acme-ui:docs\)/, "the package's own index, copied");
-  assert.equal(read(dir, `${copies}/acme-ui/llms.txt`), '# UI\n\n- [Button](guides/button.md)\n', 'its links stay relative');
-  assert.equal(read(dir, `${copies}/acme-ui/guides/button.md`), '# Button\n\nThe primary action.\n');
+  assert.equal(read(dir, `${copies}/acme-ui/llms.txt`), '# UI\n\n- [Button](guides/button.md)\n- [Overview](../../pkgs/@acme/ui/README.md)\n', 'its links stay relative');
+  // A link that leaves the docs folder points at the installed package; one inside it, a URL and a code sample stay.
+  const button = read(dir, `${copies}/acme-ui/guides/button.md`);
+  assert.equal(button, BUTTON_PAGE.replace('](../../README.md#setup)', '](../../../pkgs/@acme/ui/README.md#setup)'));
+  assert.equal(read(dir, 'node_modules/@acme/ui/docs/guides/button.md'), BUTTON_PAGE, 'the package keeps its own link');
+  assert.equal(fs.readFileSync(path.join(dir, copies, 'acme-ui/guides', '../../../pkgs/@acme/ui/README.md'), 'utf8'), '# Intro\n', 'the link leads to the README');
   assert.equal(read(dir, `${copies}/acme-ui/intro.md`), '# Intro\n', 'a linked page too');
   assert.ok(!fs.existsSync(path.join(dir, `${copies}/acme-ui/logo.png`)), 'pages only');
   assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/lib\/llms\.txt \(lib:docs\)/);
