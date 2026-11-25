@@ -17,10 +17,12 @@ mkdir -p node_modules/.harnesspm/pkgs/@acme && ln -s ../../../@acme/ui node_modu
 mkdir -p docs && ln -s ../node_modules/@acme/ui/docs docs/ui && git add docs/ui && git commit -qm 'link'
 # 4. A committed page in a hidden folder, which plain rg skips.
 page .hidden/committed.md committed && git add .hidden && git commit -qm 'hidden'
-# 5. A docs copy, and the .rgignore that lets search into it. Both are excluded, as harnesspm writes them.
-page node_modules/.harnesspm/docs/acme-ui/copy.md copy
-printf '/node_modules/.harnesspm/\n/.rgignore\n' >> .git/info/exclude
-rgignore='!/node_modules/\n/node_modules/*\n!/node_modules/.harnesspm/\n/node_modules/.harnesspm/*\n!/node_modules/.harnesspm/docs/\n'
+# 5. A docs copy at the project root, and the .rgignore that lets search into it. Both are excluded, as harnesspm
+# writes them, and a file next to the copies stays out of search.
+page .harnesspm/docs/acme-ui/copy.md copy
+page .harnesspm/other.md other
+printf '/node_modules/.harnesspm/\n/.harnesspm/\n/.rgignore\n' >> .git/info/exclude
+rgignore='!/.harnesspm/\n/.harnesspm/*\n!/.harnesspm/docs/\n'
 
 echo "== rg without .rgignore (expected: nothing; an agent's search tool may find .hidden/committed.md)"
 rg -l "$S" . || true

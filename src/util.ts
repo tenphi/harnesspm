@@ -293,6 +293,27 @@ export function gitIgnoresDir(dir: string): boolean {
   return spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status === 0;
 }
 
+/**
+ * The file whose pattern makes git ignore `rel`, a path in `projectDir` that need not exist, such as `.gitignore` or
+ * `.git/info/exclude`. Null when git does not ignore it, undefined outside a work tree or when git is missing.
+ */
+export function gitIgnoreSource(projectDir: string, rel: string): string | null | undefined {
+  const result = spawnSync('git', ['check-ignore', '-v', rel], { cwd: projectDir, encoding: 'utf8' });
+  if (result.status === 1) return null;
+  if (result.status !== 0) {
+    // Git also fails inside a work tree, as on an exclude file it cannot read: then nothing is known to be ignored.
+    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: projectDir, encoding: 'utf8' });
+    return inside.status === 0 && inside.stdout.trim() === 'true' ? null : undefined;
+  }
+  const decided = /^(.*?):\d+:(.*)\t/.exec(result.stdout);
+  return decided && !decided[2]!.startsWith('!') ? decided[1]! : null;
+}
+
+/** Whether a file written at `rel` stays out of every commit: git ignores it, or there is no work tree. */
+export function gitKeepsOut(projectDir: string, rel: string): boolean {
+  return gitIgnoreSource(projectDir, rel) !== null;
+}
+
 export function listDir(dir: string): string[] {
   try {
     return fs.readdirSync(dir).sort();

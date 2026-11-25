@@ -46,10 +46,10 @@ test('S3: sync writes the block, links and lock for a dependency chain', () => {
   assert.match(agents, /- When editing `\*\*\/\*\.tsx`, read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/state-maps\.md — How to write state maps \(tasty:rules\/state-maps\)/);
   assert.match(agents, /- Legacy tokens, for old code: read node_modules\/\.harnesspm\/pkgs\/@tenphi\/tasty\/harness\/dev\.harnesspm\/rules\/legacy\.md \(tasty:rules\/legacy\)/);
   // A dependency's docs are copied, so that search tools find them (spec 4.3, note 8).
-  assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/uikit\/llms\.txt \(uikit:docs\)/);
-  assert.match(read(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt'), /- \[Button\]\(node_modules\/\.harnesspm\/docs\/uikit\/button\.md\): The Button component/);
-  assert.match(read(dir, 'node_modules/.harnesspm/docs/uikit/llms.txt'), /- \[Forms guide\]\(node_modules\/\.harnesspm\/docs\/uikit\/forms\.mdx\): How forms work/, '.mdx pages, titled by their frontmatter');
-  assert.match(read(dir, 'node_modules/.harnesspm/docs/uikit/button.md'), /The Button component/);
+  assert.match(agents, /- Docs: \.harnesspm\/docs\/uikit\/llms\.txt \(uikit:docs\)/);
+  assert.match(read(dir, '.harnesspm/docs/uikit/llms.txt'), /- \[Button\]\(\.harnesspm\/docs\/uikit\/button\.md\): The Button component/);
+  assert.match(read(dir, '.harnesspm/docs/uikit/llms.txt'), /- \[Forms guide\]\(\.harnesspm\/docs\/uikit\/forms\.mdx\): How forms work/, '.mdx pages, titled by their frontmatter');
+  assert.match(read(dir, '.harnesspm/docs/uikit/button.md'), /The Button component/);
   assert.match(read(dir, '.git/info/exclude'), /^\/\.rgignore$/m, 'the .rgignore stays out of git');
   assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
 
@@ -123,7 +123,7 @@ test('with CI=true, sync leaves committed outputs to --check and still writes pe
   assert.match(ci.stdout, /^CI: committed outputs left as they are; `npx harnesspm sync --check` compares them, `sync --write` writes them\.$/m);
   for (const [file, text] of committed) assert.equal(read(dir, file), text, `${file} is left as it is`);
   assert.ok(isLink(dir, 'node_modules/.harnesspm/pkgs/@tenphi/tasty'), 'stable package paths');
-  assert.ok(fs.existsSync(path.join(dir, 'node_modules/.harnesspm/docs/uikit/button.md')), 'docs copies');
+  assert.ok(fs.existsSync(path.join(dir, '.harnesspm/docs/uikit/button.md')), 'docs copies');
   assert.ok(isLink(dir, '.claude/skills/uikit-review'), 'skill links');
   const check = runWith(dir, { CI: 'true' }, 'sync', '--check');
   assert.equal(check.status, 1, 'the missed sync still fails the check');
@@ -339,9 +339,9 @@ test('a docs page with invalid frontmatter does not fail sync: it is listed with
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /⚠️ {2}Invalid frontmatter in node_modules\/\.harnesspm\/pkgs\/@acme\/ui\/docs\/button\.md: .+\. The docs index lists the page by its heading or file name\./);
   assert.equal(result.stderr.match(/Invalid frontmatter/g)?.length, 1, 'one warning for the page');
-  const index = read(dir, 'node_modules/.harnesspm/docs/acme-ui/llms.txt');
-  assert.match(index, /^- \[Button\]\(node_modules\/\.harnesspm\/docs\/acme-ui\/button\.md\)$/m);
-  assert.match(index, /- \[Tokens\]\(node_modules\/\.harnesspm\/docs\/acme-ui\/tokens\.md\): Every color token/);
+  const index = read(dir, '.harnesspm/docs/acme-ui/llms.txt');
+  assert.match(index, /^- \[Button\]\(\.harnesspm\/docs\/acme-ui\/button\.md\)$/m);
+  assert.match(index, /- \[Tokens\]\(\.harnesspm\/docs\/acme-ui\/tokens\.md\): Every color token/);
   assert.equal(run(dir, 'sync', '--check').status, 0);
 });
 
@@ -370,40 +370,50 @@ test("S21: every dependency's docs are copied where search finds them, and nothi
   });
   fs.symlinkSync(path.join('..', '..', 'packages', 'lib'), path.join(dir, 'node_modules', '@acme', 'lib'));
 
+  // Copies a version before 0.14 wrote inside node_modules: a sync removes them.
+  writeFiles(dir, { 'node_modules/.harnesspm/docs/acme-ui/stale.md': 'primary action\n' });
   const result = run(dir, 'sync');
   assert.equal(result.status, 0, result.stderr);
+  assert.ok(!fs.existsSync(path.join(dir, 'node_modules/.harnesspm/docs/acme-ui')), 'no copies are left in node_modules');
   const agents = read(dir, 'AGENTS.md');
-  const copies = 'node_modules/.harnesspm/docs';
-  assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/acme-ui\/llms\.txt \(acme-ui:docs\)/, "the package's own index, copied");
-  assert.equal(read(dir, `${copies}/acme-ui/llms.txt`), '# UI\n\n- [Button](guides/button.md)\n- [Overview](../../pkgs/@acme/ui/README.md)\n', 'its links stay relative');
+  // At the project root, outside node_modules, where agents and people look for files of the project.
+  const copies = '.harnesspm/docs';
+  assert.match(agents, /- Docs: \.harnesspm\/docs\/acme-ui\/llms\.txt \(acme-ui:docs\)/, "the package's own index, copied");
+  assert.equal(read(dir, `${copies}/acme-ui/llms.txt`), '# UI\n\n- [Button](guides/button.md)\n- [Overview](../../../node_modules/.harnesspm/pkgs/@acme/ui/README.md)\n', 'its links stay relative');
   // A link that leaves the docs folder points at the installed package; one inside it, a URL and a code sample stay.
   const button = read(dir, `${copies}/acme-ui/guides/button.md`);
-  assert.equal(button, BUTTON_PAGE.replace('](../../README.md#setup)', '](../../../pkgs/@acme/ui/README.md#setup)'));
+  assert.equal(button, BUTTON_PAGE.replace('](../../README.md#setup)', '](../../../../node_modules/.harnesspm/pkgs/@acme/ui/README.md#setup)'));
   assert.equal(read(dir, 'node_modules/@acme/ui/docs/guides/button.md'), BUTTON_PAGE, 'the package keeps its own link');
-  assert.equal(fs.readFileSync(path.join(dir, copies, 'acme-ui/guides', '../../../pkgs/@acme/ui/README.md'), 'utf8'), '# Intro\n', 'the link leads to the README');
+  assert.equal(fs.readFileSync(path.join(dir, copies, 'acme-ui/guides', '../../../../node_modules/.harnesspm/pkgs/@acme/ui/README.md'), 'utf8'), '# Intro\n', 'the link leads to the README');
   assert.equal(read(dir, `${copies}/acme-ui/intro.md`), '# Intro\n', 'a linked page too');
   assert.ok(!fs.existsSync(path.join(dir, `${copies}/acme-ui/logo.png`)), 'pages only');
-  assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/lib\/llms\.txt \(lib:docs\)/);
-  assert.match(read(dir, `${copies}/lib/llms.txt`), /- \[Start\]\(node_modules\/\.harnesspm\/docs\/lib\/start\.md\)/);
-  assert.match(read(dir, '.rgignore'), /^# Generated by `harnesspm sync`\. Do not edit\.\n[^\n]*\n!\/node_modules\/\n\/node_modules\/\*\n!\/node_modules\/\.harnesspm\/\n\/node_modules\/\.harnesspm\/\*\n!\/node_modules\/\.harnesspm\/docs\/\n$/);
+  assert.match(agents, /- Docs: \.harnesspm\/docs\/lib\/llms\.txt \(lib:docs\)/);
+  assert.match(read(dir, `${copies}/lib/llms.txt`), /- \[Start\]\(\.harnesspm\/docs\/lib\/start\.md\)/);
+  assert.match(read(dir, '.rgignore'), /^# Generated by `harnesspm sync`\. Do not edit\.\n[^\n]*\n!\/\.harnesspm\/\n\/\.harnesspm\/\*\n!\/\.harnesspm\/docs\/\n$/);
+  assert.match(read(dir, '.git/info/exclude'), /^\/\.harnesspm\/$/m, 'git ignores the copies on this machine');
   const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout;
-  assert.doesNotMatch(status, /node_modules|\.rgignore/, 'git ignores the copies and the .rgignore');
+  assert.doesNotMatch(status, /node_modules|\.rgignore|\.harnesspm/, 'git ignores the copies and the .rgignore');
   assert.equal(run(dir, 'sync', '--check').status, 0);
-  assert.match(run(dir, 'help', '@acme/ui').stdout, /## Docs\n\n- node_modules\/\.harnesspm\/docs\/acme-ui\/llms\.txt \(acme-ui:docs\)/);
+  assert.match(run(dir, 'help', '@acme/ui').stdout, /## Docs\n\n- \.harnesspm\/docs\/acme-ui\/llms\.txt \(acme-ui:docs\)/);
+
+  // Formatters such as Prettier skip only what .gitignore lists, not .git/info/exclude: sync asks for the line.
+  assert.match(result.stderr, /\.gitignore does not ignore \.harnesspm\/, so formatters such as Prettier, which skip only what \.gitignore lists, check the docs copies in \.harnesspm\/docs\/\. Add this line to \.gitignore: \/\.harnesspm\//);
+  writeFiles(dir, { '.gitignore': 'node_modules\n/.harnesspm/\n' });
+  assert.doesNotMatch(run(dir, 'sync').stderr, /\.gitignore/, 'no warning once .gitignore has it');
 
   // ripgrep, which the agents' search tools run, skips what git ignores and hidden folders: the .rgignore lets it in.
   const rg = spawnSync('rg', ['-l', 'primary action', '.'], { cwd: dir, encoding: 'utf8' });
   if (rg.error) t.diagnostic('rg is not installed, so the search itself is not checked');
-  else assert.equal(rg.stdout, './node_modules/.harnesspm/docs/acme-ui/guides/button.md\n', 'ripgrep finds the copy, and nothing else in node_modules');
+  else assert.equal(rg.stdout, './.harnesspm/docs/acme-ui/guides/button.md\n', 'ripgrep finds the copy, and nothing in node_modules');
 
   // A .rgignore of the repository's own is left as it is, with a warning until it has the lines.
   writeFiles(dir, { '.rgignore': 'dist\n' });
   spawnSync('git', ['add', '.rgignore'], { cwd: dir });
   const own = run(dir, 'sync');
-  assert.match(own.stderr, /\.rgignore is not harnesspm's, so search tools skip the docs copies in node_modules\/\.harnesspm\/docs\/\. To let them in, add these lines to it, in this order: !\/node_modules\/, \/node_modules\/\*, !\/node_modules\/\.harnesspm\/, \/node_modules\/\.harnesspm\/\*, !\/node_modules\/\.harnesspm\/docs\//);
+  assert.match(own.stderr, /\.rgignore is not harnesspm's, so search tools skip the docs copies in \.harnesspm\/docs\/\. To let them in, add these lines to it, in this order: !\/\.harnesspm\/, \/\.harnesspm\/\*, !\/\.harnesspm\/docs\//);
   assert.equal(read(dir, '.rgignore'), 'dist\n');
   assert.doesNotMatch(read(dir, '.git/info/exclude'), /^\/\.rgignore$/m, "and is not listed as harnesspm's");
-  writeFiles(dir, { '.rgignore': 'dist\n!/node_modules/\n/node_modules/*\n!/node_modules/.harnesspm/\n/node_modules/.harnesspm/*\n!/node_modules/.harnesspm/docs/\n' });
+  writeFiles(dir, { '.rgignore': 'dist\n!/.harnesspm/\n/.harnesspm/*\n!/.harnesspm/docs/\n' });
   assert.doesNotMatch(run(dir, 'sync').stderr, /\.rgignore/, 'no warning once it has them');
   spawnSync('git', ['rm', '-q', '--cached', '.rgignore'], { cwd: dir });
   fs.rmSync(path.join(dir, '.rgignore'));
@@ -416,7 +426,7 @@ test("S21: every dependency's docs are copied where search finds them, and nothi
   assert.equal(run(dir, 'sync').status, 0);
   assert.ok(!fs.existsSync(path.join(dir, copies)), 'no copies');
   assert.ok(!fs.existsSync(path.join(dir, '.rgignore')));
-  assert.doesNotMatch(read(dir, '.git/info/exclude'), /\.rgignore/);
+  assert.doesNotMatch(read(dir, '.git/info/exclude'), /\.rgignore|^\/\.harnesspm\/$/m);
 });
 
 test('one version per package: a direct dependency wins over a nested copy', () => {
@@ -555,7 +565,7 @@ test('docs leave out the pages git ignores, so a local plan file changes neither
   assert.equal(read(dir, 'harnesspm.lock.json'), lock);
   assert.doesNotMatch(read(dir, 'node_modules/.harnesspm/docs/ui/llms.txt'), /Plan/, 'nor in the index');
   assert.match(read(dir, 'node_modules/.harnesspm/docs/ui/llms.txt'), /\[Button\]/);
-  assert.match(read(dir, 'node_modules/.harnesspm/docs/colors/llms.txt'), /\[Red\]\(node_modules\/\.harnesspm\/docs\/colors\/red\.md\)/, 'a dependency gets a copy');
+  assert.match(read(dir, '.harnesspm/docs/colors/llms.txt'), /\[Red\]\(\.harnesspm\/docs\/colors\/red\.md\)/, 'a dependency gets a copy');
   assert.equal(run(dir, 'check').status, 0, 'and check skips its invalid frontmatter');
 
   writeFiles(dir, { 'src/Button/Button.notes.md': '# Notes\n' });

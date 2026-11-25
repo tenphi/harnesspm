@@ -5,10 +5,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
-import { addExcludes, computePlan, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
+import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
-import { HarnessError, ensureDir, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
+import { HarnessError, ensureDir, gitKeepsOut, isInside, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
 
 export interface FetchReport {
   fetched: string[];
@@ -99,19 +99,35 @@ export function fetchLocked(projectDir: string): FetchReport {
   const plan = computePlan(team, team);
   const agents = readTextIfExists(path.join(projectDir, 'AGENTS.md'));
   if (extractBlock(agents) !== extractBlock(plan.committed!.agentsMd)) report.warnings.push('AGENTS.md does not match the packages in the lock. Run `npx harnesspm sync` where the dependencies are installed.');
-  // Only files under node_modules/.harnesspm, the docs copies included, and the .rgignore that lets search tools
-  // into them: a job without an install needs no agent settings.
-  const state = path.join(projectDir, STATE_DIR) + path.sep;
-  for (const root of plan.generatedRoots) if (root.startsWith(state)) fs.rmSync(root, { recursive: true, force: true });
-  for (const [file, content] of plan.generated) if (file.startsWith(state)) writeIfChanged(file, content);
-  for (const [link, target] of plan.links) if (link.startsWith(path.join(state, 'pkgs') + path.sep)) linkIfChanged(link, target);
-  // The .rgignore only once git ignores it, so that an agent's `git add -A` does not take it. A sandbox may keep .git
-  // read-only: then search does not reach the copies, and nothing else changes.
-  try {
-    if (typeof plan.rgignore === 'string') addExcludes(projectDir, [RGIGNORE_EXCLUDE]);
-    writeRgignore(projectDir, plan);
-  } catch (error) {
-    report.warnings.push(`.rgignore not written, so search tools skip the docs copies: ${error instanceof Error ? error.message : String(error)}`);
+  // Only files under node_modules/.harnesspm, the docs copies in .harnesspm/docs, and the .rgignore that lets search
+  // tools into them: a job without an install needs no agent settings.
+  const state = path.join(projectDir, STATE_DIR);
+  const docsRoot = path.join(projectDir, DOCS_DIR);
+  // The copies and the .rgignore only once git ignores them, so that an agent's `git add -A` does not take them. A
+  // sandbox may keep .git read-only: then only a .gitignore that lists .harnesspm/ lets the copies be written.
+  const excluded = (entries: string[]): boolean => {
+    try {
+      addExcludes(projectDir, entries);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (plan.teamExcludes?.includes(DOCS_EXCLUDE)) excluded([DOCS_EXCLUDE]);
+  const copies = gitKeepsOut(projectDir, '.harnesspm/docs/llms.txt');
+  if (!copies && plan.teamExcludes?.includes(DOCS_EXCLUDE)) {
+    report.warnings.push(`The docs copies are not written: git does not ignore .harnesspm/, and .git/info/exclude cannot be written. Add this line to .gitignore: ${DOCS_EXCLUDE}`);
   }
+  const ours = (file: string): boolean => isInside(state, file) || (copies && isInside(docsRoot, file));
+  for (const root of plan.generatedRoots) if (ours(root)) fs.rmSync(root, { recursive: true, force: true });
+  for (const [file, content] of plan.generated) if (ours(file)) writeIfChanged(file, content);
+  for (const [link, target] of plan.links) if (isInside(path.join(state, 'pkgs'), link)) linkIfChanged(link, target);
+  if (copies && (typeof plan.rgignore !== 'string' || excluded([RGIGNORE_EXCLUDE]))) {
+    try {
+      writeRgignore(projectDir, plan);
+    } catch (error) {
+      report.warnings.push(`.rgignore not written, so search tools skip the docs copies: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else if (copies) report.warnings.push('.rgignore not written, so search tools skip the docs copies: .git/info/exclude cannot be written.');
   return report;
 }
