@@ -218,6 +218,19 @@ test("S20: an agent's sync in the folder writes the block, and holds hooks that 
   assert.match(read(root, 'AGENTS.md'), /`cloned`/, 'the block names it: a pointer grants nothing');
 });
 
+test("S20: an agent's sync event names the hooks it held back above the project, without the project's path", () => {
+  const { root, app } = folder();
+  installCli(app);
+  run(app, 'sync');
+  run(root, 'sync');
+  // Without the record of what a person wrote above the project, the agent's sync may not write it again.
+  fs.rmSync(path.join(homeOf(root), '.harnesspm/state/parents'), { recursive: true, force: true });
+  assert.match(runWith(app, MODEL, 'sync').stdout, /held back: .*-C /);
+  const sync = events(app).filter((e) => e.type === 'sync').at(-1)!;
+  assert.ok(sync.held.includes('Claude Code hook: harnesspm run --agent claude kit:check-styles'), JSON.stringify(sync.held));
+  assert.ok(!JSON.stringify(sync).includes(root), 'no local path');
+});
+
 test('S20: projects that leave the folder leave nothing behind, and a second project keeps the first one\'s entries in place', () => {
   const { root, app, lib } = folder();
   const web = project(root, 'web');
