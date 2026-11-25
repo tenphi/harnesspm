@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.2
+
+### Patch Changes
+
+- [#80](https://github.com/tenphi/harnesspm/pull/80) [`4e76974`](https://github.com/tenphi/harnesspm/commit/4e76974bf1e5fc02d889db73299f66c8e8442af6) Thanks [@tenphi](https://github.com/tenphi)! - The docs copy points a link that leaves the docs folder, such as `../README.md`, at that file in the installed package, so it leads somewhere. `check` no longer warns on such links: a docs page keeps the links its own website needs.
+
 ## 0.13.1
 
 ### Patch Changes
