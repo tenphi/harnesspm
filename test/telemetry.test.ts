@@ -372,6 +372,39 @@ test('events name the repository by its origin remote; a sync in CI sends no syn
   assert.equal(events(dir).at(-1)!.caller, 'ci', 'other events from CI are still sent');
 });
 
+test("an agent's sync event names what it held back and why; events from a linked worktree say so", () => {
+  const dir = app({ events: ['sync'], send: { file: EVENTS } });
+  assert.equal(run(dir, 'sync').status, 0);
+  const person = events(dir).at(-1)!;
+  assert.equal(person.type, 'sync');
+  assert.deepEqual([person.held, person.why, person.worktree], [undefined, undefined, undefined]);
+
+  // Agent events need hooks, which the agent's model cannot add (spec 6.2, rule 4).
+  writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, telemetry: { events: ['sync', 'session'], send: { file: EVENTS } } }) });
+  const model = runWith(dir, MODEL, 'sync');
+  assert.match(model.stdout, /held back: /);
+  const held = events(dir).at(-1)!;
+  assert.equal(held.caller, 'agent');
+  assert.deepEqual(held.held, ['Claude Code hook: harnesspm track --agent claude', 'Codex hook: harnesspm track --agent codex']);
+  assert.match(held.why, /origin\/HEAD is not set/);
+
+  // A session in a linked worktree, such as the desktop app's, runs the hooks of the main checkout with its own cwd.
+  assert.equal(run(dir, 'sync').status, 0);
+  const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, encoding: 'utf8' });
+  assert.equal(git('commit', '-q', '--allow-empty', '-m', 'init').status, 0);
+  assert.equal(git('worktree', 'add', '-q', '-b', 'feature', '.claude/worktrees/feature').status, 0);
+  writeFiles(dir, { 'vendor/lib/.git': 'gitdir: ../../.git/modules/lib\n' });
+  const session = (cwd: string) => {
+    runInput(dir, {}, JSON.stringify({ hook_event_name: 'SessionStart', source: 'startup', session_id: 's', cwd: fs.realpathSync(path.join(dir, cwd)) }), 'track', '--agent', 'claude');
+    const event = events(dir).at(-1)!;
+    assert.equal(event.type, 'session');
+    return event.worktree;
+  };
+  assert.equal(session('.claude/worktrees/feature'), true);
+  assert.equal(session('.'), undefined, 'the main checkout');
+  assert.equal(session('vendor/lib'), undefined, 'a submodule');
+});
+
 test("a project's own tool reports its runs through @tenphi/harnesspm/telemetry, with the same switch and opt-outs", () => {
   const dir = app({ events: ['run'], send: { file: EVENTS } });
   assert.equal(run(dir, 'sync').status, 0);

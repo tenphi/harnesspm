@@ -179,7 +179,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
     report.held.push(...written.held);
   }
   if (parentSync) changed.push(...removeGone(projectDir, children), ...writePointer(projectDir));
-  if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir));
+  if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir), report);
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   printWarnings(out, warnings);
   printPending(out, report, projectDir);
@@ -196,8 +196,11 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
 /** Where events about a resolved project go (spec chapter 14). */
 const eventContext = (res: Resolution): EventContext => ({ projectDir: res.projectDir, project: res.projectName, workspaces: res.workspaces.map((ws) => ws.key) });
 
-/** The `sync` event: packages and the units that changed since the last lock (spec 14.2). CI sends none: every job syncs. */
-function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | undefined): void {
+/**
+ * The `sync` event: packages, the units that changed since the last lock, and what an agent's sync held back and why
+ * (spec 14.2). CI sends none: every job syncs.
+ */
+function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | undefined, report: UserReport): void {
   const state = readTelemetryState(team.projectDir);
   if (!state.events.has('sync') || !after || commandCaller().caller === 'ci') return;
   const old = before?.units ?? {};
@@ -213,6 +216,7 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
     removed: Object.keys(old).filter((id) => units[id] === undefined),
     changed: Object.keys(units).filter((id) => old[id] !== undefined && old[id].hash !== units[id]!.hash),
     pending: pending.map((p) => p.name),
+    ...(report.held.length > 0 ? { held: report.held, why: report.why } : {}),
   });
 }
 
