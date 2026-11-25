@@ -77,7 +77,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.match(pkg.stdout, /\n# @acme\/kit \(2\.1\.0\), plugin kit\n/);
   assert.match(pkg.stdout, /\n### Usage \(kit:rules\/usage\)\n\nAlways on\.\n\nUse the kit\.\n/);
   assert.match(pkg.stdout, /\n### Forms \(kit:rules\/forms\)\n\nWhen editing `\*\*\/\*\.tsx` — Forms\. File: work\/app\/\S+forms\.md\n\nUse Form\.\n/);
-  assert.match(pkg.stdout, /## Docs\n\n- work\/app\/\.harnesspm\/docs\/kit\/llms\.txt \(kit:docs\)/);
+  assert.match(pkg.stdout, /## Docs\n\n- work\/app\/node_modules\/\.harnesspm\/docs\/kit\/llms\.txt \(kit:docs\)/);
   assert.match(pkg.stdout, /## Tools\n\n- `npx -y @tenphi\/harnesspm -C work\/app run kit:where \[args\]` — Print where it runs \(kit:scripts\/where\)/);
   assert.match(pkg.stdout, /## MCP servers\n\n- `npx -y @tenphi\/harnesspm -C work\/app mcp kit:docs` \(kit:mcp\/docs\)/);
   assert.match(pkg.stdout, /## Skills\n\n- kit-review: read work\/app\/\S+\/skills\/kit-review\/SKILL\.md \(kit:skills\/kit-review\)\n {2}Does kit-review\. Use when testing\./);

@@ -11,22 +11,22 @@ Instructions for agents and people who work on this repository.
 ## @tenphi/eslint-plugin-tasty (via @tenphi/cookbook)
 
 - Always-on rule: Linting Tasty styles — After you change styles, Exceptions. Read it with `help @tenphi/eslint-plugin-tasty` (tasty-lint:rules/usage)
-- Docs: .harnesspm/docs/tasty-lint/llms.txt (tasty-lint:docs)
+- Docs: node_modules/.harnesspm/docs/tasty-lint/llms.txt (tasty-lint:docs)
 
 ## @tenphi/glaze (via @tenphi/cookbook)
 
 - Always-on rule: Glaze colors — Where colors come from, Checking a theme. Read it with `help @tenphi/glaze` (glaze:rules/colors)
-- Docs: .harnesspm/docs/glaze/llms.txt (glaze:docs)
+- Docs: node_modules/.harnesspm/docs/glaze/llms.txt (glaze:docs)
 
 ## @tenphi/tasty (via @tenphi/cookbook)
 
 - Always-on rule: Tasty styles — Writing styles, Checking styles. Read it with `help @tenphi/tasty` (tasty:rules/usage)
-- Docs: .harnesspm/docs/tasty/llms.txt (tasty:docs)
+- Docs: node_modules/.harnesspm/docs/tasty/llms.txt (tasty:docs)
 
 ## @tenphi/cookbook
 
 - Always-on rule: Cookbook site — Site files, Styling, Checking a site. Read it with `help @tenphi/cookbook` (cookbook:rules/usage)
-- Docs: .harnesspm/docs/cookbook/llms.txt (cookbook:docs)
+- Docs: node_modules/.harnesspm/docs/cookbook/llms.txt (cookbook:docs)
 
 ## @tenphi/harnesspm (this project)
 

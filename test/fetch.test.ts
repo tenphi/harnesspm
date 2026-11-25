@@ -39,21 +39,20 @@ test('S13: fetch downloads the locked packages and fills the paths that the comm
   }
   const agents = read(dir, 'AGENTS.md');
 
-  assert.match(agents, /- Docs: \.harnesspm\/docs\/tasty\/llms\.txt \(tasty:docs\)/, 'the block points at the copy');
+  assert.match(agents, /- Docs: node_modules\/\.harnesspm\/docs\/tasty\/llms\.txt \(tasty:docs\)/, 'the block points at the copy');
 
-  // A fresh clone: no install, no copies, nothing in .git/info/exclude.
-  for (const rel of ['node_modules', '.harnesspm', '.rgignore']) fs.rmSync(path.join(dir, rel), { recursive: true, force: true });
+  // A fresh clone: no install, no .rgignore, nothing in .git/info/exclude.
+  for (const rel of ['node_modules', '.rgignore']) fs.rmSync(path.join(dir, rel), { recursive: true, force: true });
   fs.writeFileSync(path.join(dir, '.git/info/exclude'), '');
   const fetched = run(dir, 'fetch');
   assert.equal(fetched.status, 0, fetched.stderr);
   assert.match(fetched.stdout, /fetched 2 packages \(@cube-dev\/ui-kit 0\.206\.1, @tenphi\/tasty 3\.17\.1\)/);
   assert.doesNotMatch(fetched.stderr, /does not match/);
-  for (const [, file] of agents.matchAll(/(?:read|Docs:) ((?:node_modules|\.harnesspm)\/\S+)/g)) assert.ok(fs.existsSync(path.join(dir, file!)), `${file} exists`);
-  assert.match(read(dir, '.harnesspm/docs/tasty/llms.txt'), /\[Intro\]/);
-  assert.equal(read(dir, '.harnesspm/docs/tasty/intro.md'), '# Intro\n\nText.\n', 'the pages are copied as they are');
-  assert.match(read(dir, '.rgignore'), /^!\/\.harnesspm\/docs\/$/m, 'search tools are let into the copies');
-  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout;
-  assert.doesNotMatch(status, /^\?\? (?:\.harnesspm\/|\.rgignore)/m, 'and git ignores them, so `git add -A` does not take them');
+  for (const [, file] of agents.matchAll(/(?:read|Docs:) (node_modules\/\S+)/g)) assert.ok(fs.existsSync(path.join(dir, file!)), `${file} exists`);
+  assert.match(read(dir, 'node_modules/.harnesspm/docs/tasty/llms.txt'), /\[Intro\]\(node_modules\/\.harnesspm\/docs\/tasty\/intro\.md\)/);
+  assert.equal(read(dir, 'node_modules/.harnesspm/docs/tasty/intro.md'), '# Intro\n\nText.\n', 'the pages are copied as they are');
+  assert.match(read(dir, '.rgignore'), /^!\/node_modules\/\.harnesspm\/docs\/$/m, 'search tools are let into the copies');
+  assert.match(read(dir, '.git/info/exclude'), /^\/\.rgignore$/m, 'and git ignores the .rgignore, so `git add -A` does not take it');
   assert.equal(read(dir, 'AGENTS.md'), agents, 'fetch changes no committed file');
   assert.ok(!fs.existsSync(path.join(dir, '.claude/settings.local.json')), 'and writes no agent settings');
   assert.match(run(dir, 'fetch').stdout, /fetched 0 packages, reused 2/, 'a second fetch reuses the downloads');
@@ -156,4 +155,19 @@ test('the lock takes tarball URLs and integrity from pnpm-lock.yaml and from Yar
   run(dir, 'sync');
   assert.deepEqual(packages()['@tenphi/glaze'], { version: '3.1.0', plugin: 'glaze', resolved: 'https://registry.yarnpkg.com/@tenphi/glaze/-/glaze-3.1.0.tgz', integrity: 'sha512-YARN==' });
   assert.deepEqual(packages()['@tenphi/tasty'], { version: '3.17.1', plugin: 'tasty' }, 'not in yarn.lock');
+});
+
+test('fetch writes no .rgignore, and still succeeds, when .git/info/exclude cannot be written', () => {
+  const dir = project({ '@acme/ui': '^1.0.0' });
+  installPackage(dir, '@acme/ui', { plugin: 'acme-ui', ext: { docs: '../docs' }, files: { 'docs/button.md': '# Button\n' } });
+  assert.equal(run(dir, 'sync').status, 0);
+  fs.rmSync(path.join(dir, '.rgignore'));
+  // A folder where the file should be fails every write, as a read-only .git in a sandbox does.
+  fs.rmSync(path.join(dir, '.git/info/exclude'));
+  fs.mkdirSync(path.join(dir, '.git/info/exclude'));
+  const fetched = run(dir, 'fetch');
+  assert.equal(fetched.status, 0, fetched.stderr);
+  assert.match(fetched.stderr, /\.rgignore not written, so search tools skip the docs copies/);
+  assert.ok(!fs.existsSync(path.join(dir, '.rgignore')), 'git would not ignore it');
+  assert.equal(read(dir, 'node_modules/.harnesspm/docs/acme-ui/button.md'), '# Button\n', 'the copies are still written');
 });

@@ -94,15 +94,17 @@ An agent often works in a clone below the folder its session starts in, such as 
 
 ### Search
 
-How an agent finds docs that the block does not point it to. The tests searched, from the repository root, for a sentence of a package's docs ([spec 4.3, note 8](../spec/04-outputs.md#43-project-outputs)).
+How an agent finds docs that the block does not point it to ([spec 4.3, note 8](../spec/04-outputs.md#43-project-outputs)). [probes/search-probe.sh](probes/search-probe.sh) builds the test repository and prints the prompt; the rows below come from running it.
 
 | Fact | | Source |
 | --- | --- | --- |
-| Grep found no page of an installed package's docs: not in `node_modules`, which git ignores, not under `node_modules/.harnesspm/pkgs/`, whose links sit in a hidden folder, and not behind a committed link into `node_modules`, the setup some projects used before harnesspm. It found a real copy of the page, also in a hidden folder. | 🔍 | Search test, Claude Code 2.1.332, Nov 2026 |
-| Grep skips files that `.git/info/exclude` ignores. An `.rgignore` with `!` lines for their folder brings them back, also when the `.rgignore` is excluded itself, so `git status` stays clean. | 🔍 | Same test |
-| Glob finds files in a folder that git ignores, such as `node_modules`, when its pattern names them, and does not enter a linked folder. | 🔍 | Same test |
+| Grep found no page of an installed package's docs: not in `node_modules`, which git ignores, not under `node_modules/.harnesspm/pkgs/`, a link in a hidden folder, and not behind a committed link into `node_modules`, the setup some projects used before harnesspm. | 🔍 | [search probe](probes/search-probe.sh), Claude Code 2.1.332, Nov 2026 |
+| Grep searches hidden folders: it found a page in a committed hidden folder, which plain `rg` skipped. | 🔍 | Same probe, Claude Code 2.1.332 and ripgrep 14.1.0 |
+| Grep skips what `.git/info/exclude` ignores. A `.rgignore` with `!` lines brings it back, also when `.git/info/exclude` lists the `.rgignore` itself, so `git status` stays clean. | 🔍 | Same probe, Claude Code 2.1.332 |
+| Glob finds files in a folder that git ignores, such as `node_modules`, and does not enter a linked folder. | 🔍 | Same probe, Claude Code 2.1.332 |
 | ripgrep, which Grep is built on, skips hidden files and folders and does not follow links, unless told to. A hidden folder that an ignore file whitelists is searched. It reads `.gitignore`, `.ignore` and `.rgignore`. | ✅ | `rg --help` of ripgrep 14.1.0; [ripgrep guide, automatic filtering](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md#automatic-filtering) |
-| `!/.harnesspm/docs/` alone does not bring back `.harnesspm/docs/` that git ignores: ripgrep never enters the hidden `.harnesspm`. `!/.harnesspm/`, `/.harnesspm/*` and `!/.harnesspm/docs/` do, and keep the rest of `.harnesspm` out. A project below the git root works with an `.rgignore` in its own folder, searched from the root or from the project. | 🔍 | Same test, plain `rg` 14.1.0 and Grep |
+| A `!` line for a folder inside an ignored or hidden folder does not bring it back by itself: ripgrep never enters the parent. Letting each parent in and keeping its other children out does: `!/node_modules/`, `/node_modules/*`, `!/node_modules/.harnesspm/`, `/node_modules/.harnesspm/*` and `!/node_modules/.harnesspm/docs/` let plain `rg` and Grep into `node_modules/.harnesspm/docs/` alone, with `node_modules` in `.gitignore`. A nested `node_modules` stays out. | 🔍 | Same probe, ripgrep 14.1.0 and Claude Code 2.1.332 |
+| Prettier 3.3 checks a Markdown file in a hidden folder at the repository root that only `.git/info/exclude` ignores, and skips `node_modules`. | 🔍 | `npx prettier@3.3.3 --check .`, Nov 2026 |
 | In a large monorepo's telemetry, agents opened a docs page through a pointer of the block 7 times in 14 days, in about 200 sessions with hooks, while always-on rules loaded hundreds of times. Reads through the shell and search results are not seen. | 🔍 | Telemetry, harnesspm 0.10 to 0.12, Nov 2026 |
 
 ### Plugins

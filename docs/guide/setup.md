@@ -68,7 +68,7 @@ A pending line gives only a count. To learn what each tool does, read the packag
 | `package.json` | The dev dependency, and the `postinstall` or `prepare` script | Yes |
 | `package-lock.json`, `pnpm-lock.yaml` or `yarn.lock` | The dev dependency, as your package manager locked it | Yes |
 | `.claude/`, `.agents/`, `.codex/`, `node_modules/.harnesspm/` | Links and settings for each agent | No. harnesspm lists them in `.git/info/exclude`. |
-| `.harnesspm/docs/`, `.rgignore` | Copies of your dependencies' docs, and the file that lets search tools such as ripgrep find them. Agents' search skips `node_modules`. | No. harnesspm lists them in `.git/info/exclude`. |
+| `.rgignore` | Lets search tools such as ripgrep into the copies of your dependencies' docs in `node_modules/.harnesspm/docs/`. Agents' search skips `node_modules` otherwise. | No. harnesspm lists it in `.git/info/exclude`. |
 
 ```shell
 git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json package-lock.json
