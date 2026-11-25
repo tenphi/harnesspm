@@ -78,7 +78,7 @@ People do not edit it. Added harnesses are not locked. They follow their branch 
 - a committed output or the lock is out of date, including a telemetry handler that differs from `harnesspm.json`;
 - a `"pin"` package has a version that nobody approved.
 
-With `CI=true`, `sync` also leaves the committed outputs as they are. An install runs `sync` from `prepare` or `postinstall`, and if that sync rewrote them, a later `sync --check` would compare fresh files and pass while the pull request missed a sync. So in CI, `sync` writes only the per-machine outputs, such as stable package paths, docs indexes and skill links, which jobs and review bots read. It says so in one line. A job that commits the result runs `sync --write`.
+With `CI=true`, `sync` also leaves the committed outputs as they are. An install runs `sync` from `prepare` or `postinstall`, and if that sync rewrote them, a later `sync --check` would compare fresh files and pass while the pull request missed a sync. So in CI, `sync` writes only the per-machine outputs, such as stable package paths, docs copies and skill links, which jobs and review bots read. It says so in one line. A job that commits the result runs `sync --write`.
 
 ## 6.5 Not covered
 

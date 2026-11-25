@@ -5,6 +5,7 @@
 - harnesspm writes each agent's **native** files, where the agent already looks.
 - Of the outputs, only the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files and `harnesspm.lock.json` are committed. Everything else is written on each machine and kept out of git.
 - People never edit outputs. Every output names its source.
+- The docs of installed packages are copied into `.harnesspm/docs/`, so agents find them by searching. Git ignores the copies ([4.3](#43-project-outputs), note 8).
 - A session that starts in a folder above the repositories gets their hooks and a pointer to their harness after a `sync` in that folder ([4.10](#410-sessions-that-start-in-a-parent-folder)).
 
 Package authors do not need this chapter. It defines what implementations write.
@@ -26,7 +27,7 @@ Package managers place packages at paths that differ between machines. harnesspm
 node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
-A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths and the generated files, so pointers in the committed block work there too. It reuses installed copies and writes no agent settings. `fetch` itself never runs package code: `run` stays the separate, explicit step that does, and it can run a script from a fetched package ([5.1](05-executables.md#the-runner)). `help` fetches by itself when a project has neither an install nor fetched packages ([10.1](10-cli.md#101-projects)). When the lock has no integrity for a package, `fetch` looks in the package manager's lockfile. When neither has one, it still downloads the package and warns, naming it.
+A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths, the generated files and the docs copies, so pointers in the committed block work there too. It lists the copies in `.git/info/exclude`, so `git add -A` does not take them ([4.3](#43-project-outputs), note 8). It reuses installed copies and writes no agent settings. `fetch` itself never runs package code: `run` stays the separate, explicit step that does, and it can run a script from a fetched package ([5.1](05-executables.md#the-runner)). `help` fetches by itself when a project has neither an install nor fetched packages ([10.1](10-cli.md#101-projects)). When the lock has no integrity for a package, `fetch` looks in the package manager's lockfile. When neither has one, it still downloads the package and warns, naming it.
 
 ## 4.3 Project outputs
 
@@ -39,6 +40,7 @@ These hold the dependency and project layers, plus added harnesses with local sc
 | File-scoped rules | Link in `.claude/rules/harnesspm/<plugin>/` with `paths`, plus a pointer line in the block | Pointer line in the block |
 | On-demand rules | Pointer line with its description | Pointer line with its description |
 | Skills | Link in `.claude/skills/<name>`, plus `Skill(<name>)` in `permissions.allow` of `.claude/settings.local.json` for skills from the project, an added harness or a trusted package. An untrusted package's skill with `allowed-tools` or `hooks` links to a copy without them in `node_modules/.harnesspm/skills/` ([6.1](06-trust.md#61-what-needs-trust)). | Link in `.agents/skills/<name>`, to the same copy |
+| Docs of dependencies | Copies of the pages and `llms.txt` in `.harnesspm/docs/<plugin name>/`, and a `.rgignore` that lets search tools into them (note 8) | The same files |
 | Sub-agents | Generated `.claude/agents/<name>.md` | Generated `.codex/agents/<name>.toml` |
 | Hooks, permissions | Entries in `.claude/settings.local.json` | `.codex/hooks.json`, `.codex/rules/harnesspm.rules` |
 | MCP servers | Local scope: `projects.<project>.mcpServers` in `~/.claude.json`, where `claude mcp add-json --scope local` writes them | `[mcp_servers.<id>]` in `.codex/config.toml` |
@@ -52,6 +54,10 @@ Notes:
 5. An added harness's `exclude` or `patch` of a team always-on rule cannot change committed text. harnesspm writes the change into the local block instead ("ignore rule X", or "in rule X, section Y now says: …"), which both agents read after the team block.
 6. With agent events on, harnesspm also writes its own telemetry hooks into the same hook files, and the index they read into `node_modules/.harnesspm/telemetry.json` ([14.4](14-telemetry.md#144-agent-events)).
 7. Claude Code reads a nested `AGENTS.md` only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in its folder or above, and the root `CLAUDE.md` that imports the block is one ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#instructions)). So every nested `AGENTS.md` that git tracks, outside `node_modules`, gets an `@AGENTS.md` line in a `CLAUDE.md` in the same folder. harnesspm creates that file, or adds the line at the top of an existing one. A folder whose `.claude/CLAUDE.md` already has `@../AGENTS.md` keeps it and gets no second import. These files are committed outputs: `sync --check` and `doctor` report a missing line.
+8. Agents also look for docs by searching, not only through the block, and their search tools skip what git ignores, hidden folders and links: Claude Code's Grep and plain `rg` found no page under `node_modules/.harnesspm/pkgs/`, nor behind a committed link into `node_modules` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#search)). So `sync` and `fetch` copy each dependency's pages (`.md`, `.mdx`) and `llms.txt` into `.harnesspm/docs/<plugin name>/`, leaving out what git ignores ([2.7](02-package-format.md#27-docs)). Other files, such as images, are not copied. The docs of a package that is the repository's own files, inside its work tree and outside every `node_modules`, such as a workspace's, are not copied: search finds them already. The rule depends only on where the package is, so the committed pointer is the same on every machine.
+   - The copies are listed in `.git/info/exclude` as `/.harnesspm/docs/`. A person's own files in `.harnesspm/`, such as a telemetry file, stay as they are.
+   - Search tools built on ripgrep skip the copies too, because git ignores them and `.harnesspm` is hidden. A `.rgignore` in the project folder lets them in, because its `!` lines outrank git's ignore rules for ripgrep: `!/.harnesspm/`, `/.harnesspm/*` and `!/.harnesspm/docs/`, after a line that says harnesspm wrote it. The `.rgignore` is listed in `.git/info/exclude` too. When the repository has an `.rgignore` of its own, harnesspm leaves it as it is, and `sync` warns with the three lines to add.
+   - Without docs copies, `sync` removes the folder and its own `.rgignore`.
 
 ## 4.4 Outputs of added harnesses, user scope
 
@@ -92,7 +98,7 @@ The committed block is **compact**: the block commands at the top, then one line
 
 - Always-on rule: Style values — Tokens, Dynamic values. Read it with `help @tenphi/tasty` (tasty:rules/style-values)
 - When editing `**/*.tsx`, read node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md — How to write state maps in Tasty styles (tasty:rules/state-maps)
-- Docs: node_modules/.harnesspm/pkgs/@tenphi/tasty/docs/llms.txt (tasty:docs)
+- Docs: .harnesspm/docs/tasty/llms.txt (tasty:docs)
 
 ## @cube-dev/ui-kit
 
@@ -109,7 +115,7 @@ The committed block is **compact**: the block commands at the top, then one line
 | Always-on rule | ``- Always-on rule: <title> — <summary>. Read it with `help <package>` (<ID>)``. The summary is the rule's `description`, else its `##` and `###` headings in order. A rule without them has the title alone. `<package>` is the npm name, or the plugin name of an added harness. |
 | File-scoped rule | `- When editing <globs>, read <file> — <description> (<ID>)` |
 | On-demand rule | `- <description>: read <file> (<ID>)` |
-| Docs | `- Docs: <index> (<ID>)`. The index is the package's own `llms.txt`, or the one harnesspm generates in `node_modules/.harnesspm/docs/<plugin name>/`. |
+| Docs | `- Docs: <index> (<ID>)`. The index is the `llms.txt` of the [docs copy](#43-project-outputs): the package's own, or one harnesspm generates that lists the copied pages. For docs that are not copied, it is the package's own `llms.txt`, or one generated in `node_modules/.harnesspm/docs/<plugin name>/`. |
 | Script with a `description`, from the project or a trusted package | ``- Tool: `<plugin name>:<script>` — <description> (<ID>)``. The block commands say how to run it and how to see its options. |
 | Hooks that check file edits, from the project or a trusted package | ``- Edit files with your file tools, not shell commands such as `sed`, so the hook that checks each edit runs (<IDs>)``, once per package. A hook counts when it runs before or after a tool and its matcher, read as each agent reads it, matches an edit tool: `Edit`, `Write` or `MultiEdit` for Claude Code, `apply_patch`, `Edit` or `Write` for Codex. A matcher that matches every tool does not count. An edit through the shell skips it. |
 | Workspaces with blocks of their own, in the root block of a monorepo | A `## Workspaces` section after the block commands, naming each folder ([4.5](#45-monorepos)) |

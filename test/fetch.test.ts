@@ -39,13 +39,21 @@ test('S13: fetch downloads the locked packages and fills the paths that the comm
   }
   const agents = read(dir, 'AGENTS.md');
 
-  fs.rmSync(path.join(dir, 'node_modules'), { recursive: true });
+  assert.match(agents, /- Docs: \.harnesspm\/docs\/tasty\/llms\.txt \(tasty:docs\)/, 'the block points at the copy');
+
+  // A fresh clone: no install, no copies, nothing in .git/info/exclude.
+  for (const rel of ['node_modules', '.harnesspm', '.rgignore']) fs.rmSync(path.join(dir, rel), { recursive: true, force: true });
+  fs.writeFileSync(path.join(dir, '.git/info/exclude'), '');
   const fetched = run(dir, 'fetch');
   assert.equal(fetched.status, 0, fetched.stderr);
   assert.match(fetched.stdout, /fetched 2 packages \(@cube-dev\/ui-kit 0\.206\.1, @tenphi\/tasty 3\.17\.1\)/);
   assert.doesNotMatch(fetched.stderr, /does not match/);
-  for (const [, file] of agents.matchAll(/(?:read|Docs:) (node_modules\/\S+)/g)) assert.ok(fs.existsSync(path.join(dir, file!)), `${file} exists`);
-  assert.match(read(dir, 'node_modules/.harnesspm/docs/tasty/llms.txt'), /\[Intro\]/);
+  for (const [, file] of agents.matchAll(/(?:read|Docs:) ((?:node_modules|\.harnesspm)\/\S+)/g)) assert.ok(fs.existsSync(path.join(dir, file!)), `${file} exists`);
+  assert.match(read(dir, '.harnesspm/docs/tasty/llms.txt'), /\[Intro\]/);
+  assert.equal(read(dir, '.harnesspm/docs/tasty/intro.md'), '# Intro\n\nText.\n', 'the pages are copied as they are');
+  assert.match(read(dir, '.rgignore'), /^!\/\.harnesspm\/docs\/$/m, 'search tools are let into the copies');
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout;
+  assert.doesNotMatch(status, /^\?\? (?:\.harnesspm\/|\.rgignore)/m, 'and git ignores them, so `git add -A` does not take them');
   assert.equal(read(dir, 'AGENTS.md'), agents, 'fetch changes no committed file');
   assert.ok(!fs.existsSync(path.join(dir, '.claude/settings.local.json')), 'and writes no agent settings');
   assert.match(run(dir, 'fetch').stdout, /fetched 0 packages, reused 2/, 'a second fetch reuses the downloads');

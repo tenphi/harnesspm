@@ -243,6 +243,20 @@ export function gitIgnoresDir(dir: string): boolean {
   return spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status === 0;
 }
 
+/** Every file below `dir`, sorted. Links are left out. Empty when `dir` is not a folder. */
+export function walkFiles(dir: string): string[] {
+  const files: string[] = [];
+  const walk = (current: string): void => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) files.push(full);
+    }
+  };
+  if (isDir(dir)) walk(dir);
+  return files.sort();
+}
+
 export function listDir(dir: string): string[] {
   try {
     return fs.readdirSync(dir).sort();

@@ -92,6 +92,19 @@ An agent often works in a clone below the folder its session starts in, such as 
 | From a folder that does not install harnesspm, `npx harnesspm run <unit>` fails inside npm with a 404: there is no local bin, and `harnesspm` is not a published package name. `npx -y @tenphi/harnesspm` runs the installed version inside a project that pins it (0.6.0) and downloads the latest outside (0.7.0). | 🔍 | npm 10.9.9, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41)) |
 | Run from fetched packages, without the project's install, `@tenphi/glaze`'s `color` and `contrast` scripts worked. Scripts that import packages the project installs did not: one missed `@tenphi/glaze`, one `react`, one `postcss-selector-parser`. | 🔍 | harnesspm 0.6.0, a clone with no install, Nov 2026 ([#41](https://github.com/tenphi/harnesspm/issues/41)) |
 
+### Search
+
+How an agent finds docs that the block does not point it to. The tests searched, from the repository root, for a sentence of a package's docs ([spec 4.3, note 8](../spec/04-outputs.md#43-project-outputs)).
+
+| Fact | | Source |
+| --- | --- | --- |
+| Grep found no page of an installed package's docs: not in `node_modules`, which git ignores, not under `node_modules/.harnesspm/pkgs/`, whose links sit in a hidden folder, and not behind a committed link into `node_modules`, the setup some projects used before harnesspm. It found a real copy of the page, also in a hidden folder. | 🔍 | Search test, Claude Code 2.1.332, Nov 2026 |
+| Grep skips files that `.git/info/exclude` ignores. An `.rgignore` with `!` lines for their folder brings them back, also when the `.rgignore` is excluded itself, so `git status` stays clean. | 🔍 | Same test |
+| Glob finds files in a folder that git ignores, such as `node_modules`, when its pattern names them, and does not enter a linked folder. | 🔍 | Same test |
+| ripgrep, which Grep is built on, skips hidden files and folders and does not follow links, unless told to. A hidden folder that an ignore file whitelists is searched. It reads `.gitignore`, `.ignore` and `.rgignore`. | ✅ | `rg --help` of ripgrep 14.1.0; [ripgrep guide, automatic filtering](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md#automatic-filtering) |
+| `!/.harnesspm/docs/` alone does not bring back `.harnesspm/docs/` that git ignores: ripgrep never enters the hidden `.harnesspm`. `!/.harnesspm/`, `/.harnesspm/*` and `!/.harnesspm/docs/` do, and keep the rest of `.harnesspm` out. A project below the git root works with an `.rgignore` in its own folder, searched from the root or from the project. | 🔍 | Same test, plain `rg` 14.1.0 and Grep |
+| In a large monorepo's telemetry, agents opened a docs page through a pointer of the block 7 times in 14 days, in about 200 sessions with hooks, while always-on rules loaded hundreds of times. Reads through the shell and search results are not seen. | 🔍 | Telemetry, harnesspm 0.10 to 0.12, Nov 2026 |
+
 ### Plugins
 
 | Fact | | Source |
@@ -175,6 +188,12 @@ An agent often works in a clone below the folder its session starts in, such as 
 | `approval_policy.granular.skill_approval` exists. Whether Codex asks before using a skill by default. | ✅ ❓ | [config reference](https://learn.chatgpt.com/docs/config-file/config-reference) |
 | Commands the model runs (the `exec_command` tool) get `CODEX_CI=1` and `CODEX_TOOL_CALL_ID`, on every platform, after the configured environment policy. Commands a person runs with `!` get `CODEX_THREAD_ID`, `CODEX_SESSION_ID` and `CODEX_VERSION` but not those two. Hooks get a copy of Codex's own environment; stdio MCP servers start from an almost empty one. There is no `AI_AGENT`-like marker. Like Claude Code's markers, these are advisory: the model can unset them. | 🔍 | Source at commit e58bf8f: [process_manager.rs](https://github.com/openai/codex/blob/e58bf8f5233b51e7cd1679d947e3028c1ed91b06/codex-rs/core/src/unified_exec/process_manager.rs#L90-L131), [user_shell.rs](https://github.com/openai/codex/blob/e58bf8f5233b51e7cd1679d947e3028c1ed91b06/codex-rs/core/src/tasks/user_shell.rs#L170-L172), [command_runner.rs](https://github.com/openai/codex/blob/e58bf8f5233b51e7cd1679d947e3028c1ed91b06/codex-rs/hooks/src/engine/command_runner.rs#L444-L497), [rmcp utils.rs](https://github.com/openai/codex/blob/e58bf8f5233b51e7cd1679d947e3028c1ed91b06/codex-rs/rmcp-client/src/utils.rs#L16-L58) |
 | In the workspace-write sandbox, `.git`, `.agents`, `.codex` and `.aws` inside every writable root are read-only, on Linux and macOS; a missing `.codex` at the workspace root cannot be created either. `~/.codex` is not a writable root. Full access, approved escalations and `.rules` allow rules bypass this. | 🔍 ✅ | [permissions.rs](https://github.com/openai/codex/blob/e58bf8f5233b51e7cd1679d947e3028c1ed91b06/codex-rs/protocol/src/permissions.rs#L43-L54), [agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security) |
+
+### Search
+
+| Fact | | Source |
+| --- | --- | --- |
+| Codex searches through shell commands, often `rg`, so plain ripgrep's rules under Claude Code's [Search](#search) apply. Which command its model picks is not confirmed. | ❓ | — |
 
 ### Cloud
 

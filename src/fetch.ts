@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
-import { computePlan, STATE_DIR } from './outputs.ts';
+import { addExcludes, computePlan, docsExcludes, DOCS_DIR, STATE_DIR, writeRgignore } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
 import { HarnessError, ensureDir, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
@@ -99,10 +99,15 @@ export function fetchLocked(projectDir: string): FetchReport {
   const plan = computePlan(team, team);
   const agents = readTextIfExists(path.join(projectDir, 'AGENTS.md'));
   if (extractBlock(agents) !== extractBlock(plan.committed!.agentsMd)) report.warnings.push('AGENTS.md does not match the packages in the lock. Run `npx harnesspm sync` where the dependencies are installed.');
-  // Only files under node_modules/.harnesspm: a job without an install needs no agent settings.
+  // Only files under node_modules/.harnesspm, and the docs copies that search tools find: a job without an install
+  // needs no agent settings.
   const state = path.join(projectDir, STATE_DIR) + path.sep;
-  for (const root of plan.generatedRoots) if (root.startsWith(state)) fs.rmSync(root, { recursive: true, force: true });
-  for (const [file, content] of plan.generated) if (file.startsWith(state)) writeIfChanged(file, content);
+  const ours = (p: string): boolean => [state, path.join(projectDir, DOCS_DIR) + path.sep].some((root) => (p + path.sep).startsWith(root));
+  for (const root of plan.generatedRoots) if (ours(root)) fs.rmSync(root, { recursive: true, force: true });
+  for (const [file, content] of plan.generated) if (ours(file)) writeIfChanged(file, content);
   for (const [link, target] of plan.links) if (link.startsWith(path.join(state, 'pkgs') + path.sep)) linkIfChanged(link, target);
+  writeRgignore(projectDir, plan);
+  // The copies are outside node_modules, so git must be told to ignore them, or an agent's `git add -A` takes them.
+  addExcludes(projectDir, docsExcludes(plan));
   return report;
 }

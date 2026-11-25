@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { parseFrontmatter, stringList } from './frontmatter.ts';
 import { discoverExecUnits } from './exec-units.ts';
 import { discoverUnits, loadHarnessPackage, NS, ruleMeta } from './manifest.ts';
-import { gitKeeps, HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
+import { gitKeeps, HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix, walkFiles } from './util.ts';
 
 export interface CheckResult {
   errors: string[];
@@ -25,19 +25,6 @@ const SECRET_PATTERNS: [RegExp, string][] = [
 function inside(dir: string, file: string): boolean {
   const rel = path.relative(dir, file);
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
-}
-
-function walkFiles(dir: string): string[] {
-  const files: string[] = [];
-  const walk = (current: string): void => {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) files.push(full);
-    }
-  };
-  if (isDir(dir)) walk(dir);
-  return files.sort();
 }
 
 /** A fence line: its indent, its run of backticks or tildes, and the rest of the line. */
