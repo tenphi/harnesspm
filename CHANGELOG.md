@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0
+
+### Minor Changes
+
+- [#76](https://github.com/tenphi/harnesspm/pull/76) [`f05605c`](https://github.com/tenphi/harnesspm/commit/f05605c59ad7b7e02838a0d096a6dd28ff7de5fd) Thanks [@tenphi](https://github.com/tenphi)! - `sync` and `fetch` copy every dependency's docs into `node_modules/.harnesspm/docs/`, and write a `.rgignore` that lets agents' search tools, such as Claude Code's Grep and `rg`, into that one folder. Search skipped a dependency's docs before, because they sit in `node_modules`. Git ignores the copies and the `.rgignore`, and formatters skip `node_modules`. The `Docs:` lines in the managed block now point at the copies: run `npx harnesspm sync` after upgrading and commit `AGENTS.md`.
+
 ## 0.12.1
 
 ### Patch Changes
