@@ -377,7 +377,7 @@ test("an agent's sync event names what it held back and why; events from a linke
   assert.equal(run(dir, 'sync').status, 0);
   const person = events(dir).at(-1)!;
   assert.equal(person.type, 'sync');
-  assert.deepEqual([person.held, person.why, person.worktree], [undefined, undefined, undefined]);
+  assert.deepEqual([person.held, person.reason, person.worktree], [undefined, undefined, undefined]);
 
   // Agent events need hooks, which the agent's model cannot add (spec 6.2, rule 4).
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, telemetry: { events: ['sync', 'session'], send: { file: EVENTS } } }) });
@@ -386,7 +386,7 @@ test("an agent's sync event names what it held back and why; events from a linke
   const held = events(dir).at(-1)!;
   assert.equal(held.caller, 'agent');
   assert.deepEqual(held.held, ['Claude Code hook: harnesspm track --agent claude', 'Codex hook: harnesspm track --agent codex']);
-  assert.match(held.why, /origin\/HEAD is not set/);
+  assert.match(held.reason, /origin\/HEAD is not set/);
 
   // A session in a linked worktree, such as the desktop app's, runs the hooks of the main checkout with its own cwd.
   assert.equal(run(dir, 'sync').status, 0);

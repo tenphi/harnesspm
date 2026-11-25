@@ -216,7 +216,8 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
     removed: Object.keys(old).filter((id) => units[id] === undefined),
     changed: Object.keys(units).filter((id) => old[id] !== undefined && old[id].hash !== units[id]!.hash),
     pending: pending.map((p) => p.name),
-    ...(report.held.length > 0 ? { held: report.held, why: report.why } : {}),
+    // A hook above the project names it with `-C <its path>`; events carry no local paths (spec 14.2).
+    ...(report.held.length > 0 ? { held: report.held.map((entry) => entry.replace(/ -C (?:'(?:[^']|'\\'')*'|"[^"]*"|\S+)/g, '')), reason: report.why } : {}),
   });
 }
 
