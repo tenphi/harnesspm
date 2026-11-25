@@ -242,6 +242,7 @@ export function checkHarness(target: string): CheckResult {
     const text = fs.readFileSync(file, 'utf8');
     for (const [pattern, what] of SECRET_PATTERNS) if (pattern.test(text)) warnings.push(`${show(file)} looks like it contains ${what}`);
     if (!/\.mdx?$/.test(file)) continue;
+    const docsPage = units.docs !== undefined && inside(units.docs.dir, file);
     for (const match of withoutCode(text).matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
       const link = match[1]!;
       if (/^[a-z][a-z0-9+.-]*:/i.test(link) || link.startsWith('/')) continue;
@@ -249,6 +250,10 @@ export function checkHarness(target: string): CheckResult {
       if (!inside(root, target)) errors.push(`${show(file)}: the link ${link} points outside the package`);
       else if (!fs.existsSync(target)) errors.push(`${show(file)}: the link ${link} points at a missing file`);
       else if (isFile(target) && !ships(target)) errors.push(`${show(file)}: the link ${link} points at a file the package does not ship`);
+      // Projects search a copy of the docs folder alone (spec 4.3, note 8), where such a link leads nowhere.
+      else if (docsPage && !inside(units.docs!.dir, target)) {
+        warnings.push(`${show(file)}: the link ${link} leaves the docs folder, so it leads nowhere in the docs copy that agents search. Link to a page in the docs folder, or to the file's URL.`);
+      }
     }
   }
   return { errors, warnings, alwaysOnBytes, plugin: pkg.plugin };
