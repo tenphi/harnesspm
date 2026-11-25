@@ -68,6 +68,7 @@ A pending line gives only a count. To learn what each tool does, read the packag
 | `package.json` | The dev dependency, and the `postinstall` or `prepare` script | Yes |
 | `package-lock.json`, `pnpm-lock.yaml` or `yarn.lock` | The dev dependency, as your package manager locked it | Yes |
 | `.claude/`, `.agents/`, `.codex/`, `node_modules/.harnesspm/` | Links and settings for each agent | No. harnesspm lists them in `.git/info/exclude`. |
+| `.rgignore` | Lets search tools such as ripgrep into the copies of your dependencies' docs in `node_modules/.harnesspm/docs/`. Agents' search skips `node_modules` otherwise. | No. harnesspm lists it in `.git/info/exclude`. |
 
 ```shell
 git add AGENTS.md CLAUDE.md harnesspm.json harnesspm.lock.json package.json package-lock.json
@@ -128,7 +129,7 @@ Add a check to CI, so a missed sync fails the pull request:
 - run: npx harnesspm sync --check
 ```
 
-`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs indexes, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx harnesspm sync --write` instead.
+`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs copies, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx harnesspm sync --write` instead.
 
 When something is out of date, `--check` says what to do:
 

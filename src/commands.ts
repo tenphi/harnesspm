@@ -935,7 +935,11 @@ function helpView(cwd: string, out: Output): HelpView | undefined {
       rule: (rule) => shown(existing(projectPaths.rule(rule), rule.source)),
       docsIndex: (pkg) => {
         const index = projectPaths.docsIndex(pkg);
-        return index === undefined ? undefined : shown(index);
+        const docs = res.docs.find((d) => d.pkg === pkg);
+        if (index === undefined || docs === undefined) return undefined;
+        // The copy in .harnesspm/docs exists after a sync or a fetch. Else the package's own index, or its folder.
+        const own = path.join(docs.dir, 'llms.txt');
+        return shown(existing(index, isFile(own) ? own : docs.dir));
       },
     },
     file: (file) => shown(existing(display(file), file)),

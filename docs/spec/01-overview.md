@@ -98,6 +98,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Managed block** | The part of a Markdown file that harnesspm writes, between `BEGIN:harnesspm` and `END:harnesspm` markers. |
 | **Block commands** | The lines at the top of a committed managed block. They say how to list the harness, print a package's rules and tools with `help <package>`, print a tool's options with `help <tool>`, run a tool, and add `-C <path>` from another folder, such as a repository that cloned this one. |
 | **Fetched package** | A harness package that `harnesspm fetch` downloaded into `node_modules/.harnesspm/fetched/`, without its dependencies. A project without an install reads and runs its harness from fetched packages. |
+| **Docs copy** | A copy of a dependency's docs pages in `node_modules/.harnesspm/docs/<plugin name>/`, which `sync` and `fetch` write on each machine. Agents' search tools skip `node_modules`, so a `.rgignore` lets them into that one folder ([4.3](04-outputs.md#43-project-outputs), note 8). Never committed. |
 | **Install hook** | The command that `init` adds to the project's `postinstall` or `prepare` script. It runs `harnesspm sync` on every full install, and skips it when harnesspm is not installed. |
 | **Lock** | `harnesspm.lock.json`: the committed record of harness packages and unit hashes. |
 | **Executable unit** | A script, hook, MCP server or allow permission. Needs trust. |
@@ -137,11 +138,12 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @tenphi/harnesspm -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone run there only after a `sync` in that folder (S20). |
 | S19 | A repository has many harness packages or workspaces, and its `AGENTS.md` must stay inside the agents' limits | Nothing. The managed block names each rule and tool in one line. Agents print a package's rules with `help <package>` and a tool's options with `help <tool>`. |
 | S20 | A session starts in a folder above several repositories, such as a Claude Code cloud session with more than one, a person's folder of clones, or a job runner's work folder | `npx -y @tenphi/harnesspm sync` in that folder, after the installs: in the environment's setup script, once on a person's machine, or in the runner's checkout step. Each repository's hooks run there, and a block in that folder's `AGENTS.md` names each repository and its `help` command. A later sync of a repository keeps its entries there current. |
+| S21 | An agent looks for a dependency's docs with its search tool, not through the block | Nothing. `sync` and `fetch` copy every dependency's docs into `node_modules/.harnesspm/docs/`, and a `.rgignore` that git ignores lets search tools in. |
 
 ## 1.7 What is committed
 
 | Committed | Per machine (excluded through `.git/info/exclude`) |
 | --- | --- |
-| `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files (at the root and next to each nested `AGENTS.md`) | Everything else: links, agent settings, `.codex/`, outputs of added harnesses |
+| `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files (at the root and next to each nested `AGENTS.md`) | Everything else: links, docs copies, agent settings, `.codex/`, outputs of added harnesses |
 
 Committed files depend only on the dependency and project layers, so every teammate and CI produce the same result. harnesspm never edits `.gitignore`.

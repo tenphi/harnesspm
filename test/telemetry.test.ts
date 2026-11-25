@@ -279,6 +279,7 @@ test('the hook maps Claude Code payloads to units, sends no contents, and exits 
   const payloads: [Record<string, unknown>, Record<string, unknown> | undefined][] = [
     [readOf(path.join(stable, 'docs/guides/forms.md')), { type: 'read', unit: 'kit:docs', page: 'guides/forms.md', via: 'tool' }],
     [readOf(path.join(root, 'node_modules/.harnesspm/docs/kit/llms.txt')), { type: 'read', unit: 'kit:docs', page: 'llms.txt', via: 'tool' }],
+    [readOf(path.join(root, 'node_modules/.harnesspm/docs/kit/guides/forms.md')), { type: 'read', unit: 'kit:docs', page: 'guides/forms.md', via: 'tool' }],
     [readOf(path.join(stable, 'harness/dev.harnesspm/rules/usage.md')), { type: 'read', unit: 'kit:rules/usage', via: 'tool' }],
     [readOf(path.join(root, 'node_modules/@acme/kit/harness/dev.harnesspm/rules/usage.md')), { type: 'read', unit: 'kit:rules/usage', via: 'tool' }],
     [readOf(path.join(root, '.claude/skills/kit-review/SKILL.md')), { type: 'read', unit: 'kit:skills/kit-review', via: 'tool' }],
