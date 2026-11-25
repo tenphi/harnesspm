@@ -188,7 +188,7 @@ test('events are off by default, with DO_NOT_TRACK=1, and with a local or user o
   const none = app();
   run(none, 'sync');
   run(none, 'run', 'kit:probe');
-  assert.ok(!fs.existsSync(path.join(none, '.harnesspm')), 'no telemetry without a config');
+  assert.ok(!fs.existsSync(path.join(none, EVENTS)), 'no telemetry without a config');
 
   const dir = app({ send: { file: EVENTS } });
   assert.equal(runWith(dir, { DO_NOT_TRACK: '1' }, 'sync').status, 0);
@@ -278,8 +278,8 @@ test('the hook maps Claude Code payloads to units, sends no contents, and exits 
   const readOf = (file: string) => ({ ...base, hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: { file_path: file }, tool_response: { type: 'text', file: { filePath: file, content: SECRET } }, tool_use_id: 'toolu_1' });
   const payloads: [Record<string, unknown>, Record<string, unknown> | undefined][] = [
     [readOf(path.join(stable, 'docs/guides/forms.md')), { type: 'read', unit: 'kit:docs', page: 'guides/forms.md', via: 'tool' }],
-    [readOf(path.join(root, 'node_modules/.harnesspm/docs/kit/llms.txt')), { type: 'read', unit: 'kit:docs', page: 'llms.txt', via: 'tool' }],
-    [readOf(path.join(root, 'node_modules/.harnesspm/docs/kit/guides/forms.md')), { type: 'read', unit: 'kit:docs', page: 'guides/forms.md', via: 'tool' }],
+    [readOf(path.join(root, '.harnesspm/docs/kit/llms.txt')), { type: 'read', unit: 'kit:docs', page: 'llms.txt', via: 'tool' }],
+    [readOf(path.join(root, '.harnesspm/docs/kit/guides/forms.md')), { type: 'read', unit: 'kit:docs', page: 'guides/forms.md', via: 'tool' }],
     [readOf(path.join(stable, 'harness/dev.harnesspm/rules/usage.md')), { type: 'read', unit: 'kit:rules/usage', via: 'tool' }],
     [readOf(path.join(root, 'node_modules/@acme/kit/harness/dev.harnesspm/rules/usage.md')), { type: 'read', unit: 'kit:rules/usage', via: 'tool' }],
     [readOf(path.join(root, '.claude/skills/kit-review/SKILL.md')), { type: 'read', unit: 'kit:skills/kit-review', via: 'tool' }],

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# The copies of the dependencies' docs that harnesspm writes (spec 4.3, note 8)
+/.harnesspm/
 
 # Docs site (astro.config.ts)
 site-dist/

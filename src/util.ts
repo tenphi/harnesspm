@@ -293,6 +293,35 @@ export function gitIgnoresDir(dir: string): boolean {
   return spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status === 0;
 }
 
+/**
+ * The file whose pattern makes git ignore `rel`, a path in `projectDir` that need not exist (a folder ends in `/`): a
+ * `.gitignore` or `.git/info/exclude` by its path from the git root, or a global excludes file by its absolute path.
+ * Null when git does not ignore it, undefined outside a work tree.
+ */
+export function gitIgnoreSource(projectDir: string, rel: string): string | null | undefined {
+  // -z, so git does not quote a path with non-ASCII characters.
+  const result = spawnSync('git', ['check-ignore', '-z', '-v', '--stdin'], { cwd: projectDir, encoding: 'utf8', input: `${rel}\0` });
+  if (result.status === 1) return null;
+  // Git also fails inside a work tree, as on an exclude file it cannot read, in a repository it calls unsafe, or when
+  // it is missing: then nothing is known to be ignored.
+  if (result.status !== 0) return hasGitAbove(projectDir) ? null : undefined;
+  const [source = '', , pattern = ''] = result.stdout.split('\0');
+  return source !== '' && !pattern.startsWith('!') ? source : null;
+}
+
+/** Whether `dir` or a folder above it holds `.git`, whether or not git can read it. */
+function hasGitAbove(dir: string): boolean {
+  for (let current = path.resolve(dir); ; current = path.dirname(current)) {
+    if (fs.existsSync(path.join(current, '.git'))) return true;
+    if (path.dirname(current) === current) return false;
+  }
+}
+
+/** Whether a file written at `rel` stays out of every commit: git ignores it, or there is no work tree. */
+export function gitKeepsOut(projectDir: string, rel: string): boolean {
+  return gitIgnoreSource(projectDir, rel) !== null;
+}
+
 export function listDir(dir: string): string[] {
   try {
     return fs.readdirSync(dir).sort();
