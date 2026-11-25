@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+### Patch Changes
+
+- [#78](https://github.com/tenphi/harnesspm/pull/78) [`f4a64da`](https://github.com/tenphi/harnesspm/commit/f4a64da614caa6b8ea5aa7955235c61e595e27d8) Thanks [@tenphi](https://github.com/tenphi)! - `check` warns when a docs page links to a file outside the docs folder, such as `../README.md`, because that link leads nowhere in the docs copy that projects search. It does not fail the check.
+
 ## 0.13.0
 
 ### Minor Changes
