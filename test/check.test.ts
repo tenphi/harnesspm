@@ -31,23 +31,20 @@ test('files may list entries inside the docs folder, to leave some of it out', (
   assert.match(run(dir, 'check').stdout, /"files" must include the docs folder "docs", or entries inside it/);
 });
 
-test('check warns, without failing, when a docs page links outside the docs folder, which the docs copy does not have', () => {
+test('a docs page may link to a shipped file outside the docs folder, as a website that renders the README needs', () => {
   const dir = library(
     { docs: '../docs' },
     {
-      // A rule is not copied, so its link to the README is fine.
       'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nSee [the README](../../../README.md).\n',
-      'README.md': '# mylib\n',
-      'docs/intro.md': '# Intro\n\nSee [the README](../README.md), [setup](guides/setup.md#install) and [the site](https://example.com/).\n',
+      'README.md': '# mylib\n\n## Setup\n',
+      'docs/intro.md': '# Intro\n\nSee [the README](../README.md#setup), [setup](guides/setup.md#install) and [the site](https://example.com/).\n',
       'docs/guides/setup.md': '# Setup\n\nBack to [the intro](../intro.md).\n',
     },
     { files: ['harness', 'docs'] },
   );
   const result = run(dir, 'check');
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  const out = result.stdout + result.stderr;
-  assert.match(out, /docs\/intro\.md: the link \.\.\/README\.md leaves the docs folder, so it leads nowhere in the docs copy that agents search\. Link to a page in the docs folder, or to the file's URL\./);
-  assert.equal(out.match(/leaves the docs folder/g)?.length, 1, 'links inside the docs folder, URLs and links in rules are fine');
+  assert.doesNotMatch(result.stdout + result.stderr, /⚠️/, 'the docs copy points such a link at the installed package (spec 4.3, note 8), so it is no warning');
 });
 
 test('check reports a docs page with invalid frontmatter, unless the package has its own llms.txt', () => {

@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { parseFrontmatter, stringList } from './frontmatter.ts';
 import { discoverExecUnits } from './exec-units.ts';
 import { discoverUnits, loadHarnessPackage, NS, ruleMeta } from './manifest.ts';
-import { gitKeeps, HarnessError, isDir, isFile, isRecord, readJsonIfExists, readText, relPosix } from './util.ts';
+import { gitKeeps, HarnessError, isDir, isFile, isInside, isRecord, readJsonIfExists, readText, relativeLinks, relPosix } from './util.ts';
 
 export interface CheckResult {
   errors: string[];
@@ -22,11 +22,6 @@ const SECRET_PATTERNS: [RegExp, string][] = [
   [/\bxox[abprs]-[A-Za-z0-9-]{10,}\b/, 'a Slack token'],
 ];
 
-function inside(dir: string, file: string): boolean {
-  const rel = path.relative(dir, file);
-  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
-}
-
 function walkFiles(dir: string): string[] {
   const files: string[] = [];
   const walk = (current: string): void => {
@@ -38,35 +33,6 @@ function walkFiles(dir: string): string[] {
   };
   if (isDir(dir)) walk(dir);
   return files.sort();
-}
-
-/** A fence line: its indent, its run of backticks or tildes, and the rest of the line. */
-const FENCE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
-/** An escaped character, a code span (backticks closed by a run of the same length within one paragraph), or backticks that open nothing. */
-const CODE_SPAN = /\\[\s\S]|(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?(?<!`)\1(?!`)|`+/g;
-
-/**
- * A Markdown page with its code samples blanked out, so that a link in a sample is not checked (spec 2.10):
- * fenced code blocks and code spans, as CommonMark reads them. A fence that is never closed runs to the end of the page.
- * A fence may be indented, as in a list item. Its closing fence is indented at most 3 columns more.
- * Indented code blocks stay: telling one from a list item's paragraph needs a full Markdown parser.
- */
-function withoutCode(text: string): string {
-  const lines = text.split(/\r?\n/);
-  let open: { char: string; length: number; indent: number } | undefined;
-  for (const [i, line] of lines.entries()) {
-    const fence = FENCE.exec(line);
-    if (open) {
-      if (fence && fence[2]![0] === open.char && fence[2]!.length >= open.length && fence[3]!.trim() === '' && fence[1]!.length <= open.indent + 3) open = undefined;
-      lines[i] = '';
-    } else if (fence && !(fence[2]![0] === '`' && fence[3]!.includes('`'))) {
-      // The info string of a backtick fence has no backticks: such a line starts a code span instead.
-      open = { char: fence[2]![0]!, length: fence[2]!.length, indent: fence[1]!.length };
-      lines[i] = '';
-    }
-  }
-  // Spaces keep the text around a span apart, so that `[a]` and `(b)` on each side of it do not become a link.
-  return lines.join('\n').replace(CODE_SPAN, (match: string, ticks?: string) => (ticks === undefined ? match : match.replace(/[^\n]/g, ' ')));
 }
 
 /** A docs folder's files without the ones git ignores, as the lock and the index count them (spec 2.7). */
@@ -137,7 +103,7 @@ export function checkHarness(target: string): CheckResult {
 
   const checkPath = (label: string, rel: string, mustExist: 'file' | 'dir'): void => {
     const full = path.resolve(pkg.harnessDir, rel);
-    if (!inside(root, full)) errors.push(`${label}: ${rel} points outside the package`);
+    if (!isInside(root, full)) errors.push(`${label}: ${rel} points outside the package`);
     else if (mustExist === 'file' ? !isFile(full) : !isDir(full)) errors.push(`${label}: ${rel} does not exist`);
   };
   // A replacement has the shape of the unit it replaces: a rule's file, or a skill's folder (spec 3.4).
@@ -147,7 +113,7 @@ export function checkHarness(target: string): CheckResult {
     if (skill !== undefined) {
       checkPath(`replace ${id}`, file, 'dir');
       const dir = path.resolve(pkg.harnessDir, file);
-      if (isDir(dir) && inside(root, dir)) replacedSkills.push({ dir, name: skill });
+      if (isDir(dir) && isInside(root, dir)) replacedSkills.push({ dir, name: skill });
     } else {
       checkPath(`replace ${id}`, file, 'file');
       if (!id.includes(':rules/')) errors.push(`replace ${id}: replace works on rules and skills only. Exclude the unit and add one of your own instead.`);
@@ -242,18 +208,11 @@ export function checkHarness(target: string): CheckResult {
     const text = fs.readFileSync(file, 'utf8');
     for (const [pattern, what] of SECRET_PATTERNS) if (pattern.test(text)) warnings.push(`${show(file)} looks like it contains ${what}`);
     if (!/\.mdx?$/.test(file)) continue;
-    const docsPage = units.docs !== undefined && inside(units.docs.dir, file);
-    for (const match of withoutCode(text).matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
-      const link = match[1]!;
-      if (/^[a-z][a-z0-9+.-]*:/i.test(link) || link.startsWith('/')) continue;
+    for (const { link } of relativeLinks(text)) {
       const target = path.resolve(path.dirname(file), decodeURI(link));
-      if (!inside(root, target)) errors.push(`${show(file)}: the link ${link} points outside the package`);
+      if (!isInside(root, target)) errors.push(`${show(file)}: the link ${link} points outside the package`);
       else if (!fs.existsSync(target)) errors.push(`${show(file)}: the link ${link} points at a missing file`);
       else if (isFile(target) && !ships(target)) errors.push(`${show(file)}: the link ${link} points at a file the package does not ship`);
-      // Projects search a copy of the docs folder alone (spec 4.3, note 8), where such a link leads nowhere.
-      else if (docsPage && !inside(units.docs!.dir, target)) {
-        warnings.push(`${show(file)}: the link ${link} leaves the docs folder, so it leads nowhere in the docs copy that agents search. Link to a page in the docs folder, or to the file's URL.`);
-      }
     }
   }
   return { errors, warnings, alwaysOnBytes, plugin: pkg.plugin };

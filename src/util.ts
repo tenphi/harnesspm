@@ -238,6 +238,56 @@ export function gitKeeps(dir: string): (rel: string) => boolean {
   return (rel) => kept.has(rel);
 }
 
+/** Whether `file` is `dir` or below it. */
+export function isInside(dir: string, file: string): boolean {
+  const rel = path.relative(dir, file);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/** A fence line: its indent, its run of backticks or tildes, and the rest of the line. */
+const FENCE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+/** An escaped character, a code span (backticks closed by a run of the same length within one paragraph), or backticks that open nothing. */
+const CODE_SPAN = /\\[\s\S]|(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?(?<!`)\1(?!`)|`+/g;
+const blank = (text: string): string => text.replace(/[^\r\n]/g, ' ');
+
+/**
+ * A Markdown page with its code samples blanked out, so that a link in a sample is not read (spec 2.10):
+ * fenced code blocks and code spans, as CommonMark reads them. A fence that is never closed runs to the end of the page.
+ * A fence may be indented, as in a list item. Its closing fence is indented at most 3 columns more.
+ * Indented code blocks stay: telling one from a list item's paragraph needs a full Markdown parser.
+ * Blanks keep every other character where it was, so a match in the result is at the same place in the page.
+ */
+export function withoutCode(text: string): string {
+  const lines = text.split('\n');
+  let open: { char: string; length: number; indent: number } | undefined;
+  for (const [i, line] of lines.entries()) {
+    const fence = FENCE.exec(line.replace(/\r$/, ''));
+    if (open) {
+      if (fence && fence[2]![0] === open.char && fence[2]!.length >= open.length && fence[3]!.trim() === '' && fence[1]!.length <= open.indent + 3) open = undefined;
+      lines[i] = blank(line);
+    } else if (fence && !(fence[2]![0] === '`' && fence[3]!.includes('`'))) {
+      // The info string of a backtick fence has no backticks: such a line starts a code span instead.
+      open = { char: fence[2]![0]!, length: fence[2]!.length, indent: fence[1]!.length };
+      lines[i] = blank(line);
+    }
+  }
+  // Spaces keep the text around a span apart, so that `[a]` and `(b)` on each side of it do not become a link.
+  return lines.join('\n').replace(CODE_SPAN, (match: string, ticks?: string) => (ticks === undefined ? match : blank(match)));
+}
+
+/**
+ * The links of a Markdown page outside its code samples that point at a file of its own package: neither a URL nor
+ * an absolute path. Each is the target without its fragment, and where that target starts in the page.
+ */
+export function relativeLinks(text: string): { link: string; index: number }[] {
+  const links: { link: string; index: number }[] = [];
+  for (const match of withoutCode(text).matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
+    const link = match[1]!;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(link) && !link.startsWith('/')) links.push({ link, index: match.index + 2 });
+  }
+  return links;
+}
+
 /** Whether git ignores the folder `dir` itself. False outside a work tree, or when git is missing. */
 export function gitIgnoresDir(dir: string): boolean {
   return spawnSync('git', ['check-ignore', '-q', '.'], { cwd: dir }).status === 0;
