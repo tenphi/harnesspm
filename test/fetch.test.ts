@@ -189,7 +189,9 @@ test('when .git/info/exclude cannot be written, fetch still succeeds and writes 
 
   // When git refuses to run, as in a repository another user owns, nothing is known to be ignored, so no copies.
   fs.rmSync(path.join(dir, '.harnesspm'), { recursive: true });
-  const refused = runWith(dir, { GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' }, 'fetch');
+  // Without the machine's git config: a CI runner's may trust every folder (safe.directory = *).
+  const noConfig = { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(dir, 'no-gitconfig') };
+  const refused = runWith(dir, { ...noConfig, GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' }, 'fetch');
   assert.equal(refused.status, 0, refused.stderr);
   assert.ok(!fs.existsSync(path.join(dir, '.harnesspm')));
 });
