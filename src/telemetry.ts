@@ -181,12 +181,41 @@ export function outsideField(projectDir: string, from = process.cwd()): { outsid
   return insideDir(projectDir, from) ? {} : { outside: true };
 }
 
+const worktrees = new Map<string, boolean>();
+
+/**
+ * True when `dir` is in a linked git worktree, one that `git worktree add` made (spec 14.2). Its `.git` is a file that
+ * points into the main repository's `worktrees/` folder; a submodule's points into `modules/`. Reads files only, so a
+ * hook never waits for git.
+ */
+function inWorktree(dir: string): boolean {
+  const start = path.resolve(dir);
+  const known = worktrees.get(start);
+  if (known !== undefined) return known;
+  let found = false;
+  for (let at = start; ; at = path.dirname(at)) {
+    const dotGit = path.join(at, '.git');
+    const stat = fs.statSync(dotGit, { throwIfNoEntry: false });
+    if (stat?.isFile()) {
+      try {
+        found = /^gitdir:\s*.*[\\/]worktrees[\\/][^\\/]+[\\/]?\s*$/m.test(fs.readFileSync(dotGit, 'utf8'));
+      } catch {
+        // An unreadable .git file: not known to be a worktree.
+      }
+    }
+    if (stat !== undefined || path.dirname(at) === at) break;
+  }
+  worktrees.set(start, found);
+  return found;
+}
+
 /** One event (spec 14.2). Fields that are undefined are left out. */
 export function makeEvent(ctx: EventContext, fields: EventFields, cwd = process.cwd()): Record<string, unknown> {
   const { type, ...rest } = fields;
   const event: Record<string, unknown> = { schema: EVENT_SCHEMA, type, time: new Date().toISOString(), project: ctx.project };
   if (ctx.repository) event['repository'] = ctx.repository;
   Object.assign(event, { workspace: workspaceOf(ctx, cwd), harnesspm: harnesspmVersion() });
+  if (inWorktree(cwd)) event['worktree'] = true;
   for (const [key, value] of Object.entries(rest)) if (value !== undefined) event[key] = value;
   return event;
 }

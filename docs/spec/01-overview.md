@@ -109,6 +109,7 @@ npx harnesspm why tasty:rules/state-maps
 | **Handler** | The command or file that gets a project's events. Named in `harnesspm.json`, and active only as a person's sync recorded it in the lock. |
 | **Telemetry** | The events a project collects about how agents and people use its harness. Off unless the project turns it on. |
 | **Parent folder** | A folder that is not in a git repository, with projects right below it, such as `/home/user` in a Claude Code cloud session with several repositories, or a person's folder of clones. A session that starts there reads no settings of the projects, so `sync` in it writes their hooks there ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). |
+| **Worktree** | A second checkout of a repository that `git worktree add` makes, with its own folder and branch, such as the one the Claude Code desktop app makes for a session. Its `.git` is a file that points into the main checkout's `.git/worktrees/`. |
 
 ## 1.6 Base scenarios
 
