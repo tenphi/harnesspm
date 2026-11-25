@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+### Patch Changes
+
+- [#74](https://github.com/tenphi/harnesspm/pull/74) [`3d44214`](https://github.com/tenphi/harnesspm/commit/3d442145867bf59ee65cb2de32fcfd849383f2b3) Thanks [@tenphi](https://github.com/tenphi)! - A `sync` event names what differs from the reviewed state `reason`, not `why`, which is already an event type, and its `held` entries leave out the `-C <path>` of a hook above the project, so events carry no local paths.
+
 ## 0.12.0
 
 ### Minor Changes
