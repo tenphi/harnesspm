@@ -216,7 +216,7 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
     removed: Object.keys(old).filter((id) => units[id] === undefined),
     changed: Object.keys(units).filter((id) => old[id] !== undefined && old[id].hash !== units[id]!.hash),
     pending: pending.map((p) => p.name),
-    ...(report.held.length > 0 ? { held: report.held, why: report.why } : {}),
+    ...(report.held.length > 0 ? { held: report.held, reason: report.why } : {}),
   });
 }
 
