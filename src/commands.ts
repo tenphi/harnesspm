@@ -18,7 +18,7 @@ import { checkLocalFiles, excludeWritable, formatFinding, type Finding } from '.
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
 import { emptyEntries, heldEntries, trustOf } from './exec-outputs.ts';
-import { childProjects, hasParentOutputs, isParentFolder, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
+import { childProjects, childRepos, hasParentOutputs, isParentFolder, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked, locateLocked } from './fetch.ts';
@@ -104,9 +104,10 @@ interface Resolved {
   warnings: string[];
 }
 
-function resolveAll(projectDir: string, options: { withAdded: boolean }): Resolved {
+/** `addedOnly` resolves only the added harnesses, so the repository's own outputs stay as its own sync wrote them. */
+function resolveAll(projectDir: string, options: { withAdded: boolean; addedOnly?: boolean }): Resolved {
   const warnings: string[] = [];
-  const usesHarnesspm = isFile(path.join(projectDir, CONFIG_FILE));
+  const usesHarnesspm = !options.addedOnly && isFile(path.join(projectDir, CONFIG_FILE));
   const installed = usesHarnesspm && dependenciesInstalled(projectDir);
   if (usesHarnesspm && !installed) warnings.push('the dependencies are not installed, so the committed outputs are left as they are');
   const inRepo = gitExcludeFile(projectDir) !== undefined;
@@ -148,23 +149,24 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   let keptCommitted = false;
   const model = caller() === 'model';
   if (mode !== 'none') {
-    const plan = computePlan(resolved.team, full, { widen: !model });
-    warnings.push(...plan.warnings);
-    keptCommitted = keepCommitted && plan.committed !== undefined;
-    const reviewed = model ? reviewedFor(projectDir, resolved.team, plan) : undefined;
-    const applied = applyPlan(projectDir, plan, { committed: !keepCommitted, reviewed: reviewed?.ok === true });
-    changed.push(...applied.changed);
-    report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
-    if (reviewed?.ok === false && (applied.teamHeld || plan.telemetryHeld !== undefined)) report.why = reviewed.reason;
-    report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
-    // A parent folder above the project, once a sync ran there, gets this project's hooks too (spec 4.10). The agent's
-    // model never adds one there, not even what the default branch records: the folder is the person's.
-    const parent = path.dirname(projectDir);
-    if (plan.exec.team && hasParentOutputs(parent)) {
-      const written = writeParent(parent, projectDir, plan.exec.team, runner(projectDir, NPX_LOCAL).shell, !model);
-      changed.push(...written.changed, ...writePointer(parent));
-      report.held.push(...written.held);
-    }
+    const written = writeProject(projectDir, resolved, { keepCommitted, model, parentHooks: true }, report);
+    warnings.push(...written.warnings);
+    changed.push(...written.changed);
+    keptCommitted = written.keptCommitted;
+  }
+  // A folder above git repositories, such as `/home/user` in a cloud session with several: each repository gets the
+  // per-machine outputs of the added harnesses (spec 4.10). Only those: the repository's own outputs belong to its own
+  // install, whose harnesspm may be another version than the one that runs here. CI ignores added harnesses.
+  const repos = mode === 'none' && process.env['CI'] !== 'true' && resolved.added.length > 0 ? childRepos(projectDir) : [];
+  const applied: string[] = [];
+  for (const repo of repos) {
+    const sub = resolveAll(repo, { withAdded: true, addedOnly: true });
+    if (sub.mode === 'none') continue;
+    const name = path.basename(repo);
+    const written = writeProject(repo, sub, { keepCommitted: true, model, parentHooks: false }, report);
+    warnings.push(...[...sub.warnings, ...written.warnings].map((w) => `${name}: ${w}`));
+    changed.push(...written.changed.map((file) => (path.isAbsolute(file) ? file : `${name}/${file}`)));
+    applied.push(name);
   }
   // Sync in a parent folder: the projects' hooks and a pointer to their harness, for sessions that start here, and
   // nothing left of projects that are gone (spec 4.10).
@@ -189,9 +191,41 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   const counts = `${plural(new Set(full.rules.map((r) => r.id)).size, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const above = `Sessions that start here get the hooks of ${plural(children.length, 'project')} below: ${children.map((c) => path.basename(c)).join(', ')}`;
   const gone = 'No projects below this folder any more: removed what an earlier sync wrote for them';
-  const what = mode === 'none' ? (children.length > 0 ? above : parentSync ? gone : 'Nothing to do in this folder') : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
+  const below = `Added harnesses in ${plural(applied.length, 'repository', 'repositories')} below: ${applied.join(', ')}`;
+  const parts = [...(children.length > 0 ? [above] : parentSync ? [gone] : []), ...(applied.length > 0 ? [below] : [])];
+  const what = mode === 'none' ? (parts.length > 0 ? parts.join('. ') : 'Nothing to do in this folder') : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
   return 0;
+}
+
+/**
+ * Writes one project's outputs, as `sync` in it does. `keepCommitted` leaves the committed outputs as they are and
+ * writes only the per-machine ones. `parentHooks` also keeps the project's hooks current in a parent folder above it.
+ */
+function writeProject(
+  projectDir: string,
+  resolved: Resolved,
+  options: { keepCommitted: boolean; model: boolean; parentHooks: boolean },
+  report: UserReport,
+): { changed: string[]; warnings: string[]; keptCommitted: boolean } {
+  const { model } = options;
+  const changed: string[] = [];
+  const plan = computePlan(resolved.team, resolved.full, { widen: !model });
+  const reviewed = model ? reviewedFor(projectDir, resolved.team, plan) : undefined;
+  const applied = applyPlan(projectDir, plan, { committed: !options.keepCommitted, reviewed: reviewed?.ok === true });
+  changed.push(...applied.changed);
+  report.held.push(...(plan.telemetryHeld !== undefined ? [plan.telemetryHeld] : []), ...applied.held);
+  if (reviewed?.ok === false && (applied.teamHeld || plan.telemetryHeld !== undefined)) report.why = reviewed.reason;
+  report.pending.push(...(plan.exec.team?.pending ?? []), ...plan.exec.added.pending);
+  // A parent folder above the project, once a sync ran there, gets this project's hooks too (spec 4.10). The agent's
+  // model never adds one there, not even what the default branch records: the folder is the person's.
+  const parent = path.dirname(projectDir);
+  if (options.parentHooks && plan.exec.team && hasParentOutputs(parent)) {
+    const written = writeParent(parent, projectDir, plan.exec.team, runner(projectDir, NPX_LOCAL).shell, !model);
+    changed.push(...written.changed, ...writePointer(parent));
+    report.held.push(...written.held);
+  }
+  return { changed, warnings: plan.warnings, keptCommitted: options.keepCommitted && plan.committed !== undefined };
 }
 
 /** Where events about a resolved project go (spec chapter 14). */

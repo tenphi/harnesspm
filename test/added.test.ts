@@ -328,6 +328,75 @@ test('user-level pointers of a git source are absolute, so an agent opens them f
   assert.match(index, new RegExp(`\\]\\(${copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^)]+/notes/repos\\.md\\)`));
 });
 
+/** A folder that is not a git repository, as `/home/user` in a cloud session with several repositories. */
+function above(): { root: string; repo: (name: string, remote: string) => string } {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-above-')));
+  homeOf(root);
+  const repo = (name: string, remote: string): string => {
+    const dir = path.join(root, name);
+    fs.mkdirSync(dir);
+    spawnSync('git', ['init', '-q'], { cwd: dir });
+    spawnSync('git', ['remote', 'add', 'origin', remote], { cwd: dir });
+    return dir;
+  };
+  return { root, repo };
+}
+
+test('S10 in a session with several repositories: a sync above them applies each one\'s entry, and leaves the repositories\' own outputs alone', () => {
+  const { root, repo } = above();
+  const cloud = repo('cloud', 'git@github.com:acme/cloud.git');
+  const kit = repo('kit', 'https://github.com/acme/kit.git');
+  writeFiles(kit, { 'package.json': JSON.stringify({ name: 'kit', devDependencies: { '@acme/kit': '1' } }), 'harnesspm.json': '{}\n', '.gitignore': 'node_modules/\n' });
+  installPackage(kit, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Forms\n\nOn the controller.\n', 'skills/kit-review/SKILL.md': skill('kit-review') } });
+  assert.equal(run(kit, 'sync').status, 0);
+  assert.ok(isLink(kit, '.claude/skills/kit-review'));
+  spawnSync('git', ['add', '-A'], { cwd: kit });
+  spawnSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'kit'], { cwd: kit });
+  writeFiles(root, { 'notes/README.md': '# Notes\n' });
+  const mine = harness('mine', {
+    'projects/cloud/dev.harnesspm/rules/cloud-habits.md': '# Cloud habits\n\nUse my tenant.\n',
+    'projects/cloud/skills/mine-deploy/SKILL.md': skill('mine-deploy'),
+    'projects/kit/dev.harnesspm/rules/kit-habits.md': '# Kit habits\n\nProbe first.\n',
+  }, { projects: { 'github.com/acme/cloud': './projects/cloud', 'github.com/acme/kit': './projects/kit' } });
+
+  // A setup script adds the harness in the folder above the clones.
+  const added = run(root, 'add', mine);
+  assert.equal(added.status, 0, added.stderr);
+  assert.match(read(cloud, 'CLAUDE.local.md'), /Use my tenant\./);
+  assert.ok(isLink(cloud, '.claude/skills/mine-deploy'));
+  assert.match(read(kit, 'CLAUDE.local.md'), /Probe first\./);
+  assert.ok(!fs.existsSync(path.join(root, 'notes', 'CLAUDE.local.md')), 'a folder that is not a repository gets nothing');
+  for (const dir of [cloud, kit]) assert.equal(spawnSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }).stdout, '', `${dir}: per-machine files stay out of git`);
+
+  // The SessionStart hook of the next session: the entries come back, and kit's committed block stays as it is, also
+  // when a sync there would change it.
+  fs.rmSync(path.join(cloud, 'CLAUDE.local.md'));
+  installPackage(kit, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Form fields\n\nOn the controller.\n', 'skills/kit-review/SKILL.md': skill('kit-review') } });
+  const block = read(kit, 'AGENTS.md');
+  const hook = runInput(root, { AI_AGENT: 'claude-code_2-1-0_harness', CLAUDECODE: '1' }, JSON.stringify({ hook_event_name: 'SessionStart', cwd: root }), 'sync');
+  assert.equal(hook.status, 0, hook.stderr);
+  assert.match(hook.stdout, /Added harnesses in 2 repositories below: cloud, kit/);
+  assert.match(read(cloud, 'CLAUDE.local.md'), /Use my tenant\./);
+  assert.equal(read(kit, 'AGENTS.md'), block);
+  assert.doesNotMatch(block, /Form fields/);
+  // kit's own per-machine outputs belong to its install, which may run another harnesspm: they stay.
+  assert.ok(isLink(kit, '.claude/skills/kit-review'));
+  assert.match(read(kit, 'CLAUDE.local.md'), /Probe first\./);
+});
+
+test('a folder above git repositories stays as before without added harnesses, and with CI=true', () => {
+  const { root, repo } = above();
+  const cloud = repo('cloud', 'git@github.com:acme/cloud.git');
+  assert.match(run(root, 'sync').stdout, /Nothing to do in this folder\. Nothing changed\./);
+  assert.ok(!fs.existsSync(path.join(cloud, 'CLAUDE.local.md')));
+
+  const mine = harness('mine', { 'projects/cloud/dev.harnesspm/rules/cloud-habits.md': '# Cloud habits\n\nUse my tenant.\n' }, { projects: { 'github.com/acme/cloud': './projects/cloud' } });
+  assert.equal(run(root, 'add', mine).status, 0);
+  fs.rmSync(path.join(cloud, 'CLAUDE.local.md'));
+  assert.equal(runWith(root, { CI: 'true' }, 'sync').status, 0);
+  assert.ok(!fs.existsSync(path.join(cloud, 'CLAUDE.local.md')), 'CI ignores added harnesses');
+});
+
 test('CI ignores added harnesses', () => {
   const dir = appWithTeamHarness();
   const mine = harness('andrew', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });

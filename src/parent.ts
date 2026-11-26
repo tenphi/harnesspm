@@ -42,6 +42,17 @@ function parentCandidate(dir: string): boolean {
   return realOrSame(dir) !== realOrSame(os.homedir()) && !isFile(path.join(dir, CONFIG_FILE)) && gitExcludeFile(dir) === undefined;
 }
 
+/**
+ * The git repositories right below a folder that may be a parent folder, as real paths, for the per-machine outputs of
+ * added harnesses (spec 4.10). A repository needs no harnesspm.json: an added harness's entry may target any.
+ */
+export function childRepos(dir: string): string[] {
+  if (!parentCandidate(dir)) return [];
+  return listDir(dir)
+    .filter((name) => !name.startsWith('.') && name !== 'node_modules' && fs.existsSync(path.join(dir, name, '.git')))
+    .map((name) => realOrSame(path.join(dir, name)));
+}
+
 /** A parent folder: a candidate with projects right below it. */
 export function isParentFolder(dir: string): boolean {
   return parentCandidate(dir) && childProjects(dir).length > 0;
