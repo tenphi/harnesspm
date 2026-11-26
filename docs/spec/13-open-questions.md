@@ -70,6 +70,12 @@ Every ❓ in [research/agent-capabilities.md](https://github.com/tenphi/harnessp
 
 A hook run may add entries ([6.2](06-trust.md#62-trusting-a-package), rule 4). So the `SessionStart` hook that `harnesspm add` installs ([7.5](07-added.md#75-applying-in-every-repository)) grants what the working tree holds, including an agent's edit from an earlier session. Checks 1 and 2 of the reviewed state could apply to hook runs too, but that changes what a hook run may grant. **Signal:** an agent's own harness edit is granted through that hook in a real session. **Then:** apply the reviewed-state check to the repository's entries in hook runs.
 
+Since the hook runs `update`, it also grants what arrives through a fetch: a push to an added harness's remote is granted at the next session start, as `"trust": true` grants a team package's upgrade. Holding such entries for one run would not last, because the next session's hook grants what the working copy then holds. A lasting hold needs a per-source record of the commit a person last granted, much like the lock records a `"pin"` approval. **Signal:** people add harnesses whose pushes they do not control, beyond an npm source with a fixed version. **Then:** record the granted commit per git source, and hold executables that arrive through the hook until `approve`.
+
+### 13.14 Entry hooks in a parent folder
+
+A session that starts in a parent folder reads the project entries' rules and skills, but not their hooks and permissions, which sit in each repository's `.claude/settings.local.json` ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). Writing them into the parent folder's settings would make them apply to every repository below it, as the projects' own hooks already do there with `-C` and a check of the edited file. **Signal:** a person needs an entry's hook, such as a lint on edit, in sessions with several repositories. **Then:** write entry hooks into the parent folder's settings with `-C <repository>`, as 4.10 does for projects, and leave entry permissions in the repository.
+
 ## 13.12 Removed in review
 
 | Removed | Why | Comes back if |

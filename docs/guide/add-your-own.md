@@ -64,7 +64,7 @@ Rules from /home/alex/dev/alex-harness, to follow from now on in this session:
 - Run the tests before you open a pull request.
 ```
 
-`add` also installs a `SessionStart` hook for each agent. It runs `npx -y @tenphi/harnesspm sync` when a session starts, so your harness applies in every repository, also in ones that do not use harnesspm. Pass `--no-hook` to skip it.
+`add` also installs a `SessionStart` hook for each agent. It runs `npx -y @tenphi/harnesspm update` when a session starts, so your harness's newest commits apply in every repository, also in ones that do not use harnesspm. A working copy with your unsaved or unpushed work is left as it is, and a fetch that fails only warns. Pass `--no-hook` to skip it.
 
 ## Scopes and order
 
