@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.0
+
+### Minor Changes
+
+- [#84](https://github.com/tenphi/harnesspm/pull/84) [`609f227`](https://github.com/tenphi/harnesspm/commit/609f227f1271bbde1eff40c22d903b78e233ffe4) Thanks [@tenphi](https://github.com/tenphi)! - A sync in a folder above git repositories, such as `/home/user` in a Claude Code cloud session with several repositories, now applies your added harnesses in each repository right below it, so their project entries work there too. The `SessionStart` hook runs it at the start of such a session. Each repository gets only the per-machine outputs of your added harnesses; its own files, committed or per machine, stay as its install wrote them. A session that starts above the repositories reads the entries' rules and skills; their hooks and permissions still need a session that starts in the repository. Without added harnesses, and with `CI=true`, nothing changes.
+
+- [#84](https://github.com/tenphi/harnesspm/pull/84) [`631a06e`](https://github.com/tenphi/harnesspm/commit/631a06e291fe60ccd241b033c3ab282e0f428e3b) Thanks [@tenphi](https://github.com/tenphi)! - The `SessionStart` hook that `add` installs now runs `update`, so each session starts with the newest commits of your added harnesses, also in a cloud session that starts from a days-old snapshot. In the hook, git never prompts, a fetch stops after 30 seconds, and a fetch that fails only warns: the session starts with what is on the machine. Working copies with uncommitted or unpushed work are left as they are. Your next `sync` turns the old hook, which ran `sync`, into the new one. `update` now prints what changed, such as `updated a1b2c3d → e4f5a6b`, instead of "up to date". New commits apply their hooks and permissions too: for a harness whose pushes you do not control, use an npm source with a fixed version, or `--no-hook`.
+
+### Patch Changes
+
+- [#84](https://github.com/tenphi/harnesspm/pull/84) [`121baa4`](https://github.com/tenphi/harnesspm/commit/121baa4745e57730535e648a953fa272f16a34d5) Thanks [@tenphi](https://github.com/tenphi)! - The user-level blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` show absolute paths for the on-demand rules, file-scoped rules and docs of added harnesses from git and npm sources, as the spec says. They showed paths such as `harnesses/<name>/harness/…`, relative to `~/.harnesspm`, which an agent could not open from a repository. Run `npx -y @tenphi/harnesspm sync` once to rewrite them.
+
 ## 0.14.0
 
 ### Minor Changes
