@@ -31,7 +31,7 @@ import { describeMembers, localRuleChanges, resolve, resolvePackageDir, rulesFor
 import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
-import { userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
+import { migrateSessionHook, userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
 import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
@@ -181,6 +181,7 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   if (parentSync) changed.push(...removeGone(projectDir, children), ...writePointer(projectDir));
   if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir), report);
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
+  if (process.env['CI'] !== 'true' && !model) changed.push(...migrateSessionHook());
   printWarnings(out, warnings);
   printPending(out, report, projectDir);
   if (options.quiet) return 0;
@@ -414,10 +415,23 @@ export function remove(cwd: string, spec: string, out: Output, options: { local?
   return 0;
 }
 
+/**
+ * Fetches the added harnesses, then syncs. The `SessionStart` hook runs it (spec 7.5), so a source that cannot be
+ * fetched never fails it: harnesspm warns and syncs what is on this machine. Without a person at a terminal, git never
+ * prompts and a slow fetch is stopped.
+ */
 export function update(cwd: string, out: Output): number {
   const projectDir = findProjectDir(cwd);
   const specs = [...readList(configFileFor('user', projectDir)), ...(gitExcludeFile(projectDir) ? readList(configFileFor('local', projectDir)) : [])];
-  for (const spec of specs) out.log(updateSource(parseSource(spec)));
+  const quiet = caller() !== 'person' || process.stdin.isTTY !== true;
+  for (const spec of specs) {
+    try {
+      out.log(updateSource(parseSource(spec), { quiet }));
+    } catch (error) {
+      if (!(error instanceof HarnessError)) throw error;
+      out.warn(`⚠️  ${spec}: ${error.message}. Kept what is on this machine.`);
+    }
+  }
   return sync(projectDir, out);
 }
 

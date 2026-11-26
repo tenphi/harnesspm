@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { normalizeRemote } from '../src/added.ts';
-import { homeOf, installPackage, isLink, PLUGIN_SCHEMA, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
+import { homeOf, installPackage, isLink, PLUGIN_SCHEMA, project, read, run, runInput, runWith, skill, writeFiles } from './helpers.ts';
 
 /** A harness folder outside any project, such as a person's own or a team's. */
 function harness(plugin: string, files: Record<string, string>, ext: Record<string, unknown> = {}): string {
@@ -65,9 +65,9 @@ test('S9: add with user scope writes user-level outputs, the hook and write acce
   assert.ok(fs.existsSync(home(dir, '.agents/skills/andrew-release/SKILL.md')));
 
   const settings = JSON.parse(fs.readFileSync(home(dir, '.claude/settings.json'), 'utf8'));
-  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm sync');
+  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update');
   assert.deepEqual(settings.permissions.additionalDirectories, [mine]);
-  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm sync');
+  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update');
 
   // Nothing of the added harness enters the repository: its own units are user-level.
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.local.md')));
@@ -240,14 +240,64 @@ test('git sources: add clones, update pulls, and a working copy with local work 
   writeFiles(other, { 'harness/dev.harnesspm/rules/reviews.md': '# Reviews\n\nOne approval is enough.\n' });
   git(other, 'commit', '-q', '-am', 'relax');
   git(other, 'push', '-q');
-  assert.match(run(dir, 'update').stdout, /up to date/);
+  assert.match(run(dir, 'update').stdout, /: updated [0-9a-f]{7,} → [0-9a-f]{7,}\n/);
   assert.match(fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8'), /One approval is enough/);
+  assert.match(run(dir, 'update').stdout, /: already up to date at [0-9a-f]{7,}\n/);
 
   // A local edit in the working copy is never overwritten.
   const copy = fs.readdirSync(home(dir, '.harnesspm/harnesses')).map((d) => home(dir, `.harnesspm/harnesses/${d}`))[0]!;
   writeFiles(copy, { 'harness/dev.harnesspm/rules/reviews.md': '# Reviews\n\nMy edit.\n' });
   assert.match(run(dir, 'update').stdout, /skipped, the working copy has uncommitted changes/);
   assert.match(fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8'), /My edit\./, 'sync shows the edit at once');
+});
+
+/** A git harness with one rule, added to a fresh app through a bare remote. Returns the app, the bare remote and a runner as the SessionStart hook. */
+function appWithGitHarness(): { dir: string; bare: string; hook: (...args: string[]) => ReturnType<typeof run> } {
+  const upstream = harness('team', { 'dev.harnesspm/rules/reviews.md': '# Reviews\n\nTwo approvals.\n' });
+  const git = (cwd: string, ...args: string[]): void => void spawnSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', ...args], { cwd });
+  git(upstream, 'init', '-q', '-b', 'main');
+  git(upstream, 'add', '-A');
+  git(upstream, 'commit', '-q', '-m', 'init');
+  const bare = `${upstream}.git`;
+  spawnSync('git', ['clone', '-q', '--bare', upstream, bare]);
+  const dir = appWithTeamHarness();
+  assert.equal(run(dir, 'add', `git:${bare}`).status, 0);
+  const payload = JSON.stringify({ hook_event_name: 'SessionStart', source: 'startup', session_id: 's', cwd: dir });
+  return { dir, bare, hook: (...args) => runInput(dir, { AI_AGENT: 'claude-code_2-1-0_harness', CLAUDECODE: '1' }, payload, ...args) };
+}
+
+test('the SessionStart hook updates: a fetch that fails warns, and the session starts with what is on the machine', () => {
+  const { dir, bare, hook } = appWithGitHarness();
+  fs.renameSync(bare, `${bare}.gone`);
+  const result = hook('update');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /: pull failed, kept [0-9a-f]{7,}: /);
+  assert.match(fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8'), /Two approvals/, 'the outputs stay');
+
+  // A working copy that is gone and cannot be cloned again: a warning, not a failure.
+  fs.rmSync(home(dir, '.harnesspm/harnesses'), { recursive: true, force: true });
+  const again = hook('update');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stderr, /git clone .* failed: .*Kept what is on this machine\./s);
+  const copies = home(dir, '.harnesspm/harnesses');
+  assert.deepEqual(fs.existsSync(copies) ? fs.readdirSync(copies) : [], [], 'no half-cloned folder is left behind');
+});
+
+test('the hook of an older harnesspm, which only synced, becomes the fetching hook at the next sync by a person or a hook', () => {
+  const { dir, hook } = appWithGitHarness();
+  const files = [home(dir, '.claude/settings.json'), home(dir, '.codex/hooks.json')];
+  const commandIn = (file: string): string => JSON.parse(fs.readFileSync(file, 'utf8')).hooks.SessionStart[0].hooks[0].command;
+  for (const file of files) fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('harnesspm update', 'harnesspm sync'));
+
+  // The agent's model never changes it: the new command also fetches.
+  assert.equal(runWith(dir, { AI_AGENT: 'claude-code_2-1-0_agent' }, 'sync').status, 0);
+  for (const file of files) assert.equal(commandIn(file), 'npx -y @tenphi/harnesspm sync');
+
+  assert.equal(hook('sync').status, 0);
+  for (const file of files) assert.equal(commandIn(file), 'npx -y @tenphi/harnesspm update');
+  const groups = JSON.parse(fs.readFileSync(files[0]!, 'utf8')).hooks.SessionStart;
+  assert.equal(groups.length, 1, 'replaced in place, not added');
+  assert.equal(groups[0].hooks[0].timeout, 120);
 });
 
 test('user-level pointers of a git source are absolute, so an agent opens them from any folder', () => {

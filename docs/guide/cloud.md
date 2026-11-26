@@ -58,7 +58,7 @@ npx -y @tenphi/harnesspm add github:<owner>/<repo>
 
 | Way | How it works |
 | --- | --- |
-| Setup script of your own environment | Runs after the clone and before Claude Code starts, once per cached snapshot. The `SessionStart` hook that `add` installs refreshes the outputs in each later session, in any repository. |
+| Setup script of your own environment | Runs after the clone and before Claude Code starts, once per cached snapshot. The `SessionStart` hook that `add` installs fetches the harness's newest commits and refreshes the outputs in each later session, in any repository. |
 | Ask the agent in a session | Rules and skills apply at once, and Claude Code loads new skills live. Hooks and MCP servers stay pending. |
 
 - Use your own environment. Anyone who uses an environment can read its setup script and variables.

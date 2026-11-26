@@ -75,13 +75,22 @@ export function parseSource(spec: string, cwd = process.cwd()): Source {
   return { spec: dir, kind: 'folder', location: dir, dir, editable: true };
 }
 
-function run(cmd: string, args: string[], cwd?: string): { ok: boolean; out: string } {
-  const result = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
+/** How long a fetch may take when nobody can answer a prompt, as in the `SessionStart` hook (spec 7.5). */
+export const QUIET_FETCH_SECONDS = 30;
+
+/**
+ * `quiet` is for runs where nobody can answer a prompt: git never asks for credentials, and a command that takes longer
+ * than `QUIET_FETCH_SECONDS` is stopped, so a session never waits on the network.
+ */
+function run(cmd: string, args: string[], cwd?: string, quiet = false): { ok: boolean; out: string } {
+  const options = quiet ? { timeout: QUIET_FETCH_SECONDS * 1000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' } } : {};
+  const result = spawnSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options });
+  if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT') return { ok: false, out: `no answer in ${QUIET_FETCH_SECONDS} s` };
   return { ok: result.status === 0, out: `${result.stdout ?? ''}${result.stderr ?? ''}`.trim() };
 }
 
 /** Puts the source on this machine. Returns a note for the person. */
-export function fetchSource(source: Source): string | undefined {
+export function fetchSource(source: Source, quiet = false): string | undefined {
   if (source.kind === 'folder') {
     if (!isDir(source.dir)) throw new HarnessError(`Folder not found: ${source.dir}`);
     return undefined;
@@ -89,17 +98,22 @@ export function fetchSource(source: Source): string | undefined {
   if (source.kind === 'git') {
     if (isDir(path.join(source.dir, '.git'))) return undefined;
     ensureDir(path.dirname(source.dir));
-    const result = run('git', ['clone', '--quiet', source.location, source.dir]);
-    if (!result.ok) throw new HarnessError(`git clone ${source.location} failed: ${result.out}`);
+    const existed = fs.existsSync(source.dir);
+    const result = run('git', ['clone', '--quiet', source.location, source.dir], undefined, quiet);
+    if (!result.ok) {
+      // A clone stopped half-way leaves a folder that the next update would take for a working copy.
+      if (!existed) fs.rmSync(source.dir, { recursive: true, force: true });
+      throw new HarnessError(`git clone ${source.location} failed: ${result.out}`);
+    }
     return `cloned ${source.location} into ${source.dir}`;
   }
-  return fetchNpm(source);
+  return fetchNpm(source, quiet);
 }
 
-function fetchNpm(source: Source): string {
+function fetchNpm(source: Source, quiet = false): string {
   const cache = path.dirname(source.dir);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-npm-'));
-  const packed = run('npm', ['pack', source.location, '--silent', '--pack-destination', tmp]);
+  const packed = run('npm', ['pack', source.location, '--silent', '--pack-destination', tmp], undefined, quiet);
   if (!packed.ok) throw new HarnessError(`npm pack ${source.location} failed: ${packed.out}`);
   const tarball = path.join(tmp, packed.out.split('\n').pop()!.trim());
   fs.rmSync(cache, { recursive: true, force: true });
@@ -110,20 +124,28 @@ function fetchNpm(source: Source): string {
   return `fetched ${source.location} into ${cache}`;
 }
 
-/** Brings a source up to date. Never changes a working copy with local work (spec 8.7). */
-export function updateSource(source: Source): string {
+/**
+ * Brings a source up to date and says what changed. Never changes a working copy with local work (spec 8.7). A pull
+ * that fails keeps the working copy as it is. A clone or npm fetch that fails throws.
+ */
+export function updateSource(source: Source, options: { quiet?: boolean } = {}): string {
+  const quiet = options.quiet === true;
   if (source.kind === 'folder') return `${source.spec}: a folder, used as it is`;
-  if (source.kind === 'npm') return fetchNpm(source);
+  if (source.kind === 'npm') return fetchNpm(source, quiet);
   if (!isDir(path.join(source.dir, '.git'))) {
-    fetchSource(source);
+    fetchSource(source, quiet);
     return `${source.spec}: cloned`;
   }
   const dirty = run('git', ['status', '--porcelain'], source.dir);
   if (dirty.out !== '') return `${source.spec}: skipped, the working copy has uncommitted changes`;
   const ahead = run('git', ['rev-list', '--count', '@{upstream}..HEAD'], source.dir);
   if (ahead.ok && ahead.out !== '0') return `${source.spec}: skipped, the working copy has ${ahead.out} unpushed commits`;
-  const pulled = run('git', ['pull', '--quiet', '--ff-only'], source.dir);
-  return pulled.ok ? `${source.spec}: up to date` : `${source.spec}: pull failed: ${pulled.out}`;
+  const head = (): string => run('git', ['rev-parse', '--short', 'HEAD'], source.dir).out;
+  const before = head();
+  const pulled = run('git', ['pull', '--quiet', '--ff-only'], source.dir, quiet);
+  if (!pulled.ok) return `${source.spec}: pull failed, kept ${before}: ${pulled.out}`;
+  const after = head();
+  return before === after ? `${source.spec}: already up to date at ${after}` : `${source.spec}: updated ${before} → ${after}`;
 }
 
 // The remote key lives in util.ts, so telemetry can use it without loading this module.

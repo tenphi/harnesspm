@@ -4,7 +4,7 @@
 
 - v1 supports **Claude Code cloud sessions**. Codex Cloud is not supported in v1 ([13.12](13-open-questions.md#1312-removed-in-review)); Codex on a person's computer is.
 - A cloud session starts from a clean clone. Team outputs appear when the project's install runs `harnesspm sync`, as on a laptop. Run the install in the setup script, by absolute path ([9.1](#91-the-repositorys-harness)): when the agent runs it, new hooks, MCP servers and allow rules stay pending outside the reviewed state ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). In a cloud session, `sync`, `status` and `doctor` print that line when they hold entries back, instead of asking for a terminal.
-- Added harnesses need one command in the container: in the setup script of the person's own environment, or asked of the agent.
+- Added harnesses need one command in the container: in the setup script of the person's own environment, or asked of the agent. The hook that it installs fetches the harness's newest commits at the start of each session, so a cached snapshot never holds an old copy for long.
 - Improving an added harness from the cloud needs push access to its repository. Without it, the agent shows the change in the session.
 
 ## 9.1 The repository's harness
@@ -33,14 +33,14 @@ npx -y @tenphi/harnesspm add github:alex/harness
 
 | Way | How it works |
 | --- | --- |
-| **Setup script** of the person's own environment | ✅ Runs after the clone and before Claude Code starts, once per cached snapshot (about 7 days). Later sessions start from the snapshot, and the `SessionStart` hook refreshes the outputs in each one. |
+| **Setup script** of the person's own environment | ✅ Runs after the clone and before Claude Code starts, once per cached snapshot (about 7 days). Later sessions start from the snapshot, and the `SessionStart` hook fetches the harness's newest commits and refreshes the outputs in each one. |
 | **Ask the agent** in a session | ✅ Rules and skills apply at once; Claude Code loads new skills live. Hooks and MCP servers stay pending, because an agent cannot grant itself permissions ([06-trust.md](06-trust.md#62-trusting-a-package)). Built-in tools need no allow rule there; MCP tools do ([05-executables.md](05-executables.md#55-what-the-agents-still-decide)). Tip: a small skill on claude.ai can hold the command, because claude.ai skills load in every cloud session. |
 
 Add harnesses in your own environment: anyone who uses an environment can read its setup script and variables. A committed repository hook is not the place either, because it belongs to the team.
 
 When the command runs inside a session, it prints the added always-on rules so the agent follows them at once. New sessions read them from the files.
 
-In a setup script, `harnesspm add` adds the harness with user scope and installs the `SessionStart` hook ([07-added.md](07-added.md#75-applying-in-every-repository)). The hook applies project entries and writes per-machine outputs in every session, so the setup script does not depend on the repository.
+In a setup script, `harnesspm add` adds the harness with user scope and installs the `SessionStart` hook ([07-added.md](07-added.md#75-applying-in-every-repository)). The hook fetches the harness, applies project entries and writes per-machine outputs in every session, so the setup script does not depend on the repository. A private source that the session cannot reach is not fetched: the hook warns, and the session starts with the snapshot's copy.
 
 A `~/.claude/settings.json` written by the setup script is read in cloud sessions: its `env` values and deny rules apply. Deny rules are the way to restrict a cloud session.
 

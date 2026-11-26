@@ -5,6 +5,7 @@
 - An **added harness** is an ordinary harness that a person adds on their machine, on top of the repository's. It is never committed.
 - Add any number, in order: for example, your team's shared harness, then your own. A later one wins on a skill name.
 - **User scope** applies a harness in every repository on the machine, including its entries for single repositories. **Local scope** applies it in one repository.
+- Each session starts with the harness's newest commits: the hook that `add` installs runs `update` ([7.5](#75-applying-in-every-repository)).
 - Agents can improve an added harness, as described in [08-improving.md](08-improving.md).
 
 ## 7.1 What goes in it
@@ -88,12 +89,15 @@ Both files have one field:
 
 ## 7.5 Applying in every repository
 
-`harnesspm add` also installs one user-level `SessionStart` hook for each agent. The hook runs `npx -y @tenphi/harnesspm sync` at the start of every session. In a repository that does not use harnesspm, or whose dependencies are not installed yet, `sync` writes only the per-machine outputs of added harnesses, including their project entries, and changes only git-excluded files.
+`harnesspm add` also installs one user-level `SessionStart` hook for each agent. The hook runs `npx -y @tenphi/harnesspm update` at the start of every session: it fetches the newest commits or version of each added harness, then syncs. In a repository that does not use harnesspm, or whose dependencies are not installed yet, `sync` writes only the per-machine outputs of added harnesses, including their project entries, and changes only git-excluded files.
 
-- Claude Code runs the hook with `AI_AGENT=…_harness`, so this sync may write hooks and permissions ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4).
+- **Fetching never blocks a session.** Nobody can answer a prompt in a hook, so git never asks for credentials there, and a fetch that takes over 30 seconds is stopped. A fetch that fails prints a warning, and the session starts with what is on the machine.
+- **Local work stays.** A working copy with uncommitted changes or unpushed commits is not fetched ([8.7](08-improving.md#87-shared-working-copies)), so an improvement in progress is never overwritten.
+- **New commits apply, executables included.** Claude Code runs the hook with `AI_AGENT=…_harness`, so this run may write hooks and permissions ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). Adding a harness trusts its future commits, as `"trust": true` trusts a team's own package after upgrades. A push to the harness's remote reaches the machine at the next session start. For a harness whose pushes you do not control, add an npm source with a fixed version, such as `npm:@acme/harness@1.2.0`, or pass `--no-hook` and run `update` yourself ([13.13](13-open-questions.md#1313-the-reviewed-state-in-hook-runs)).
+- **Older hooks.** harnesspm 0.14 and earlier installed a hook that ran `sync`. The next `sync` or `update` by a person or a hook turns it into today's hook, in place. A run of the agent's model leaves it, because the new command also fetches.
 - Claude Code uses what the hook writes in the same session: a `CLAUDE.local.md` and a `.claude/settings.local.json` written by a `SessionStart` hook were both read in cloud sessions.
 - Codex asks the person to review a new hook once, in `/hooks`.
-- `--no-hook` skips the hook. Project entries then apply only where `harnesspm sync` runs.
+- `--no-hook` skips the hook. Project entries then apply only where `harnesspm sync` runs, and new commits only when you run `update`.
 - `harnesspm remove` takes the hook away with the last harness with user scope.
 
 ## 7.6 Keeping the project clean

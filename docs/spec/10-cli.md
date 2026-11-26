@@ -116,7 +116,7 @@ $ npx harnesspm status
 | --- | --- |
 | `harnesspm add <source> [--local] [--no-hook]` | Adds a harness on top of the repository's: with user scope, or with `--local` for this repository only. Installs the `SessionStart` hook ([07-added.md](07-added.md#75-applying-in-every-repository)) and prints the added always-on rules. |
 | `harnesspm remove <source> [--local]` | Removes it and its outputs. With the last harness with user scope, the hook and write access go too. |
-| `harnesspm update` | Fetches new versions of added harnesses and rewrites their outputs. Skips working copies with uncommitted changes or unpushed commits and lists them. |
+| `harnesspm update` | Fetches new versions of added harnesses and rewrites their outputs. Prints what changed for each, such as `updated a1b2c3d → e4f5a6b`. Skips working copies with uncommitted changes or unpushed commits and lists them. The `SessionStart` hook runs it ([7.5](07-added.md#75-applying-in-every-repository)): without a person at a terminal, git never prompts, a fetch stops after 30 seconds, and one that fails is a warning, not an error. |
 
 ## 10.4 Exit codes
 

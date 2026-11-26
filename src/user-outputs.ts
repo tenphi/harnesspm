@@ -9,7 +9,13 @@ import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from
 import { resolve, type Resolution } from './resolve.ts';
 import { NPX_ANY, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
-export const HOOK_COMMAND = `${NPX_ANY} sync`;
+/** The user-level `SessionStart` hook: it fetches the added harnesses and rewrites the outputs (spec 7.5). */
+export const HOOK_COMMAND = `${NPX_ANY} update`;
+
+/** The hook that harnesspm 0.14 and earlier installed. It synced without fetching. A sync replaces it (spec 7.5). */
+const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`];
+
+const isHookCommand = (command: string | undefined): boolean => command === HOOK_COMMAND || OLD_HOOK_COMMANDS.includes(command ?? '');
 
 export { claudeHome, codexHome };
 
@@ -179,11 +185,29 @@ type HookGroup = { matcher?: string; hooks?: { type?: string; command?: string }
 
 function setSessionHook(hooks: Record<string, unknown>, on: boolean): void {
   const groups = (Array.isArray(hooks['SessionStart']) ? hooks['SessionStart'] : []) as HookGroup[];
-  const ours = (g: HookGroup): boolean => (g.hooks ?? []).some((h) => h.command === HOOK_COMMAND);
+  const ours = (g: HookGroup): boolean => (g.hooks ?? []).some((h) => isHookCommand(h.command));
   const rest = groups.filter((g) => !ours(g));
   const next = on ? [...rest, { hooks: [{ type: 'command', command: HOOK_COMMAND, timeout: 120 }] }] : rest;
   if (next.length > 0) hooks['SessionStart'] = next;
   else delete hooks['SessionStart'];
+}
+
+/**
+ * Turns the hook an older harnesspm installed into today's, in place, where a person already granted it (spec 7.5). It
+ * adds no hook. The callers skip runs of the agent's model, because the new command also fetches (spec 6.2, rule 4).
+ */
+export function migrateSessionHook(): string[] {
+  const changed: string[] = [];
+  for (const file of [path.join(claudeHome(), 'settings.json'), path.join(codexHome(), 'hooks.json')]) {
+    if (!exists(file)) continue;
+    const did = editJson(file, (data) => {
+      const hooks = isRecord(data['hooks']) ? data['hooks'] : undefined;
+      const groups = hooks !== undefined && Array.isArray(hooks['SessionStart']) ? (hooks['SessionStart'] as HookGroup[]) : [];
+      for (const group of groups) for (const hook of group.hooks ?? []) if (OLD_HOOK_COMMANDS.includes(hook.command ?? '')) hook.command = HOOK_COMMAND;
+    });
+    if (did) changed.push(file);
+  }
+  return changed;
 }
 
 /**
