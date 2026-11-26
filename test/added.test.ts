@@ -250,6 +250,34 @@ test('git sources: add clones, update pulls, and a working copy with local work 
   assert.match(fs.readFileSync(home(dir, '.claude/CLAUDE.md'), 'utf8'), /My edit\./, 'sync shows the edit at once');
 });
 
+test('user-level pointers of a git source are absolute, so an agent opens them from any folder', () => {
+  const upstream = harness('mine', {
+    'dev.harnesspm/rules/notes.md': '---\ndescription: Notes about my projects\n---\n\n# Notes\n\nText.\n',
+    'notes/repos.md': '# Repos\n\nHow they relate.\n',
+  }, { docs: './notes' });
+  const git = (cwd: string, ...args: string[]): void => void spawnSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', ...args], { cwd });
+  git(upstream, 'init', '-q', '-b', 'main');
+  git(upstream, 'add', '-A');
+  git(upstream, 'commit', '-q', '-m', 'init');
+
+  const dir = appWithTeamHarness();
+  assert.equal(run(dir, 'add', `git:file://${upstream}`).status, 0);
+  const copy = home(dir, '.harnesspm/harnesses');
+  for (const file of ['.claude/CLAUDE.md', '.codex/AGENTS.md']) {
+    const text = fs.readFileSync(home(dir, file), 'utf8');
+    const pointers = [...text.matchAll(/: read (\S+) \(mine:rules\/notes\)|- Docs: (\S+) \(mine:docs\)/g)].map((m) => m[1] ?? m[2]!);
+    assert.equal(pointers.length, 2, text);
+    for (const pointer of pointers) {
+      assert.ok(path.isAbsolute(pointer), `${file}: ${pointer} is not absolute`);
+      assert.ok(fs.existsSync(pointer), `${file}: ${pointer} does not exist`);
+    }
+    assert.ok(pointers[0]!.startsWith(copy), `${file}: the rule is read from the working copy`);
+  }
+  // The generated docs index lists its pages in full too.
+  const index = fs.readFileSync(home(dir, '.harnesspm/generated/user/docs/mine/llms.txt'), 'utf8');
+  assert.match(index, new RegExp(`\\]\\(${copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^)]+/notes/repos\\.md\\)`));
+});
+
 test('CI ignores added harnesses', () => {
   const dir = appWithTeamHarness();
   const mine = harness('andrew', { 'projects/app/dev.harnesspm/rules/x.md': '# X\n\nY.\n' }, { projects: { 'github.com/acme/app': './projects/app' } });

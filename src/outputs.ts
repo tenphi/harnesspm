@@ -201,11 +201,12 @@ export const isUserLevel = (pkg: ResolvedPackage): boolean => pkg.layer === 'add
 
 /**
  * Paths that outputs show: stable package paths for dependencies, project-relative paths inside the
- * project, absolute paths elsewhere. Generated docs indexes are added to `generated`.
+ * project, absolute paths elsewhere. Generated docs indexes are added to `generated`. `absolute` shows every path
+ * in full, for user-level files: an agent reads them from any folder (spec 4.3, note 4).
  */
-export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage) => string, generated: Map<string, string>, warnings: string[]) {
+export function pathTools(res: Resolution, generatedRoot: (pkg: ResolvedPackage) => string, generated: Map<string, string>, warnings: string[], options: { absolute?: boolean } = {}) {
   const projectDir = res.projectDir;
-  const show = (abs: string): string => (abs.startsWith(projectDir + path.sep) ? relPosix(projectDir, abs) : abs);
+  const show = (abs: string): string => (!options.absolute && abs.startsWith(projectDir + path.sep) ? relPosix(projectDir, abs) : abs);
   /** A dependency's file at its stable path under `node_modules/.harnesspm/pkgs/` (spec 4.3), or undefined for any other file. */
   const stablePath = (file: string): string | undefined => {
     let best: ResolvedPackage | undefined;
