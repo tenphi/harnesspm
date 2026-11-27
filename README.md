@@ -4,8 +4,6 @@
 
 A **harness** is everything a coding agent needs to use a library well: rules, docs, skills, sub-agents, scripts, hooks, MCP servers and permissions. A library ships it in its npm package. harnesspm gives it to Claude Code and Codex on every install, for the version you installed.
 
-> 🧪 harnesspm is an experimental tool. Its formats and commands can still change.
-
 📚 Docs: **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**. Short pages for people, and every step for AI agents.
 
 ## How it works

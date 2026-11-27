@@ -1,7 +1,6 @@
 # harnesspm specification
 
 **Version:** 0.7 draft
-**Status:** Experimental. Formats and commands can still change.
 
 ## Reading order
 

@@ -116,4 +116,4 @@ The site at https://harnesspm.tenphi.me is built with [Cookbook](https://github.
 - `.github/workflows/deploy-docs.yml` deploys every push to `main` to GitHub Pages. In the repository's Settings → Pages, the source is "GitHub Actions" and the custom domain is `harnesspm.tenphi.me`, with a DNS CNAME record to `tenphi.github.io`. An Actions deployment ignores a `CNAME` file, so the repository has none.
 - Examples on the site use one made-up app on `@acme/ui`, which passes on `@acme/colors` and `@acme/styles`. Their output is real: `node docs-site/examples/acme.mjs <new folder>` writes the app, and you run the commands there. Never hardcode the harnesspm version: the header shows it from `package.json`.
 - Real packages appear on the site only as links, under "In real projects" on the home page. When UI Kit publishes its harness, update its line there.
-- The home page says what harnesspm does. It is not a roadmap: it calls harnesspm experimental and names no stage, milestone or test status.
+- The home page says what harnesspm does. It is not a roadmap: it names no stage, milestone or test status.
