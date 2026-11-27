@@ -40,7 +40,7 @@ Package managers run `postinstall` and `prepare` on a full install, but not on `
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm check [<folder>]` | Validates a harness and warns about files that look like secrets. Run it at `prepack`. |
+| `harnesspm check [<folder>]` | Validates a harness and its project entries, and warns about files that look like secrets. Run it at `prepack`. |
 | `harnesspm new <kind> <name>` | Writes a unit from a template. `<kind>` is `rule`, `skill`, `agent`, `script`, `hook` or `mcp`. Creates `harness/plugin.json` when the project has none. |
 | `harnesspm new patch <rule ID>` | Writes a patch with a copy of the rule's sections and registers it: in `harness/plugin.json` when the rule reaches the project through its own harness's `extends`, otherwise in `harnesspm.json`. |
 

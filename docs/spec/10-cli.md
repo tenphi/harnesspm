@@ -106,7 +106,7 @@ $ npx harnesspm status
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm check [<folder>]` | Validates a harness ([02-package-format.md](02-package-format.md#210-validation)) and warns about files that look like secrets. Run it at `prepack`. |
+| `harnesspm check [<folder>]` | Validates a harness and its project entries ([02-package-format.md](02-package-format.md#210-validation)) and warns about files that look like secrets. Prints the always-on size of the harness and of each entry. Run it at `prepack`. |
 | `harnesspm new <kind> <name> [--to <plugin>] [--entry]` | `<kind>` is `rule`, `skill`, `agent` (a sub-agent), `script`, `hook` or `mcp`. Writes a valid unit from a template, and creates `harness/plugin.json` when the project has none. A skill's name gets the plugin name in front. `--to <plugin>` writes it into an added harness, `--to <plugin> --entry` into its entry for this repository, which holds rules, skills, sub-agents and docs. |
 | `harnesspm new patch <rule ID> [--to <plugin>] [--entry]` | Writes a patch with a copy of the rule's sections, or of the whole rule when it has none, and registers it: in `harness/plugin.json` (file in `harness/dev.harnesspm/patches/`) when the rule reaches the project through its own harness's `extends`, so users get the change too; otherwise in `harnesspm.json` (file in `harnesspm/patches/`); with `--to <plugin>`, in that added harness. Edit the sections to change and delete the others. |
 

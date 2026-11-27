@@ -2,8 +2,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parseFrontmatter, stringList } from './frontmatter.ts';
+import { entryFolders, entryPackage } from './added.ts';
 import { discoverExecUnits } from './exec-units.ts';
-import { discoverUnits, loadHarnessPackage, NS, ruleMeta } from './manifest.ts';
+import { discoverUnits, loadHarnessPackage, NS, ruleMeta, type HarnessPackage, type PackageUnits } from './manifest.ts';
 import { gitKeeps, HarnessError, isDir, isFile, isInside, isRecord, readJsonIfExists, readText, relativeLinks, relPosix } from './util.ts';
 
 export interface CheckResult {
@@ -11,6 +12,8 @@ export interface CheckResult {
   warnings: string[];
   alwaysOnBytes: number;
   plugin: string;
+  /** Each project entry folder once, with the remotes that map to it and its always-on size (spec 2.10). */
+  entries: { dir: string; remotes: string[]; alwaysOnBytes: number }[];
 }
 
 const SECRET_PATTERNS: [RegExp, string][] = [
@@ -79,6 +82,45 @@ function packs(root: string): ((rel: string) => boolean) | undefined {
   return (rel) => always(rel) || (include.some((test) => test(rel)) && !exclude.some((test) => test(rel)));
 }
 
+/** A skill's `name` is its folder's name. A replacement takes the name of the skill it replaces, as agents see it there. */
+function checkSkill(dir: string, name: string, why: string, errors: string[], show: (file: string) => string): void {
+  const file = path.join(dir, 'SKILL.md');
+  try {
+    const { data, hasFrontmatter } = parseFrontmatter(readText(file), file);
+    if (!hasFrontmatter) errors.push(`${show(file)}: needs frontmatter with "name" and "description"`);
+    if (data['name'] !== name) errors.push(`${show(file)}: "name" must be "${name}", ${why}`);
+    if (typeof data['description'] !== 'string' || data['description'].trim() === '') errors.push(`${show(file)}: needs a "description"`);
+  } catch (error) {
+    errors.push((error as Error).message);
+  }
+}
+
+/** Checks the rules and skills of a harness or of one of its project entries. Returns them and the always-on size. */
+function checkUnits(pkg: HarnessPackage, errors: string[], warnings: string[], show: (file: string) => string): { units: PackageUnits; alwaysOnBytes: number } {
+  const overrideFiles = new Set([...Object.values(pkg.ext.replace), ...Object.values(pkg.ext.patch)].map((f) => path.resolve(pkg.harnessDir, f)));
+  const units = discoverUnits(pkg, overrideFiles);
+  let alwaysOnBytes = 0;
+  for (const rule of units.rules) {
+    try {
+      const text = readText(rule.file);
+      const meta = ruleMeta(text, rule.name, rule.file);
+      const { data } = parseFrontmatter(text, rule.file);
+      if (data['paths'] !== undefined && !stringList(data['paths'])) errors.push(`${show(rule.file)}: "paths" must be a string or a list of strings`);
+      if (data['description'] !== undefined && typeof data['description'] !== 'string') errors.push(`${show(rule.file)}: "description" must be a string`);
+      if (meta.activation === 'always') alwaysOnBytes += Buffer.byteLength(meta.body);
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
+  }
+  for (const skill of units.skills) {
+    checkSkill(skill.dir, skill.name, 'the folder name', errors, show);
+    if (!skill.name.startsWith(`${pkg.plugin}-`) && skill.name !== pkg.plugin) {
+      warnings.push(`skill "${skill.name}" should start with the plugin name, such as "${pkg.plugin}-${skill.name}"`);
+    }
+  }
+  return { units, alwaysOnBytes };
+}
+
 /** `target` is a package root, or a harness/ folder, or an added harness folder. */
 export function checkHarness(target: string): CheckResult {
   let root = path.resolve(target);
@@ -130,42 +172,22 @@ export function checkHarness(target: string): CheckResult {
   }
   for (const [remote, dir] of Object.entries(pkg.ext.projects)) checkPath(`project entry ${remote}`, dir, 'dir');
 
-  const overrideFiles = new Set([...Object.values(pkg.ext.replace), ...Object.values(pkg.ext.patch)].map((f) => path.resolve(pkg.harnessDir, f)));
-  const units = discoverUnits(pkg, overrideFiles);
-  let alwaysOnBytes = 0;
-  for (const rule of units.rules) {
-    try {
-      const text = readText(rule.file);
-      const meta = ruleMeta(text, rule.name, rule.file);
-      const { data } = parseFrontmatter(text, rule.file);
-      if (data['paths'] !== undefined && !stringList(data['paths'])) errors.push(`${show(rule.file)}: "paths" must be a string or a list of strings`);
-      if (data['description'] !== undefined && typeof data['description'] !== 'string') errors.push(`${show(rule.file)}: "description" must be a string`);
-      if (meta.activation === 'always') alwaysOnBytes += Buffer.byteLength(meta.body);
-    } catch (error) {
-      errors.push((error as Error).message);
-    }
-  }
-  // A skill's `name` is its folder's name. A replacement takes the name of the skill it replaces, as agents see it there.
-  const checkSkill = (dir: string, name: string, why: string): void => {
-    const file = path.join(dir, 'SKILL.md');
-    try {
-      const { data, hasFrontmatter } = parseFrontmatter(readText(file), file);
-      if (!hasFrontmatter) errors.push(`${show(file)}: needs frontmatter with "name" and "description"`);
-      if (data['name'] !== name) errors.push(`${show(file)}: "name" must be "${name}", ${why}`);
-      if (typeof data['description'] !== 'string' || data['description'].trim() === '') errors.push(`${show(file)}: needs a "description"`);
-    } catch (error) {
-      errors.push((error as Error).message);
-    }
-  };
-  for (const skill of units.skills) {
-    checkSkill(skill.dir, skill.name, 'the folder name');
-    if (!skill.name.startsWith(`${pkg.plugin}-`) && skill.name !== pkg.plugin) {
-      warnings.push(`skill "${skill.name}" should start with the plugin name, such as "${pkg.plugin}-${skill.name}"`);
-    }
-  }
+  const { units, alwaysOnBytes } = checkUnits(pkg, errors, warnings, show);
   for (const skill of replacedSkills) {
-    if (isFile(path.join(skill.dir, 'SKILL.md'))) checkSkill(skill.dir, skill.name, 'the name of the skill it replaces');
+    if (isFile(path.join(skill.dir, 'SKILL.md'))) checkSkill(skill.dir, skill.name, 'the name of the skill it replaces', errors, show);
     else errors.push(`replace: ${show(skill.dir)} needs a SKILL.md`);
+  }
+  // Project entries, each folder once, though several remotes may map to it. `sync` loads an entry as this does.
+  const entries: CheckResult['entries'] = [];
+  for (const { dir, remotes } of entryFolders(pkg)) {
+    if (!isInside(root, dir) || !isDir(dir)) continue;
+    try {
+      const entry = entryPackage(pkg, dir, remotes[0]!)!;
+      for (const problem of entry.problems) errors.push(`${show(path.join(dir, 'plugin.json'))}: ${problem}`);
+      entries.push({ dir: show(dir), remotes, alwaysOnBytes: checkUnits(entry, errors, warnings, show).alwaysOnBytes });
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
   }
   // Judge the docs and links by what ships (spec 2.10). Without `files` to read, by the files git keeps.
   const packed = packs(root);
@@ -215,5 +237,5 @@ export function checkHarness(target: string): CheckResult {
       else if (isFile(target) && !ships(target)) errors.push(`${show(file)}: the link ${link} points at a file the package does not ship`);
     }
   }
-  return { errors, warnings, alwaysOnBytes, plugin: pkg.plugin };
+  return { errors, warnings, alwaysOnBytes, plugin: pkg.plugin, entries };
 }

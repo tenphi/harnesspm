@@ -1251,7 +1251,9 @@ export function check(target: string, out: Output): number {
   const result = checkHarness(target);
   printWarnings(out, result.warnings);
   for (const e of result.errors) out.log(`❌ ${e}`);
-  out.log(`📏 always-on text of ${result.plugin}: ${(result.alwaysOnBytes / 1024).toFixed(1)} KiB`);
+  out.log(`📏 always-on text of ${result.plugin}: ${kib(result.alwaysOnBytes)}`);
+  // In its repository, an entry's always-on rules add to the harness's (spec 2.10).
+  for (const entry of result.entries) out.log(`📏 always-on text of the entry ${entry.dir} (${entry.remotes.join(', ')}): ${kib(entry.alwaysOnBytes)}`);
   if (result.errors.length > 0) return 1;
   out.log('✅ harness is valid');
   return 0;
