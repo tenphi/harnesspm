@@ -23,6 +23,8 @@ rules       ~/.harnesspm/harnesses/alex/AGENTS.md
 editable    yes
 ```
 
+An agent also sees the IDs of a project entry's units, in `CLAUDE.local.md` of the repository the entry is for. Where that entry does not apply, such as in another repository or in a folder above the clones, `why` still finds such a unit: it searches the entries of the harnesses added with user scope. The owner line then names the remotes the entry is for, such as `(user scope, entry for github.com/cube-js/cube-ui-kit)`.
+
 ## 8.2 Three owners
 
 | Owner | Where the source is | How the agent changes it |

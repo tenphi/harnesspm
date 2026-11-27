@@ -42,7 +42,7 @@ npx -y @tenphi/harnesspm -C work/app run uikit:probe -- --story Button   # from 
 The runner:
 
 1. finds the package through the stable path in `node_modules/.harnesspm/pkgs/`, so the installed version always runs. A project without an install uses its [fetched packages](01-overview.md#15-terms) instead. When it has neither, the runner says so and names both `harnesspm fetch` and the project's install, never `No script`;
-2. refuses the script when its package is not trusted, when the installed version differs from the lock (run `harnesspm sync`), or when a `"pin"` package has a version nobody approved;
+2. refuses the script when its package is not trusted, when the installed version differs from the lock, or when a `"pin"` package has a version nobody approved. For a version that differs, the refusal names both remedies: reinstall the dependencies when the install is out of date, as in a cached cloud environment, or run `harnesspm sync` when the lock is. A sync on an old install would write its versions into the lock;
 3. picks the interpreter from the file: `node` for `.js`, `.mjs` and `.cjs`, `sh` for `.sh`, otherwise the file itself;
 4. runs the script in the caller's folder, also with `-C`, so file arguments stay valid;
 5. sets these environment variables:

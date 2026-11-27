@@ -162,8 +162,21 @@ export interface AddedHarness {
 function loadEntry(pkg: HarnessPackage, key: string | undefined): HarnessPackage | undefined {
   if (key === undefined) return undefined;
   const rel = pkg.ext.projects[key];
-  if (rel === undefined) return undefined;
-  const dir = path.resolve(pkg.harnessDir, rel);
+  return rel === undefined ? undefined : entryPackage(pkg, path.resolve(pkg.harnessDir, rel), key);
+}
+
+/** A harness's project entries, one per folder, with the remotes that map to it (spec 7.2). */
+export function entryFolders(pkg: HarnessPackage): { dir: string; remotes: string[] }[] {
+  const folders = new Map<string, string[]>();
+  for (const [remote, rel] of Object.entries(pkg.ext.projects)) {
+    const dir = path.resolve(pkg.harnessDir, rel);
+    folders.set(dir, [...(folders.get(dir) ?? []), remote]);
+  }
+  return [...folders].map(([dir, remotes]) => ({ dir, remotes }));
+}
+
+/** The entry in `dir` as a package with the harness's plugin name, or undefined when the folder does not exist. */
+export function entryPackage(pkg: HarnessPackage, dir: string, key: string): HarnessPackage | undefined {
   if (!isDir(dir)) return undefined;
   // An entry has the layout of harness/. Its optional plugin.json uses the harness's name and holds overrides.
   const manifest = path.join(dir, 'plugin.json');

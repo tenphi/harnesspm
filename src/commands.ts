@@ -4,6 +4,8 @@ import * as path from 'node:path';
 import {
   caller,
   configFileFor,
+  entryFolders,
+  entryPackage,
   fetchSource,
   loadAdded,
   parseSource,
@@ -740,9 +742,45 @@ export function doctor(cwd: string, out: Output): number {
   return failed > 0 ? 1 : 0;
 }
 
+type ExecUnit = FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions;
+
+/** The unit `id` of a resolution, with the rules that apply in `cwd`. */
+function findUnit(res: Resolution, cwd: string, id: string) {
+  const visibleRules = rulesForDirectory(res, cwd);
+  const rules = visibleRules.filter((r) => r.id === id);
+  const skill = res.skills.find((s) => s.id === id);
+  const docs = res.docs.find((d) => d.id === id);
+  const exec: ExecUnit | undefined = [...res.scripts, ...res.hooks, ...res.mcp, ...res.agents, ...res.permissions].find((u) => u.id === id);
+  return { visibleRules, rules, skill, docs, exec, pkg: rules[0]?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg };
+}
+
+/**
+ * A unit of a project entry that does not apply here, such as one an agent saw in another repository's
+ * `CLAUDE.local.md`: each entry folder of the user-scope added harnesses, resolved as in its repository (spec 8.1).
+ */
+function entryUnitElsewhere(projectDir: string, cwd: string, id: string): { res: Resolution; unit: ReturnType<typeof findUnit>; remotes: string[] } | undefined {
+  if (process.env['CI'] === 'true') return undefined;
+  for (const harness of loadAdded(undefined, [])) {
+    if (!id.startsWith(`${harness.pkg.plugin}:`)) continue;
+    for (const { dir, remotes } of entryFolders(harness.pkg)) {
+      const entry = entryPackage(harness.pkg, dir, remotes[0]!);
+      if (!entry) continue;
+      const res = resolve(projectDir, { team: false, added: [{ ...harness, entry }] });
+      const unit = findUnit(res, cwd, id);
+      if (unit.pkg?.entry) return { res, unit, remotes };
+    }
+  }
+  return undefined;
+}
+
 export function why(cwd: string, id: string, out: Output): number {
   const projectDir = findProjectDir(cwd);
-  const { full: res } = resolveAll(projectDir, { withAdded: true });
+  let { full: res } = resolveAll(projectDir, { withAdded: true });
+  let unit = findUnit(res, cwd, id);
+  const excluded = res.excludedUnits.find((u) => u.id === id);
+  const elsewhere = unit.pkg === undefined && excluded === undefined ? entryUnitElsewhere(projectDir, cwd, id) : undefined;
+  if (elsewhere) ({ res, unit } = elsewhere);
+  const { visibleRules, rules, skill, docs, exec, pkg } = unit;
   const row = (label: string, value: string): void => out.log(`${label.padEnd(11)} ${value}`);
   const rel = (file: string): string => {
     for (const pkg of res.packages) {
@@ -752,19 +790,6 @@ export function why(cwd: string, id: string, out: Output): number {
     }
     return file.startsWith(res.projectDir + path.sep) ? relPosix(res.projectDir, file) : file;
   };
-  const excluded = res.excludedUnits.find((u) => u.id === id);
-  const visibleRules = rulesForDirectory(res, cwd);
-  const rules = visibleRules.filter((r) => r.id === id);
-  const skill = res.skills.find((s) => s.id === id);
-  const docs = res.docs.find((d) => d.id === id);
-  const exec: FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions | undefined = [
-    ...res.scripts,
-    ...res.hooks,
-    ...res.mcp,
-    ...res.agents,
-    ...res.permissions,
-  ].find((u) => u.id === id);
-  const pkg = rules[0]?.pkg ?? skill?.pkg ?? docs?.pkg ?? exec?.pkg;
   if (!pkg) {
     if (excluded) {
       row('excluded', `by ${excluded.by}`);
@@ -779,7 +804,10 @@ export function why(cwd: string, id: string, out: Output): number {
     sendEvent(readTelemetryState(res.projectDir), eventContext(res), { type: 'why', ...commandCaller(), unit: id, package: pkg.name, version: pkg.version, ...outsideField(res.projectDir) });
   }
   if (pkg.layer === 'project') row('owner', `project ${pkg.name} (harness/)`);
-  else if (pkg.layer === 'added') row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${pkg.entry ? ', entry for this repository' : ''})`);
+  else if (pkg.layer === 'added') {
+    const entry = pkg.entry ? `, entry for ${elsewhere ? elsewhere.remotes.join(', ') : 'this repository'}` : '';
+    row('owner', `added ${pkg.added!.source.spec} (${pkg.scope} scope${entry})`);
+  }
   else row('owner', `dependency ${pkg.name} ${pkg.version}${pkg.via !== undefined ? ` (via ${pkg.via})` : ''}`);
   if (rules.length > 0) {
     for (const rule of rules) {
@@ -792,7 +820,8 @@ export function why(cwd: string, id: string, out: Output): number {
   } else {
     row('source', rel(skill ? path.join(skill.dir, 'SKILL.md') : docs ? docs.dir : execSource(exec!)));
   }
-  if (exec?.kind === 'scripts') row('run', `${toolCommand(res.projectDir)} run ${pkg.plugin}:${exec.name}`);
+  // An entry's script runs only in its repository.
+  if (exec?.kind === 'scripts' && !elsewhere) row('run', `${toolCommand(res.projectDir)} run ${pkg.plugin}:${exec.name}`);
   // Deny and ask rules only restrict, so they need no trust (spec 6.1).
   if (exec && exec.kind !== 'permissions' && pkg.layer === 'dependencies') {
     const trust = res.config.trust[pkg.name];
@@ -1222,7 +1251,9 @@ export function check(target: string, out: Output): number {
   const result = checkHarness(target);
   printWarnings(out, result.warnings);
   for (const e of result.errors) out.log(`❌ ${e}`);
-  out.log(`📏 always-on text of ${result.plugin}: ${(result.alwaysOnBytes / 1024).toFixed(1)} KiB`);
+  out.log(`📏 always-on text of ${result.plugin}: ${kib(result.alwaysOnBytes)}`);
+  // In its repository, an entry's always-on rules add to the harness's (spec 2.10).
+  for (const entry of result.entries) out.log(`📏 always-on text of the entry ${entry.dir} (${entry.remotes.join(', ')}): ${kib(entry.alwaysOnBytes)}`);
   if (result.errors.length > 0) return 1;
   out.log('✅ harness is valid');
   return 0;

@@ -110,6 +110,36 @@ test('S10: a project entry applies in its repository, over SSH or HTTPS remotes'
   }
 });
 
+test('why finds a unit of a project entry from any folder, and names the remotes the entry applies to', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-elsewhere-'));
+  const mine = harness(
+    'andrew',
+    {
+      'dev.harnesspm/rules/workflow.md': '# Workflow\n\nSmall commits.\n',
+      'projects/app/dev.harnesspm/rules/local-setup.md': '# Local setup\n\nStaging is at https://staging.example.com.\n',
+      'projects/app/skills/andrew-app-seed/SKILL.md': skill('andrew-app-seed'),
+    },
+    { projects: { 'github.com/acme/app': './projects/app', 'github.com/acme/app-fork': './projects/app' } },
+  );
+  writeFiles(homeOf(root), { '.harnesspm/config.json': JSON.stringify({ harnesses: [mine] }) });
+  // A folder that is no repository, and a repository whose remote matches no entry.
+  const other = path.join(root, 'other');
+  fs.mkdirSync(other);
+  spawnSync('git', ['init', '-q'], { cwd: other });
+  spawnSync('git', ['remote', 'add', 'origin', 'https://github.com/acme/other.git'], { cwd: other });
+  for (const cwd of [root, other]) {
+    const rule = run(cwd, 'why', 'andrew:rules/local-setup');
+    assert.equal(rule.status, 0, rule.stderr);
+    assert.match(rule.stdout, /^owner +added .* \(user scope, entry for github\.com\/acme\/app, github\.com\/acme\/app-fork\)$/m);
+    assert.match(rule.stdout, /^source +\S+\/harness\/projects\/app\/dev\.harnesspm\/rules\/local-setup\.md$/m);
+    assert.match(rule.stdout, /^editable +yes\./m);
+    assert.match(run(cwd, 'why', 'andrew:skills/andrew-app-seed').stdout, /^source +\S+\/harness\/projects\/app\/skills\/andrew-app-seed\/SKILL\.md$/m);
+    const unknown = run(cwd, 'why', 'andrew:rules/nope');
+    assert.equal(unknown.status, 1);
+    assert.match(unknown.stderr, /No unit andrew:rules\/nope\./);
+  }
+});
+
 test('an entry changes team units on this machine only; committed files stay the same', () => {
   const dir = appWithTeamHarness();
   run(dir, 'sync');

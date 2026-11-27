@@ -242,7 +242,10 @@ Commands name scripts and MCP servers in a short form, `<plugin name>:<name>`: `
 - a harnesspm extension field is unknown or has the wrong type;
 - a path points outside the package, or at a file the npm tarball would not include;
 - a link in a rule, skill or doc points at a file that will not be published;
-- a docs page in a generated index ([2.7](#27-docs)) has invalid frontmatter.
+- a docs page in a generated index ([2.7](#27-docs)) has invalid frontmatter;
+- a rule or skill of a [project entry](07-added.md#72-example) breaks these rules, or the entry's `plugin.json` has another `name` than the harness, which `sync` refuses too.
+
+`check` reads each entry folder once, also when several remotes map to it, and prints its always-on size next to the harness's: in its repository, the entry's always-on rules add to the harness's.
 
 `check` judges a package by what its tarball would hold. It reads `files` in `package.json` as npm does: a listed path, a folder and what is in it, or a glob with `*`, `**` and `?`, less the `!` entries, plus the files npm always packs (`package.json`, the README, the license, `main` and `bin`). The docs pages are the docs folder's files that `files` packs, git-ignored or not, and a link in a `.md` or `.mdx` file must lead to a file that ships. `check` never runs npm for this: `npm pack --dry-run` runs the package's `prepare` script even with `--ignore-scripts` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#what-a-package-ships)). Without `files`, or with a pattern it does not read, such as braces, `check` reads the files on disk, without the docs files git ignores.
 

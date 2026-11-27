@@ -6,7 +6,7 @@ import { trustOf } from './exec-outputs.ts';
 import { readLock } from './lock.ts';
 import type { Resolution, ResolvedPackage } from './resolve.ts';
 import { commandCaller, outsideField, readIndex, readTelemetryState, runOutcome, sendEvent, type EventType } from './telemetry.ts';
-import { HarnessError, agentOf, ensureDir, isFile } from './util.ts';
+import { HarnessError, NPX_ANY, agentOf, ensureDir, isFile } from './util.ts';
 
 /** Thrown when the runner refuses a script. The CLI exits with code 2 (spec 10.4). */
 export class Refused extends HarnessError {}
@@ -24,7 +24,13 @@ function checkPackage(pkg: ResolvedPackage, res: Resolution, what: string): void
   if (!trust.trusted) throw new Refused(`${what} of ${pkg.name} is refused: ${trust.reason}`);
   if (pkg.layer === 'dependencies') {
     const locked = lock?.packages[pkg.name]?.version;
-    if (locked !== pkg.version) throw new Refused(`${what} is refused: ${pkg.name} ${pkg.version} is installed, but the lock has ${locked ?? 'no entry'}. Run \`npx harnesspm sync\`.`);
+    // Either side can be stale. A cached environment's install can be older than the lock, and a sync there would
+    // write the lock down to it, so the refusal names both remedies (spec 5.1).
+    if (locked !== pkg.version) {
+      throw new Refused(
+        `${what} is refused: ${pkg.name} ${pkg.version} is installed, but the lock has ${locked ?? 'no entry'}: reinstall the project's dependencies when the install is out of date, or run \`${NPX_ANY} sync\` when the lock is.`,
+      );
+    }
   }
 }
 

@@ -224,3 +224,37 @@ test('check: a skill replacement is a skill folder with the name of the skill it
   assert.match(out, /replace glaze:skills\/glaze-palette: \.\/skills\/missing does not exist/);
   assert.match(out, /replace glaze:scripts\/inspect: replace works on rules and skills only\. Exclude the unit and add one of your own instead\./);
 });
+
+test('check validates each project entry folder once: its rules, skills and plugin.json, and prints its always-on size', () => {
+  const entryRule = `# Local\n\n${'x'.repeat(2048 - '# Local\n\n'.length)}`;
+  const valid = {
+    'harness/dev.harnesspm/rules/usage.md': '# Usage\n\nText.\n',
+    'harness/projects/app/plugin.json': JSON.stringify({ name: 'mylib' }),
+    'harness/projects/app/dev.harnesspm/rules/local.md': entryRule,
+    'harness/projects/app/skills/mylib-seed/SKILL.md': skill('mylib-seed'),
+    'harness/projects/kit/skills/seed/SKILL.md': skill('seed'),
+  };
+  // Two remotes share one folder.
+  const projects = { 'github.com/acme/app': './projects/app', 'gitlab.example.com/acme/app': './projects/app', 'github.com/acme/kit': './projects/kit' };
+  const dir = library({ projects }, valid, { files: ['harness'] });
+  const ok = run(dir, 'check');
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.match(ok.stdout, /^📏 always-on text of mylib: 0\.0 KiB$/m);
+  assert.match(ok.stdout, /^📏 always-on text of the entry harness\/projects\/app \(github\.com\/acme\/app, gitlab\.example\.com\/acme\/app\): 2\.0 KiB$/m);
+  assert.match(ok.stdout, /^📏 always-on text of the entry harness\/projects\/kit \(github\.com\/acme\/kit\): 0\.0 KiB$/m);
+  assert.equal(ok.stdout.match(/entry harness\/projects\/app/g)?.length, 1, 'one line per folder');
+  assert.match(ok.stderr, /skill "seed" should start with the plugin name, such as "mylib-seed"/);
+
+  const broken: [Record<string, string>, RegExp][] = [
+    [{ 'harness/projects/app/dev.harnesspm/rules/local.md': '---\npaths: 3\n---\n\n# Local\n' }, /harness\/projects\/app\/dev\.harnesspm\/rules\/local\.md: "paths" must be a string or a list of strings/],
+    [{ 'harness/projects/app/skills/mylib-seed/SKILL.md': '---\nname: mylib-seed\n---\n\nSteps.\n' }, /harness\/projects\/app\/skills\/mylib-seed\/SKILL\.md: needs a "description"/],
+    [{ 'harness/projects/app/plugin.json': JSON.stringify({ name: 'other' }) }, /projects\/app\/plugin\.json: "name" must be "mylib", the name of its harness/],
+  ];
+  for (const [files, problem] of broken) {
+    writeFiles(dir, files);
+    const result = run(dir, 'check');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, problem);
+    writeFiles(dir, valid);
+  }
+});
