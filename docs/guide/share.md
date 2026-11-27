@@ -1,15 +1,55 @@
 ---
-description: Ship rules, docs, skills and tools for agents in your library's npm package, and pass on the harness of the libraries it builds on.
+description: Ship rules, docs, skills and tools for agents in your library's npm package. Ask your agent to add the harness, decide what goes in, publish it, tell your users, and pass on the harness of the libraries you build on.
 ---
 
 # Share a harness from your library
 
 **In short**
 
-- Install `@harnesspm/cli` as a dev dependency. Then add a `harness/` folder with a `plugin.json` and one Markdown rule.
-- List `harness` in the `files` field of `package.json`, and run `harnesspm check` at `prepack`.
+- Ask your agent to add a harness to your library with harnesspm. It is a `harness/` folder in your npm package, with a `plugin.json` and Markdown rules. harnesspm is only a dev dependency.
+- You decide what every user's agent must always know. Keep that short.
+- List `harness` in the `files` field of `package.json`, run `harnesspm check` at `prepack`, and say in the README that the package ships a harness.
 - Use `extends` to pass on the harness of the libraries you build on, and `patch` to adapt their rules for your users.
-- Say in the README that the package ships a harness. Users' agents get it on the next install, once their project uses harnesspm.
+
+This page is for a library's author. To use the harness of your dependencies, see [Get started](./setup.md). To bring your own way of working to every repository, see [Add your own or your team's harness](./add-your-own.md).
+
+## What you decide
+
+A harness costs your users context, so the choice is yours:
+
+- **Always-on rules** are in every session of every user. Keep them to the few things agents get wrong with your library.
+- **Docs and skills** load only when an agent needs them. Put the details there.
+- **Tools**, such as scripts, hooks and MCP servers, run only in projects that trust your package.
+
+## Ask your agent
+
+Paste this into Claude Code or Codex, in your library's repository:
+
+```text
+Use harnesspm to share a harness from this package,
+so that the agents of its users know how to use it.
+
+1. Install @harnesspm/cli as a dev dependency.
+2. Follow https://harnesspm.tenphi.me/guides/share.
+   The installed package has the steps too, in its
+   harnesspm-export skill.
+3. Draft one short rule about the mistakes agents
+   make with this package, from our docs and source.
+   I will correct it.
+4. Set the harness's `docs` field to our docs folder.
+5. Show me the harness before you commit.
+```
+
+Your agent knows nothing about harnesspm in this repository yet. So the prompt names harnesspm, and says where the steps are. Keep both when you write your own.
+
+Your agent follows the steps below. The rule it writes is a draft: you know which mistakes agents really make with your library. Then ask for what you need, and name harnesspm each time:
+
+```text
+Add a skill to our harnesspm harness that walks
+an agent through a migration to version 3.
+```
+
+Does your library build on another one that ships a harness? Ask: "Pass on the harness of `@acme/colors` in our harnesspm harness." Your users then get both, in the version you use.
 
 ## Install harnesspm
 
@@ -63,7 +103,7 @@ $ npx -y @harnesspm/cli check
 
 ## Tell your users
 
-A project that uses harnesspm gets your harness on its next install. Other projects get nothing by themselves, because no package can set itself up on install ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#install-scripts-of-dependencies)). So add a note to your README:
+Publish as usual. A project that uses harnesspm gets your harness on its next install. Other projects get nothing by themselves, because [no package can set itself up on install](./setup.md#why-one-step). So add a note to your README, or ask your agent to:
 
 ````markdown
 ## Coding agents
@@ -80,11 +120,16 @@ Change "rules, docs and tools" to what your harness has.
 
 ## See what your users get
 
-Sharing needs no `npx -y @harnesspm/cli init` in the library's repository. Run it when you want to see the harness as your users' agents will:
+Sharing needs no `npx -y @harnesspm/cli init` in the library's repository. Run it when you want to see the harness as your users' agents will, or ask your agent:
 
-- Your own harness then shows in the block in your `AGENTS.md`, under `(this project)`, and your agents read it.
+```text
+Set up harnesspm in this repository too:
+run `npx -y @harnesspm/cli init`.
+```
+
+- Your own harness then shows in the block in your `AGENTS.md`, under `(this project)`, and your agents read it. Work with it for a while, and fix what misleads them.
 - `npx -y @harnesspm/cli why <ID>` and `npx -y @harnesspm/cli status` work in the repository. Without `init`, `why` finds no unit there.
-- `init` adds `harnesspm sync` to the `prepare` script, and writes files to commit. [Set up a project](./setup.md) has the list.
+- `init` adds `harnesspm sync` to the `prepare` script, and writes files to commit. [Get started](./setup.md#3-commit-what-it-wrote) has the list.
 
 ## Rules
 
@@ -96,7 +141,7 @@ A rule is one Markdown file about one topic, in `harness/dev.harnesspm/rules/`. 
 | `paths` | When it works on matching files, such as `["**/*.tsx"]`. |
 | `description` only | On demand. The block lists it with its description. |
 
-- Keep always-on rules short. They cost context in every session. Move details into on-demand rules, docs or skills.
+- Keep always-on rules short ([What you decide](#what-you-decide)). Move details into on-demand rules, docs or skills.
 - Name each `##` section by what it asks, such as "Never edit outputs". The `AGENTS.md` block shows an always-on rule as its title and these headings, and agents read the text with `npx -y @harnesspm/cli help <package>`.
 - When a rule has more than a few lines, split it into small sections with `##` headings. A user can then patch one section and keep the rest.
 - When a skill must run in a situation, also name it in an always-on rule: "To check a theme, use the `my-lib-theme` skill."
@@ -190,4 +235,5 @@ With harnesspm in your repository, your own agents also read your harness, in th
 
 - [Package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md) in the specification: every unit kind, manifest field and validation rule.
 - [Package format reference](./reference/package-format.md): the same, as lookup tables.
+- [Ask your agent](./ask-your-agent.mdx): prompts for the tasks after setup.
 - harnesspm's own harness is a small example: [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness). The home page lists [more projects that ship one](/#in-real-projects).

@@ -4,7 +4,7 @@
 
 A **harness** is everything a coding agent needs to use a library well: rules, docs, skills, sub-agents, scripts, hooks, MCP servers and permissions. A library ships it in its npm package. harnesspm gives it to Claude Code and Codex on every install, for the version you installed.
 
-📚 Docs: **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**. Short pages for people, and every step for AI agents.
+📚 Docs: **[harnesspm.tenphi.me](https://harnesspm.tenphi.me)**. One guide for people and their agents, and a reference.
 
 ## How it works
 
@@ -32,7 +32,7 @@ npm i -D @harnesspm/cli
 npx -y @harnesspm/cli init
 ```
 
-`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Use a harness](https://harnesspm.tenphi.me/getting-started/) has the prompt.
+`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Get started](https://harnesspm.tenphi.me/guides/setup/) has the prompt.
 
 In a library, to share its harness:
 
@@ -42,7 +42,7 @@ npx -y @harnesspm/cli new rule usage
 npx -y @harnesspm/cli check
 ```
 
-Add `"harness"` to the `files` field of `package.json`. [Share a harness](https://harnesspm.tenphi.me/share/) has the prompt for your agent. To add your own or your team's harness on top of every repository on your machine:
+Add `"harness"` to the `files` field of `package.json`. [Share a harness from your library](https://harnesspm.tenphi.me/guides/share/) has the prompt for your agent. To add your own or your team's harness on top of every repository on your machine:
 
 ```bash
 npx -y @harnesspm/cli add github:<owner>/<repo>
@@ -60,7 +60,7 @@ To see how agents use the harness, a team can turn on telemetry in `harnesspm.js
 
 ## Learn more
 
-- 📚 [The docs site](https://harnesspm.tenphi.me): the three ways to start, prompts for your agent, guides and a reference.
+- 📚 [The docs site](https://harnesspm.tenphi.me): a guide for each task, with prompts for your agent, and a reference.
 - 📐 [The specification](docs/spec/README.md): every format, rule and command. Each chapter opens with a short summary. It ships in the npm package, so agents read the version you installed.
 - 🔬 [The research notes](docs/research/): the sources behind every statement about the agents.
 - 🧩 [Projects that ship a harness](https://harnesspm.tenphi.me/#in-real-projects), as working examples.

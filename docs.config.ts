@@ -2,10 +2,14 @@ import { defineDocsConfig } from '@tenphi/cookbook/config';
 import harnesspmPackage from './package.json' with { type: 'json' };
 
 /*
-  The site has two tabs. "For humans" is short: Home, the three ways to start
-  (use a harness, share a harness, bring your own harness) and Ask your agent, with prompts and the
-  decisions that stay with a person. "For AI agents" has every step: a start
-  page, the guides and the reference.
+  The site has two tabs. "Guide" has one page per topic, for people and agents
+  alike. A page that starts a task opens with what a person decides and a
+  prompt to give an agent, then has every step. Its sidebar is grouped by
+  task, and its "AI agents" group holds the prompts for after setup and the
+  agent start page. "Reference" has the lookup tables.
+
+  Prompts in the wild link to /guides/ routes, so a guide keeps its route. The
+  routes of the pages that were merged into the guides redirect to them.
 
   The specification (docs/spec/) and the research notes (docs/research/) stay on
   GitHub, and site pages link to them there: docs/spec/ is also the docs index
@@ -50,9 +54,6 @@ export default defineDocsConfig({
     sources: [
       { id: 'home', file: 'docs-site/index.mdx', route: '/' },
       // Pages with a route of their own are .mdx files, named one by one.
-      { id: 'start', file: 'docs/guide/getting-started.mdx', route: '/getting-started' },
-      { id: 'share', file: 'docs/guide/share-a-harness.mdx', route: '/share' },
-      { id: 'own', file: 'docs/guide/bring-your-own.mdx', route: '/bring-your-own' },
       { id: 'ask', file: 'docs/guide/ask-your-agent.mdx', route: '/ask-your-agent' },
       { id: 'agents', file: 'docs/guide/agents.mdx', route: '/agents' },
       // Every .md file in docs/guide/ is a guide.
@@ -60,52 +61,61 @@ export default defineDocsConfig({
       { id: 'reference', glob: 'docs/guide/reference/*.md', base: 'docs/guide/reference', routeBase: '/reference' },
     ],
   },
+  redirects: {
+    '/getting-started': '/guides/setup',
+    '/share': '/guides/share',
+    '/bring-your-own': '/guides/add-your-own',
+  },
   navigation: {
     tabs: [
       {
-        label: 'For humans',
+        label: 'Guide',
         link: '/',
         items: [
-          { label: 'Home', link: '/' },
           {
-            label: 'Get started',
+            label: 'Start',
             items: [
-              { label: 'Use a harness', link: '/getting-started' },
-              { label: 'Share a harness', link: '/share' },
-              { label: 'Bring your own harness', link: '/bring-your-own' },
+              { label: 'Home', link: '/' },
+              { label: 'Get started', link: '/guides/setup' },
             ],
           },
-          // A group of its own: a link after a group reads as part of that group.
-          { label: 'After setup', items: ['/ask-your-agent'] },
-        ],
-      },
-      {
-        label: 'For AI agents',
-        link: '/agents',
-        items: [
-          { label: 'Start here', link: '/agents' },
           {
-            label: 'Guides',
+            label: 'Use',
             items: [
-              { label: 'Set up a project', link: '/guides/setup' },
               { label: 'Use a package’s harness', link: '/guides/use' },
-              { label: 'Share from a library', link: '/guides/share' },
-              { label: 'Add your own', link: '/guides/add-your-own' },
               { label: 'Change upstream units', link: '/guides/change-upstream' },
+              { label: 'Add your own harness', link: '/guides/add-your-own' },
+              { label: 'Cloud sessions', link: '/guides/cloud' },
+            ],
+          },
+          {
+            label: 'Share',
+            items: [{ label: 'Share from a library', link: '/guides/share' }],
+          },
+          {
+            label: 'Run',
+            items: [
               { label: 'Trust and safety', link: '/guides/trust' },
               { label: 'Monorepos', link: '/guides/monorepos' },
-              { label: 'Cloud sessions', link: '/guides/cloud' },
               { label: 'Telemetry', link: '/guides/telemetry' },
             ],
           },
           {
-            label: 'Reference',
+            label: 'AI agents',
             items: [
-              { label: 'CLI', link: '/reference/cli' },
-              { label: 'harnesspm.json', link: '/reference/config' },
-              { label: 'Package format', link: '/reference/package-format' },
+              { label: 'Ask your agent', link: '/ask-your-agent' },
+              { label: 'Agent start page', link: '/agents' },
             ],
           },
+        ],
+      },
+      {
+        label: 'Reference',
+        link: '/reference/cli',
+        items: [
+          { label: 'CLI', link: '/reference/cli' },
+          { label: 'harnesspm.json', link: '/reference/config' },
+          { label: 'Package format', link: '/reference/package-format' },
         ],
       },
     ],

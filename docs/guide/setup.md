@@ -1,17 +1,36 @@
 ---
-description: Every step of setting up harnesspm in a project - install, init, what to commit, trust, the CI check and the commands that check the setup.
+description: Set up harnesspm in a project, so your agents get the harness of your dependencies. Ask your agent or run two commands, commit what it wrote, decide which packages may run tools, and check the setup.
 ---
 
-# Set up a project
+# Get started
 
 **In short**
 
-- Install `@harnesspm/cli` as a dev dependency and run `npx -y @harnesspm/cli init` once.
-- Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json`, `package.json` and the package manager's lockfile.
-- Trust is the person's decision. An agent asks first. The person runs `npx -y @harnesspm/cli approve` in their own terminal for what an agent may not grant itself.
-- Add `npx -y @harnesspm/cli sync --check` to CI.
+- Ask your agent to set up harnesspm, or install `@harnesspm/cli` as a dev dependency and run `npx -y @harnesspm/cli init` once. Your agents then get the harness of your dependencies.
+- Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json`, `package.json` and the package manager's lockfile. After that, every install keeps it current, and `npx -y @harnesspm/cli sync --check` in CI catches a missed sync.
+- Two things stay with you: which packages may run tools, and the permissions that an agent may not grant itself. You run `npx -y @harnesspm/cli approve` in your own terminal.
+
+This page is for a project that uses libraries. To ship a harness with your library, see [Share a harness from your library](./share.md). To bring your own or your team's way of working to every repository, see [Add your own or your team's harness](./add-your-own.md).
 
 You need Node.js 20 or later, and npm, pnpm, Yarn 1 or Yarn 4 with the `node-modules` linker. harnesspm writes files for Claude Code and Codex.
+
+## Ask your agent
+
+Paste this into Claude Code or Codex, in your project:
+
+```text
+Set up harnesspm in this project:
+install @harnesspm/cli as a dev dependency
+and run `npx -y @harnesspm/cli init`.
+
+Then tell me what it wrote, which packages have
+tools that wait for my trust, and what each tool does.
+Do not change "trust" yourself.
+
+Details: https://harnesspm.tenphi.me/guides/setup
+```
+
+Your agent follows the steps below and stops at trust, which is yours to decide ([step 4](#4-turn-on-a-packages-tools)). Once `init` has run, your agent has three skills for harnesspm itself, so you can [ask for the rest](./ask-your-agent.mdx).
 
 ## 1. Install
 
@@ -61,6 +80,8 @@ A pending line gives only a count. To learn what each tool does, read the packag
 
 ## 3. Commit what it wrote
 
+The block in `AGENTS.md` is instructions to your agent. Read it once, like code, before you commit it.
+
 | File | What it holds | Commit |
 | --- | --- | --- |
 | `AGENTS.md` | The managed block: the commands that reach the harness, then one line for each rule, docs index and tool of each package | Yes |
@@ -85,14 +106,22 @@ harnesspm never edits `.gitignore`. Text outside the managed block in `AGENTS.md
 
 ## 4. Turn on a package's tools
 
-A package can ship scripts, hooks and MCP servers. They run only when your project trusts the package.
+A package can ship scripts, hooks and MCP servers. They are code, so they run only when your project trusts the package. Trust is your decision, in two steps:
 
-Trust is the person's decision, in two steps:
+1. The package goes into `trust` in `harnesspm.json`. You edit the file, or tell your agent which packages to add. An agent never adds one by itself. From then on, the package's scripts run through `harnesspm run`, with your agent's usual permission prompt.
+2. You run `npx -y @harnesspm/cli approve` in your own terminal. It writes what an agent may not grant itself: the new hooks, MCP servers and allow rules. Your agent cannot do this step. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
 
-1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself. From then on, the package's scripts run through `harnesspm run`, with the agent's usual permission prompt.
-2. The person runs `npx -y @harnesspm/cli approve` in their own terminal. It writes what an agent may not grant itself: the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
+For step 1, ask your agent what is waiting first, then say which packages you trust:
 
-Step 1 looks like this:
+```text
+Which harnesspm tools are pending, and what does each one do?
+```
+
+```text
+Trust @acme/ui in harnesspm.
+```
+
+Your agent adds the package to `trust` and runs `npx -y @harnesspm/cli sync`:
 
 ```json
 {
@@ -101,7 +130,7 @@ Step 1 looks like this:
 }
 ```
 
-After step 1 and a `sync`, the script of `@acme/ui` appears in the block as a tool. The commands at the top of the block say how to run it and how to see its options with `help acme-ui:tokens`:
+The script of `@acme/ui` then appears in the block as a tool. The commands at the top of the block say how to run it and how to see its options with `help acme-ui:tokens`:
 
 ```markdown
 - Tool: `acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
@@ -111,10 +140,13 @@ After step 1 and a `sync`, the script of `@acme/ui` appears in the block as a to
 
 ## 5. Keep it current
 
-- A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `sync` for you.
-- After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx -y @harnesspm/cli sync` yourself.
+- A full install, such as `npm install`, `npm ci`, `pnpm install` or `yarn`, runs `sync` for you.
+- After `npm install <pkg>`, `npm uninstall <pkg>`, `pnpm add <pkg>` or `pnpm remove <pkg>`, no script runs. harnesspm's own rule tells your agent to run `npx -y @harnesspm/cli sync`. When you install by hand, run it yourself.
+- Yarn 4 runs `postinstall` but not `prepare`. In a published package, where `init` uses `prepare`, run `yarn harnesspm sync` after installs. See [package managers](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md).
 - After you edit `harnesspm.json`, run `npx -y @harnesspm/cli sync`.
 - An install without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync, and the install goes on.
+
+Upgrades then show up in pull requests: [Use a package's harness](./use.md#upgrades) shows what changes.
 
 The script that `init` adds checks first that harnesspm is installed:
 
@@ -126,7 +158,7 @@ The script that `init` adds checks first that harnesspm is installed:
 
 Leave it as it is. A plain `harnesspm sync` fails every install without dev dependencies, because the `harnesspm` command is not installed then. A project that an older harnesspm set up has that plain form: run `npx -y @harnesspm/cli init` again to update it. `npx -y @harnesspm/cli doctor` warns until you do. The [install hook](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#the-install-hook) in the specification explains each part.
 
-Add a check to CI, so a missed sync fails the pull request:
+Add a check to CI, so a missed sync fails the pull request. Or ask your agent: "Add `npx -y @harnesspm/cli sync --check` to our CI, after the install."
 
 ```yaml
 - run: npm ci
@@ -188,9 +220,15 @@ repository  https://github.com/acme/colors
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 ```
 
+## Why one step
+
+A package cannot set this up by itself, and that is on purpose.
+
+- npm 12, pnpm and Bun do not run the install scripts of dependencies until you allow each one ([sources](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#install-scripts-of-dependencies)).
+- What your agent reads is your project's decision. You take the step once, and you see every later change in review.
+
 ## Next
 
 - [Use a package's harness](./use.md): what agents get, and upgrades.
 - [Change upstream units](./change-upstream.md): patch, replace or exclude a rule.
-- [Share a harness from your library](./share.md).
-- [Add your own or your team's harness](./add-your-own.md).
+- [Ask your agent](./ask-your-agent.mdx): prompts for the tasks after setup, and what stays with you.

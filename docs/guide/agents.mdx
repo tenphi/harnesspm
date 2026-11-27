@@ -5,7 +5,7 @@ description: Where an AI coding agent starts with harnesspm - what is already in
 
 **In short**
 
-- This part of the site is for you, an AI coding agent that a person asked to work with harnesspm. It has every step.
+- This page is for you, an AI coding agent that a person asked to work with harnesspm. It gives the rules that always apply and the guide for each task, which has every step.
 - In a project that already uses harnesspm, read what is installed first. It matches the installed version. This site describes the latest one.
 - Never give yourself permissions. Trust and approval belong to the person.
 - [llms.txt](https://harnesspm.tenphi.me/llms.txt) lists every page of this site with a Markdown copy.
@@ -22,7 +22,7 @@ A project that uses harnesspm already gives you this:
 
 No block in `AGENTS.md` means the project does not use harnesspm yet:
 
-- To use the harness of its dependencies, start with [Set up a project](./setup.md).
+- To use the harness of its dependencies, start with [Get started](./setup.md).
 - To share a harness from a library, start with [Share a harness from your library](./share.md). It needs only the dev dependency. The skills are then files in `node_modules/@harnesspm/cli/harness/skills/`.
 
 ## Rules that always apply
@@ -41,7 +41,7 @@ Why rules 3 and 4 are strict: a harness can ship scripts, hooks and MCP servers.
 
 | The person asks to | Read |
 | --- | --- |
-| Set up harnesspm, or use what the dependencies ship | [Set up a project](./setup.md), then [Use a package's harness](./use.md) |
+| Set up harnesspm, or use what the dependencies ship | [Get started](./setup.md), then [Use a package's harness](./use.md) |
 | Turn on a package's tools | [Trust and safety](./trust.md) |
 | Fix or drop a rule that comes from a dependency | [Change upstream units](./change-upstream.md) |
 | Remember something, or improve a harness | [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent) |
@@ -51,5 +51,7 @@ Why rules 3 and 4 are strict: a harness can ship scripts, hooks and MCP servers.
 | Work in a Claude Code cloud session | [Cloud sessions](./cloud.md) |
 | See how agents use the harness | [Telemetry](./telemetry.md) |
 | Look up a command or a field | [CLI](./reference/cli.md), [harnesspm.json](./reference/config.md) |
+
+The guides are for the person and for you. A guide that starts a task opens with what the person decides and an "Ask your agent" prompt for them to paste. The steps after the prompt are yours.
 
 The [specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md) has every rule behind these pages.
