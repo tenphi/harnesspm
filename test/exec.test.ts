@@ -130,22 +130,22 @@ test('S8 trusted: hooks, MCP servers, permissions and sub-agents for both agents
   // The allow rule matches the tool line, and for now the earlier form too.
   assert.deepEqual(settings.permissions.allow, ['Bash(ls)', 'Skill(kit-review)', 'Bash(npx -y @harnesspm/cli run kit:probe *)', 'Bash(npx harnesspm run kit:probe *)', 'mcp__kit-docs', 'mcp__kit-figma']);
   assert.deepEqual(settings.permissions.deny, ['Bash(git push --force *)']);
-  assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx harnesspm run --agent claude kit:check-styles', timeout: 30 }] }]);
-  assert.equal(settings.hooks.Notification[0].hooks[0].command, 'npx harnesspm run --agent claude kit:check-styles');
+  assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx -y @harnesspm/cli run --agent claude kit:check-styles', timeout: 30 }] }]);
+  assert.equal(settings.hooks.Notification[0].hooks[0].command, 'npx -y @harnesspm/cli run --agent claude kit:check-styles');
   assert.deepEqual(settings.hooks.Stop, [{ hooks: [{ type: 'command', command: 'echo mine' }] }], "the person's own hook stays");
 
   const servers = claudeJson(dir).projects[fs.realpathSync(dir)].mcpServers;
-  assert.deepEqual(servers['kit-docs'], { type: 'stdio', command: 'npx', args: ['harnesspm', 'mcp', '--agent', 'claude', 'kit:docs'] });
+  assert.deepEqual(servers['kit-docs'], { type: 'stdio', command: 'npx', args: ['-y', '@harnesspm/cli', 'mcp', '--agent', 'claude', 'kit:docs'] });
   assert.deepEqual(servers['kit-figma'], { type: 'http', url: 'https://example.com/mcp' });
 
   const codexHooks = json(path.join(dir, '.codex/hooks.json'));
-  assert.deepEqual(codexHooks.hooks.PostToolUse, [{ matcher: 'apply_patch', hooks: [{ type: 'command', command: 'npx harnesspm run --agent codex kit:check-styles', timeout: 30 }] }]);
+  assert.deepEqual(codexHooks.hooks.PostToolUse, [{ matcher: 'apply_patch', hooks: [{ type: 'command', command: 'npx -y @harnesspm/cli run --agent codex kit:check-styles', timeout: 30 }] }]);
   assert.equal(codexHooks.hooks.Notification, undefined, 'Codex has no Notification event');
   const rules = read(dir, '.codex/rules/harnesspm.rules');
   assert.match(rules, /prefix_rule\(pattern = \["npx","harnesspm","run","kit:probe"\], decision = "allow"\)/);
   assert.match(rules, /decision = "prompt"/);
   const codexConfig = read(dir, '.codex/config.toml');
-  assert.match(codexConfig, /\[mcp_servers\."kit-docs"\]\ncommand = "npx"\nargs = \["harnesspm", "mcp", "--agent", "codex", "kit:docs"\]/);
+  assert.match(codexConfig, /\[mcp_servers\."kit-docs"\]\ncommand = "npx"\nargs = \["-y", "@harnesspm\/cli", "mcp", "--agent", "codex", "kit:docs"\]/);
   assert.match(codexConfig, /\[mcp_servers\."kit-figma"\]\nurl = "https:\/\/example\.com\/mcp"/);
   tomlOk(path.join(dir, '.codex/config.toml'));
   const agent = read(dir, '.claude/agents/kit-reviewer.md');
@@ -234,7 +234,7 @@ test('"pin": a new version stays off until a person approves it', () => {
 
   installPackage(dir, '@acme/kit', kitFiles('1.1.0'));
   const synced = run(dir, 'sync');
-  assert.match(synced.stdout, /pending: @acme\/kit: .*version 1\.1\.0 is not approved \(approved: 1\.0\.0\); a person approves it with `npx harnesspm approve @acme\/kit`/);
+  assert.match(synced.stdout, /pending: @acme\/kit: .*version 1\.1\.0 is not approved \(approved: 1\.0\.0\); a person approves it with `npx -y @harnesspm\/cli approve @acme\/kit`/);
   assert.equal(json(path.join(dir, '.claude/settings.local.json')).hooks, undefined);
   const check = run(dir, 'sync', '--check');
   assert.equal(check.status, 1);
@@ -282,13 +282,13 @@ test('hooks and MCP servers start the installed CLI file with node; allow rules 
   assert.equal(run(dir, 'sync').status, 0);
   const settingsFile = path.join(dir, '.claude/settings.local.json');
   const codexHooks = path.join(dir, '.codex/hooks.json');
-  assert.equal(json(settingsFile).hooks.PostToolUse[0].hooks[0].command, 'npx harnesspm run --agent claude kit:check-styles', 'without an installed harnesspm, npx');
+  assert.equal(json(settingsFile).hooks.PostToolUse[0].hooks[0].command, 'npx -y @harnesspm/cli run --agent claude kit:check-styles', 'without an installed harnesspm, npx');
 
   // harnesspm 0.5.0 wrote the project's `.bin/harnesspm`, which fails when Yarn 4 drops its executable bit (#30).
   const root = fs.realpathSync(dir);
   const oldBin = path.join(root, 'node_modules/.bin/harnesspm');
   for (const file of [settingsFile, codexHooks, path.join(root, '.git/harnesspm/state.json')]) {
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('npx harnesspm run --agent', `${oldBin} run --agent`));
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('npx -y @harnesspm/cli run --agent', `${oldBin} run --agent`));
   }
 
   // An install adds harnesspm, whose CLI file runs with node whatever its mode. Even a model run switches to it: the hook
@@ -416,8 +416,8 @@ test('a model run writes the entries that the default branch records, also on a 
       git(dir, 'commit', '-qm', 'Work on the branch');
     }
     // Before the sync, status and doctor say that any sync writes them.
-    assert.match(runWith(dir, MODEL, 'status').stdout, /⏳ not written yet: 14 entries that origin\/main records \(.*\)\. Run `npx harnesspm sync`\./);
-    assert.match(runWith(dir, MODEL, 'doctor').stdout, /14 entries that origin\/main records \(.*\) are not written yet\. Run `npx harnesspm sync`\./);
+    assert.match(runWith(dir, MODEL, 'status').stdout, /⏳ not written yet: 14 entries that origin\/main records \(.*\)\. Run `npx -y @harnesspm\/cli sync`\./);
+    assert.match(runWith(dir, MODEL, 'doctor').stdout, /14 entries that origin\/main records \(.*\) are not written yet\. Run `npx -y @harnesspm\/cli sync`\./);
     const sync = runWith(dir, MODEL, 'sync');
     assert.equal(sync.status, 0, sync.stderr);
     assert.doesNotMatch(sync.stdout, /held back/);
@@ -533,7 +533,7 @@ test('the runner refuses a package whose installed version differs from the lock
   const refused = run(dir, 'run', 'kit:probe');
   assert.equal(refused.status, 2);
   // Either side can be stale, so the refusal names both remedies: a sync would write an old install into the lock.
-  assert.match(refused.stderr, /@acme\/kit 1\.0\.1 is installed, but the lock has 1\.0\.0: reinstall the project's dependencies when the install is out of date, or run `npx -y @tenphi\/harnesspm sync` when the lock is\./);
+  assert.match(refused.stderr, /@acme\/kit 1\.0\.1 is installed, but the lock has 1\.0\.0: reinstall the project's dependencies when the install is out of date, or run `npx -y @harnesspm\/cli sync` when the lock is\./);
 });
 
 test('added harnesses: executables at user level, and the runner finds their scripts', () => {

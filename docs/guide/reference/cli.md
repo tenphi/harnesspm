@@ -8,10 +8,10 @@ description: Every harnesspm command and option, with exit codes.
 
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs without an install use `fetch`.
 - Authors use `check` and `new`. People use `add`, `remove` and `update` for harnesses on top of the repository's.
-- `npx -y @harnesspm/cli …` works everywhere: in a project that depends on harnesspm, npx runs the installed version. `npx harnesspm …` works only there.
+- `npx -y @harnesspm/cli …` works everywhere: in a project that depends on harnesspm, npx runs the installed version, and elsewhere npx downloads it. harnesspm never uses the bare `npx harnesspm …`.
 - From another folder, such as a session above a clone, add `-C <dir>` before the command.
 
-The npm package is `@harnesspm/cli`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's packages, and `help <package>`, `help <rule ID>` or `help <tool>` prints one in full. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
+The npm package is `@harnesspm/cli`. The command it installs is `harnesspm`. `npx -y @harnesspm/cli help` lists every command, and `npx -y @harnesspm/cli <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's packages, and `help <package>`, `help <rule ID>` or `help <tool>` prints one in full. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
 
 ## Projects
 
@@ -34,7 +34,7 @@ The npm package is `@harnesspm/cli`. The command it installs is `harnesspm`. `np
 
 `harnesspm -C <dir> <command>` acts on the project in `<dir>`, as `git -C` does, such as `npx -y @harnesspm/cli -C work/app run acme-ui:tokens surface`. Every command takes it. `run` keeps the current folder for the script, so file arguments stay valid, and `HARNESSPM_PROJECT_DIR` is the named project.
 
-Package managers run `postinstall` and `prepare` on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`. Run `npx harnesspm sync` after those.
+Package managers run `postinstall` and `prepare` on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`. Run `npx -y @harnesspm/cli sync` after those.
 
 ## Authors
 

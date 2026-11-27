@@ -120,7 +120,7 @@ test('with CI=true, sync leaves committed outputs to --check and still writes pe
   fs.rmSync(path.join(dir, '.claude'), { recursive: true });
   const ci = runWith(dir, { CI: 'true' }, 'sync');
   assert.equal(ci.status, 0, ci.stderr);
-  assert.match(ci.stdout, /^CI: committed outputs left as they are; `npx harnesspm sync --check` compares them, `sync --write` writes them\.$/m);
+  assert.match(ci.stdout, /^CI: committed outputs left as they are; `npx -y @harnesspm\/cli sync --check` compares them, `sync --write` writes them\.$/m);
   for (const [file, text] of committed) assert.equal(read(dir, file), text, `${file} is left as it is`);
   assert.ok(isLink(dir, 'node_modules/.harnesspm/pkgs/@tenphi/tasty'), 'stable package paths');
   assert.ok(fs.existsSync(path.join(dir, '.harnesspm/docs/uikit/button.md')), 'docs copies');
@@ -798,7 +798,7 @@ test('a project on the earlier name, @tenphi/harnesspm: init guards that name, d
   assert.equal(run(dir, 'init').status, 0);
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, `patch-package && (${oldHook})`);
   const before = run(dir, 'doctor').stdout;
-  assert.match(before, /⚠️ {2}harnesspm moved from @tenphi\/harnesspm to @harnesspm\/cli\. Run `npm i -D @harnesspm\/cli && npm rm @tenphi\/harnesspm`, then `npx harnesspm init`\./);
+  assert.match(before, /⚠️ {2}harnesspm moved from @tenphi\/harnesspm to @harnesspm\/cli\. Run `npm i -D @harnesspm\/cli && npm rm @tenphi\/harnesspm`, then `npx -y @harnesspm\/cli init`\./);
   assert.match(before, /ℹ️ {2}The \$schema in harnesspm\.json names the earlier package\. It still works\./);
 
   // The project switches packages, as the warning says.
@@ -808,7 +808,7 @@ test('a project on the earlier name, @tenphi/harnesspm: init guards that name, d
   fs.rmSync(path.join(dir, 'node_modules/@tenphi'), { recursive: true });
   withHarnesspm(dir);
   const after = run(dir, 'doctor').stdout;
-  assert.match(after, /⚠️ {2}The "postinstall" script checks for another name of harnesspm than @harnesspm\/cli, so it skips `harnesspm sync`\. Run `npx harnesspm init` to update it\./);
+  assert.match(after, /⚠️ {2}The "postinstall" script checks for another name of harnesspm than @harnesspm\/cli, so it skips `harnesspm sync`\. Run `npx -y @harnesspm\/cli init` to update it\./);
   assert.doesNotMatch(after, /harnesspm moved/);
   const init = run(dir, 'init');
   assert.match(init.stdout, /Updated the "postinstall" script: it now checks for @harnesspm\/cli/);
@@ -833,7 +833,7 @@ test('init stops when harnesspm is not a dependency of the project, and changes 
   const result = run(dir, 'init');
   assert.equal(result.status, 1);
   assert.match(result.stderr, /@harnesspm\/cli is not a dependency of this project/);
-  assert.match(result.stderr, /Run `npm i -D @harnesspm\/cli` first, then `npx harnesspm init`\./);
+  assert.match(result.stderr, /Run `npm i -D @harnesspm\/cli` first, then `npx -y @harnesspm\/cli init`\./);
   assert.equal(read(dir, 'package.json'), before, 'no install script is added');
   for (const file of ['harnesspm.json', 'AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json']) assert.ok(!fs.existsSync(path.join(dir, file)), `${file} is not written`);
 

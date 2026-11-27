@@ -38,7 +38,7 @@ my-lib/
 
 ```bash
 npm i -D @harnesspm/cli
-npx harnesspm init
+npx -y @harnesspm/cli init
 ```
 
 Every full install, such as `npm install` or `pnpm install`, then runs `harnesspm sync`. It finds the harness of each dependency, follows `extends` chains, applies the project's changes, and writes each agent's native files. The project commits the generated block in `AGENTS.md` and `harnesspm.lock.json`, so upgrades show up in pull requests.
@@ -46,7 +46,7 @@ Every full install, such as `npm install` or `pnpm install`, then runs `harnessp
 ### Add on top
 
 ```bash
-npx harnesspm add github:alex/harness
+npx -y @harnesspm/cli add github:alex/harness
 ```
 
 The person's workflow rules, context notes and skills now apply to every project on this machine, and project-specific entries to their projects. The project repository does not change.
@@ -54,7 +54,7 @@ The person's workflow rules, context notes and skills now apply to every project
 ### Improve
 
 ```bash
-npx harnesspm why tasty:rules/state-maps
+npx -y @harnesspm/cli why tasty:rules/state-maps
 ```
 
 `why` names the unit's owner and source. The agent edits the source and proposes the change the way the owner's rules say. The default is a branch and a pull request.
@@ -120,20 +120,20 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | --- | --- | --- |
 | S1 | A library shares its harness | Adds `harness/` and lists it in `files`. |
 | S2 | A library builds on upstream harness | Lists the upstream packages in `extends`, adds its own units. |
-| S3 | A project uses the harness of its dependencies | `npm i -D @harnesspm/cli` and `npx harnesspm init`, once. |
+| S3 | A project uses the harness of its dependencies | `npm i -D @harnesspm/cli` and `npx -y @harnesspm/cli init`, once. |
 | S4 | A project changes one upstream rule | One `patch` for a few sections, or one `replace` or `exclude` entry. |
-| S5 | A project upgrades a dependency | Nothing after a full install. After `npm install <pkg>` or `pnpm add`, `npx harnesspm sync`. The pull request shows what changed. |
+| S5 | A project upgrades a dependency | Nothing after a full install. After `npm install <pkg>` or `pnpm add`, `npx -y @harnesspm/cli sync`. The pull request shows what changed. |
 | S6 | Several repositories share a policy | A harness-only package, added as a dev dependency. |
 | S7 | A monorepo | Nothing. Each workspace gets the harness of its own dependencies. |
 | S8 | A library ships a tool for agents | A script in the harness. Projects that trust the package can run it. |
-| S9 | A person adds a harness on top, such as their team's or their own | `npx harnesspm add <source>`, once per machine. |
+| S9 | A person adds a harness on top, such as their team's or their own | `npx -y @harnesspm/cli add <source>`, once per machine. |
 | S10 | A person keeps workflow and context outside project repositories | Rules and notes in their own added harness, with project entries. |
 | S11 | An agent improves a harness | Edits the source that `harnesspm why` names, then saves under the owner's rules. |
 | S12 | A person works in a Claude Code cloud session | The project's install in the environment's setup script, by absolute path. For an added harness, the same `add` there, or asked of the agent. |
 | S13 | A job reads the harness without an install, such as a review bot | `npx -y @harnesspm/cli fetch`. |
-| S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx harnesspm sync`. |
+| S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx -y @harnesspm/cli sync`. |
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
-| S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx harnesspm doctor`. |
+| S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx -y @harnesspm/cli doctor`. |
 | S17 | A teammate's merged change adds a hook, an MCP server or an allow rule | Nothing. The next install writes it on every machine, also when an agent runs the install. |
 | S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @harnesspm/cli -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone run there only after a `sync` in that folder (S20). |
 | S19 | A repository has many harness packages or workspaces, and its `AGENTS.md` must stay inside the agents' limits | Nothing. The managed block names each rule and tool in one line. Agents print a package's rules with `help <package>` and a tool's options with `help <tool>`. |

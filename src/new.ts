@@ -7,7 +7,7 @@ import { NS, PLUGIN_SCHEMA } from './manifest.ts';
 import { headings } from './sections.ts';
 import { parseFrontmatter } from './frontmatter.ts';
 import type { Resolution } from './resolve.ts';
-import { HarnessError, ensureDir, exists, isFile, isRecord, readJson, readJsonIfExists, relPosix } from './util.ts';
+import { HarnessError, NPX_ANY, ensureDir, exists, isFile, isRecord, readJson, readJsonIfExists, relPosix } from './util.ts';
 
 export const KINDS = ['rule', 'skill', 'agent', 'script', 'hook', 'mcp'] as const;
 export type Kind = (typeof KINDS)[number];
@@ -94,7 +94,7 @@ export function resolveTarget(projectDir: string, options: { to?: string; entry?
   }
   const warnings: string[] = [];
   const harness = loadAdded(projectDir, warnings).find((h) => h.pkg.plugin === options.to);
-  if (!harness) throw new HarnessError(`No added harness with the plugin name "${options.to}". See \`npx harnesspm status\`.`);
+  if (!harness) throw new HarnessError(`No added harness with the plugin name "${options.to}". See \`${NPX_ANY} status\`.`);
   if (!harness.source.editable) throw new HarnessError(`${harness.source.spec} comes from npm and cannot be edited here. Change it in its own repository.`);
   const manifest = path.join(harness.pkg.harnessDir, 'plugin.json');
   if (!options.entry) return { dir: harness.pkg.harnessDir, plugin: harness.pkg.plugin, manifest, entry: false, label: `${harness.pkg.plugin} (${harness.source.dir})`, written: [] };
@@ -150,7 +150,7 @@ export function createUnit(target: Target, kind: Kind, name: string): string[] {
       add(path.join(target.dir, NS, 'agents', `${name}.md`), `---\nname: ${name}\ndescription: What the sub-agent does. Use when ….\n---\n\nInstructions for the sub-agent.\n`);
       break;
     case 'script':
-      add(scriptFile(name), `// Run it with \`npx -y @harnesspm/cli run ${target.plugin}:${name} -- <args>\`. \`help ${target.plugin}:${name}\` prints its "usage".\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
+      add(scriptFile(name), `// Run it with \`${NPX_ANY} run ${target.plugin}:${name} -- <args>\`. \`help ${target.plugin}:${name}\` prints its "usage".\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
       // `usage` is what `help <tool>` prints (spec 5.1). This template echoes its arguments.
       declareScript(name, `What ${name} does`, '[<words>...]');
       break;
@@ -205,7 +205,7 @@ function patchTemplate(body: string): string {
  */
 export function createPatch(projectDir: string, res: Resolution, ruleId: string, options: { to?: string; entry?: boolean }): { file: string; registeredIn: string } {
   const rule = res.rules.find((r) => r.id === ruleId);
-  if (!rule) throw new HarnessError(`No rule ${ruleId}. Find IDs in the AGENTS.md block or with \`npx harnesspm why <ID>\`.`);
+  if (!rule) throw new HarnessError(`No rule ${ruleId}. Find IDs in the AGENTS.md block or with \`${NPX_ANY} why <ID>\`.`);
   const fileName = `${ruleId.replace(':rules/', '-').replace(/[^a-z0-9.-]+/gi, '-')}.patch.md`;
   const body = parseFrontmatter(rule.text, rule.source).body;
   const content = patchTemplate(body) || `Text to add at the end of ${ruleId}.\n`;

@@ -23,13 +23,13 @@ import whyColorsUsage from './examples/why-colors-usage.txt?raw';
 <CodeGroup
   label="Set up harnesspm in a project"
   items={[
-    { label: 'npm', language: 'shell', code: 'npm i -D @harnesspm/cli\nnpx harnesspm init' },
+    { label: 'npm', language: 'shell', code: 'npm i -D @harnesspm/cli\nnpx -y @harnesspm/cli init' },
     { label: 'pnpm', language: 'shell', code: 'pnpm add -D @harnesspm/cli\npnpm exec harnesspm init' },
     { label: 'yarn', language: 'shell', code: 'yarn add -D @harnesspm/cli\nyarn harnesspm init' },
     {
       label: 'Ask your agent',
       language: 'text',
-      code: 'Set up harnesspm in this project:\ninstall @harnesspm/cli as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
+      code: 'Set up harnesspm in this project:\ninstall @harnesspm/cli as a dev dependency\nand run `npx -y @harnesspm/cli init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
     },
   ]}
 />
@@ -63,7 +63,7 @@ Each rule, docs index or script is a **unit** with an ID, such as `acme-colors:r
 
 The app depends only on `@acme/ui`. `@acme/colors` comes through it, and a patch from `@acme/ui` rewrites the first section of its rule for apps on `@acme/ui`. Lines marked `…` are cut here.
 
-Each rule, docs index and tool is one line, and skills load when needed, so the always-on text stays small. The commands at the top tell the agent how to get the rest: `help @acme/colors` prints that package's rules, with the patch applied, and `help acme-ui:tokens` prints a tool's usage. `npx harnesspm status` shows the size.
+Each rule, docs index and tool is one line, and skills load when needed, so the always-on text stays small. The commands at the top tell the agent how to get the rest: `help @acme/colors` prints that package's rules, with the patch applied, and `help acme-ui:tokens` prints a tool's usage. `npx -y @harnesspm/cli status` shows the size.
 
 ## Upgrade the package, upgrade the rules
 
@@ -106,7 +106,7 @@ You keep one copy of each instruction, not one per agent. Write a rule, skill, s
 
 This works before any library ships a harness:
 
-- **Your project.** `npx harnesspm new rule usage` starts a `harness/` folder in your repository.
+- **Your project.** `npx -y @harnesspm/cli new rule usage` starts a `harness/` folder in your repository.
 - **All your repositories.** Publish shared rules as a harness-only package, and add it as a dev dependency in each.
 
 ## You decide what applies and what runs
@@ -129,13 +129,13 @@ Your project has the last word on every unit. One `harnesspm.json` holds your ch
 
 - A **patch** changes one section of a rule and keeps the rest. When an upgrade changes that section, `sync` warns you. **exclude** drops a unit or a whole package. **replace** swaps a unit for your own file.
 - Rules, docs and skills work at once. Scripts, hooks and MCP servers run only for packages you trust. Trusting `@acme/ui` does not trust `@acme/colors`.
-- `"pin"` keeps a new version's tools off until you run `npx harnesspm approve`.
+- `"pin"` keeps a new version's tools off until you run `npx -y @harnesspm/cli approve`.
 - When an agent runs harnesspm, new hooks, MCP servers and allow rules wait until a person reviews and merges them.
 - Rules are instructions to your agent. Review their changes in the pull request, like code.
 
 `why` shows where any unit comes from and every change made to it. Here, the colors rule has a patch from `@acme/ui` and the app's own:
 
-<Terminal command="npx harnesspm why acme-colors:rules/usage" output={whyColorsUsage} fields />
+<Terminal command="npx -y @harnesspm/cli why acme-colors:rules/usage" output={whyColorsUsage} fields />
 
 Agents run the same command. The `harnesspm-improve` skill takes them from `why` to a change saved the way the unit's owner asks.
 
@@ -148,7 +148,7 @@ npx -y @harnesspm/cli add \
   github:<owner>/<repo>
 ```
 
-It applies in every repository on your machine, and one line in a setup script brings it to Claude Code cloud sessions. `npx harnesspm doctor` checks that its files stay out of git. [Bring your own harness](/bring-your-own) shows how to start one.
+It applies in every repository on your machine, and one line in a setup script brings it to Claude Code cloud sessions. `npx -y @harnesspm/cli doctor` checks that its files stay out of git. [Bring your own harness](/bring-your-own) shows how to start one.
 
 ## Start where you are
 

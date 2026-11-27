@@ -14,7 +14,7 @@ export const HOOK_COMMAND = `${NPX_ANY} update`;
 
 /**
  * Hooks that earlier versions installed, which a sync replaces (spec 7.5, 10.1): 0.14 and earlier synced without fetching,
- * and 0.15 and earlier named the package `@tenphi/harnesspm`.
+ * and 0.16 and earlier named the package `@tenphi/harnesspm`.
  */
 const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`, ...OLD_PACKAGE_NAMES.flatMap((name) => [`npx -y ${name} update`, `npx -y ${name} sync`])];
 

@@ -6,7 +6,7 @@ description: Patch, replace or exclude any unit from a dependency, find where a 
 
 **In short**
 
-- `npx harnesspm why <ID>` names a unit's owner and source, and says how to change it.
+- `npx -y @harnesspm/cli why <ID>` names a unit's owner and source, and says how to change it.
 - In `harnesspm.json`, a `patch` changes a few sections of a rule, `replace` swaps a whole rule or skill, and `exclude` drops a unit or a package.
 - An agent can make these changes. The harness's owner decides how a change is saved.
 
@@ -15,7 +15,7 @@ description: Patch, replace or exclude any unit from a dependency, find where a 
 Every line in the managed block ends with a unit ID, such as `acme-colors:rules/usage`. Ask harnesspm about it:
 
 ```text
-$ npx harnesspm why acme-colors:rules/usage
+$ npx -y @harnesspm/cli why acme-colors:rules/usage
 owner       dependency @acme/colors 2.1.0 (via @acme/ui)
 source      node_modules/.harnesspm/pkgs/@acme/colors/harness/dev.harnesspm/rules/usage.md
 patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
@@ -32,7 +32,7 @@ A unit ID is `<plugin name>:<kind>/<name>`. Every unit has one: `acme-colors:ski
 A patch replaces, adds or removes sections of a rule and keeps the rest. `new patch` writes one with a copy of the rule's sections and registers it:
 
 ```text
-$ npx harnesspm new patch acme-colors:rules/usage
+$ npx -y @harnesspm/cli new patch acme-colors:rules/usage
 Wrote harnesspm/patches/acme-colors-usage.patch.md, registered in harnesspm.json.
 Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.
 ```
@@ -45,7 +45,7 @@ Keep the sections you change and delete the others:
 - Body text needs a contrast ratio of at least 7 against its background. This app targets WCAG AAA.
 ```
 
-Run `npx harnesspm sync`. The block now has your section in place of the package's, and `why` lists your patch after the one from `@acme/ui`:
+Run `npx -y @harnesspm/cli sync`. The block now has your section in place of the package's, and `why` lists your patch after the one from `@acme/ui`:
 
 ```text
 patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)
@@ -75,7 +75,7 @@ When an upgrade changes a section that your patch replaces or removes, `sync` wa
 - `exclude` drops a unit by ID, or a whole package by name, such as `"@acme/styles"`, with everything only it extends.
 - An override that names a unit that does not exist gives a warning. It usually means the upstream unit was renamed.
 
-Run `npx harnesspm sync` after each change, and commit `harnesspm.json`, your files, `AGENTS.md` and the lock.
+Run `npx -y @harnesspm/cli sync` after each change, and commit `harnesspm.json`, your files, `AGENTS.md` and the lock.
 
 ## Who changes what
 
@@ -95,7 +95,7 @@ An added harness cannot change committed text. When it patches or excludes a tea
 
 Every project that installs harnesspm gets the `harnesspm-improve` skill. Tell your agent that a rule is wrong, or ask it to remember something, and it follows these steps:
 
-1. It runs `npx harnesspm why <ID>` to find the unit's owner.
+1. It runs `npx -y @harnesspm/cli why <ID>` to find the unit's owner.
 2. It changes the source. A dependency's files in `node_modules` are read-only, so it adds a `patch`, `replace` or `exclude` to the project, or to your added harness, and can propose the change upstream.
 3. Before saving, it reads the owner's `AGENTS.md` and `CONTRIBUTING.md` and follows them. "Commit and push to `main`" and "leave the change uncommitted" are both valid rules.
 4. When the owner says nothing, it shows you the change and asks, then uses a branch named `harnesspm/<topic>` and a pull request. It never pushes to the default branch unless the owner's rules allow it.

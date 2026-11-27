@@ -10,13 +10,13 @@
 ## 8.1 Find the source
 
 ```text
-$ npx harnesspm why tasty:rules/state-maps
+$ npx -y @harnesspm/cli why tasty:rules/state-maps
 owner       dependency @tenphi/tasty 3.17.1 (via @cube-dev/ui-kit)
 source      node_modules/.harnesspm/pkgs/@tenphi/tasty/harness/dev.harnesspm/rules/state-maps.md
 repository  https://github.com/tenphi/tasty
 editable    no. Add a `patch`, `replace` or `exclude` in harnesspm.json, or propose the change upstream.
 
-$ npx harnesspm why alex:rules/workflow
+$ npx -y @harnesspm/cli why alex:rules/workflow
 owner       added github:alex/harness (user scope)
 source      ~/.harnesspm/harnesses/alex/harness/dev.harnesspm/rules/workflow.md
 rules       ~/.harnesspm/harnesses/alex/AGENTS.md
@@ -33,7 +33,7 @@ An agent also sees the IDs of a project entry's units, in `CLAUDE.local.md` of t
 | 🏢 Project | The project repository | Edit the file, like any other change in that repository. |
 | ➕ Added harness | Its working copy or folder | Edit the file there. |
 
-To create a new unit instead of changing one, use `npx harnesspm new <kind> <name>`: without a flag for the project harness, `--to <plugin>` for an added harness, and `--to <plugin> --entry` for its entry for this repository.
+To create a new unit instead of changing one, use `npx -y @harnesspm/cli new <kind> <name>`: without a flag for the project harness, `--to <plugin>` for an added harness, and `--to <plugin> --entry` for its entry for this repository.
 
 ## 8.3 The owner decides how to save
 
@@ -67,7 +67,7 @@ For a dependency, the proposal goes to the package's `repository`, following tha
 
 ## 8.6 Checks before saving
 
-1. Run `npx harnesspm check <harness folder>`. It validates the harness and warns about files that look like secrets.
+1. Run `npx -y @harnesspm/cli check <harness folder>`. It validates the harness and warns about files that look like secrets.
 2. Never copy private data from the current project into an added harness without the person's agreement.
 
 ## 8.7 Shared working copies

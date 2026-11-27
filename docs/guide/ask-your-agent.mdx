@@ -5,7 +5,7 @@ description: Prompts for the common harnesspm tasks, what your agent does with e
 
 **In short**
 
-- These prompts work in a repository where `npx harnesspm init` has run: after [Use a harness](./getting-started.mdx), or after step 3 of [Share a harness](./share-a-harness.mdx). Your agent then has three skills for harnesspm.
+- These prompts work in a repository where `npx -y @harnesspm/cli init` has run: after [Use a harness](./getting-started.mdx), or after step 3 of [Share a harness](./share-a-harness.mdx). Your agent then has three skills for harnesspm.
 - Each task below has a prompt, what your agent does, and what you decide.
 - The [For AI agents](./agents.mdx) part has every step in detail.
 
@@ -15,7 +15,7 @@ The prompts are examples. Use your own words, and your own package names in plac
 
 ```text
 What did harnesspm give you from our dependencies?
-Show me `npx harnesspm status`.
+Show me `npx -y @harnesspm/cli status`.
 ```
 
 - **Your agent** lists the packages with a harness, the tools that wait for trust, and the size of the always-on text.
@@ -27,8 +27,8 @@ Show me `npx harnesspm status`.
 Trust @acme/ui in harnesspm.
 ```
 
-- **Your agent** adds the package to `trust` in `harnesspm.json` and runs `npx harnesspm sync`.
-- **You** run `npx harnesspm approve` in your own terminal. Until then, new hooks, MCP servers and allow rules wait.
+- **Your agent** adds the package to `trust` in `harnesspm.json` and runs `npx -y @harnesspm/cli sync`.
+- **You** run `npx -y @harnesspm/cli approve` in your own terminal. Until then, new hooks, MCP servers and allow rules wait.
 - **You decide** how far the trust goes: `true` follows upgrades, and `"pin"` asks again for each new version. Use `"pin"` for packages your team does not control. See [Trust and safety](./trust.md).
 
 ## Fix a rule that does not fit
@@ -39,7 +39,7 @@ we target WCAG AAA. Change it for this project
 with harnesspm.
 ```
 
-- **Your agent** finds the rule's source with `npx harnesspm why`, and adds a patch that changes one section and keeps the rest.
+- **Your agent** finds the rule's source with `npx -y @harnesspm/cli why`, and adds a patch that changes one section and keeps the rest.
 - **You** review the change to `AGENTS.md` in the pull request.
 - When a rule is wrong for everyone, also ask: "Propose this change to the package." See [Change upstream units](./change-upstream.md).
 
@@ -60,7 +60,7 @@ Your own rules, notes and skills can live in a repository of yours, and apply on
 ## Check the setup
 
 ```text
-Run `npx harnesspm doctor` and tell me what it reports.
+Run `npx -y @harnesspm/cli doctor` and tell me what it reports.
 ```
 
 - **Your agent** runs the checks. `doctor` changes nothing, and each problem names the command that fixes it.

@@ -23,17 +23,17 @@ The steps also ship in the package, as the `harnesspm-export` skill: `node_modul
 
 ## The smallest harness
 
-A harness can be two files: a manifest and one rule. `npx harnesspm new` writes both from templates:
+A harness can be two files: a manifest and one rule. `npx -y @harnesspm/cli new` writes both from templates:
 
 ```text
-$ npx harnesspm new rule usage
+$ npx -y @harnesspm/cli new rule usage
 Wrote in the project's own harness (harness/):
   harness/plugin.json
   harness/dev.harnesspm/rules/usage.md
-Next: edit it, then run `npx harnesspm check`. To see the harness in this repository's AGENTS.md too, run `npx harnesspm init`.
+Next: edit it, then run `npx -y @harnesspm/cli check`. To see the harness in this repository's AGENTS.md too, run `npx -y @harnesspm/cli init`.
 ```
 
-`npx harnesspm new --help` lists every kind. The manifest, `harness/plugin.json`, starts like this:
+`npx -y @harnesspm/cli new --help` lists every kind. The manifest, `harness/plugin.json`, starts like this:
 
 ```json
 {
@@ -56,7 +56,7 @@ Next: edit it, then run `npx harnesspm check`. To see the harness in this reposi
 `harnesspm check` fails when a manifest, a skill or an extension field is invalid, when a path leaves the package, or when a file the harness needs would not be published. It also reports the size of your always-on text:
 
 ```text
-$ npx harnesspm check
+$ npx -y @harnesspm/cli check
 📏 always-on text of my-lib: 0.1 KiB
 ✅ harness is valid
 ```
@@ -72,7 +72,7 @@ This package ships a harness for coding agents: rules, docs and tools that match
 
 ```shell
 npm i -D @harnesspm/cli
-npx harnesspm init
+npx -y @harnesspm/cli init
 ```
 ````
 
@@ -80,10 +80,10 @@ Change "rules, docs and tools" to what your harness has.
 
 ## See what your users get
 
-Sharing needs no `npx harnesspm init` in the library's repository. Run it when you want to see the harness as your users' agents will:
+Sharing needs no `npx -y @harnesspm/cli init` in the library's repository. Run it when you want to see the harness as your users' agents will:
 
 - Your own harness then shows in the block in your `AGENTS.md`, under `(this project)`, and your agents read it.
-- `npx harnesspm why <ID>` and `npx harnesspm status` work in the repository. Without `init`, `why` finds no unit there.
+- `npx -y @harnesspm/cli why <ID>` and `npx -y @harnesspm/cli status` work in the repository. Without `init`, `why` finds no unit there.
 - `init` adds `harnesspm sync` to the `prepare` script, and writes files to commit. [Set up a project](./setup.md) has the list.
 
 ## Rules
@@ -116,8 +116,8 @@ Your docs folder can be one that your build writes and git ignores. Your users g
 ## Skills and sub-agents
 
 ```shell
-npx harnesspm new skill review     # harness/skills/my-lib-review/SKILL.md
-npx harnesspm new agent reviewer   # harness/dev.harnesspm/agents/reviewer.md
+npx -y @harnesspm/cli new skill review     # harness/skills/my-lib-review/SKILL.md
+npx -y @harnesspm/cli new agent reviewer   # harness/dev.harnesspm/agents/reviewer.md
 ```
 
 Skills follow the [Agent Skills](https://agentskills.io/specification) format, so they also work without harnesspm. `new` puts the plugin name in front of a skill's name, so names from different packages do not collide. An agent picks a skill by its `description`: say what it does, then "Use when" and the words people use.
@@ -125,9 +125,9 @@ Skills follow the [Agent Skills](https://agentskills.io/specification) format, s
 ## Scripts, hooks and MCP servers
 
 ```shell
-npx harnesspm new script probe   # harness/dev.harnesspm/scripts/probe.mjs
-npx harnesspm new hook check     # a PostToolUse hook that runs a script
-npx harnesspm new mcp docs       # harness/mcp.json and a stdio server
+npx -y @harnesspm/cli new script probe   # harness/dev.harnesspm/scripts/probe.mjs
+npx -y @harnesspm/cli new hook check     # a PostToolUse hook that runs a script
+npx -y @harnesspm/cli new mcp docs       # harness/mcp.json and a stdio server
 ```
 
 A script is registered in `plugin.json`:
@@ -166,10 +166,10 @@ When your library builds on another library that ships a harness, list it in `ex
 
 ## Adapt what you pass on
 
-You can change an upstream unit for all your users, with the same fields a project uses: `exclude`, `replace` and `patch`. To patch a rule, use harnesspm in your library's own repository too (`npx harnesspm init`), then:
+You can change an upstream unit for all your users, with the same fields a project uses: `exclude`, `replace` and `patch`. To patch a rule, use harnesspm in your library's own repository too (`npx -y @harnesspm/cli init`), then:
 
 ```text
-$ npx harnesspm new patch acme-colors:rules/usage
+$ npx -y @harnesspm/cli new patch acme-colors:rules/usage
 Wrote harness/dev.harnesspm/patches/acme-colors-usage.patch.md, registered in harness/plugin.json.
 Keep only the sections you change and edit them. Delete the others. To drop a section, list its heading in `remove:` frontmatter.
 ```

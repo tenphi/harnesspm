@@ -76,8 +76,8 @@ Git sources work with any host. npm and git sources never touch the project's `p
 
 | Scope | How to add | Recorded in | Outputs |
 | --- | --- | --- | --- |
-| **User** | `npx harnesspm add <source>` | `~/.harnesspm/config.json` | User-level folders, see [04-outputs.md](04-outputs.md#44-outputs-of-added-harnesses-user-scope) |
-| **Local** | `npx harnesspm add <source> --local` | `harnesspm.local.json` in the repository, excluded from git | Project outputs, see [04-outputs.md](04-outputs.md#43-project-outputs) |
+| **User** | `npx -y @harnesspm/cli add <source>` | `~/.harnesspm/config.json` | User-level folders, see [04-outputs.md](04-outputs.md#44-outputs-of-added-harnesses-user-scope) |
+| **Local** | `npx -y @harnesspm/cli add <source> --local` | `harnesspm.local.json` in the repository, excluded from git | Project outputs, see [04-outputs.md](04-outputs.md#43-project-outputs) |
 
 Both files have one field:
 
@@ -95,7 +95,7 @@ Both files have one field:
 - **Local work stays.** A working copy with uncommitted changes or unpushed commits is not fetched ([8.7](08-improving.md#87-shared-working-copies)), so an improvement in progress is never overwritten.
 - **New commits apply, executables included.** Claude Code runs the hook with `AI_AGENT=…_harness`, so this run may write hooks and permissions ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). Adding a harness trusts its future commits, as `"trust": true` trusts a team's own package after upgrades. A push to the harness's remote reaches the machine at the next session start. For a harness whose pushes you do not control, add an npm source with a fixed version, such as `npm:@acme/harness@1.2.0`, or pass `--no-hook` and run `update` yourself ([13.13](13-open-questions.md#1313-the-reviewed-state-in-hook-runs)).
 - **Several repositories.** A session that starts above several repositories, such as a cloud session with more than one, runs the hook in that folder. It applies each repository's entry there, as a sync in it would ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). Such a session reads the entries' rules and skills, not their hooks and permissions.
-- **Older hooks.** harnesspm 0.14 and earlier installed a hook that ran `sync`, and 0.15 and earlier named the package `@tenphi/harnesspm` ([10.1](10-cli.md#moving-from-tenphiharnesspm)). The next `sync` or `update` by a person or a hook turns it into today's hook, in place. A run of the agent's model leaves it, because the new command also fetches.
+- **Older hooks.** harnesspm 0.14 and earlier installed a hook that ran `sync`, and 0.16 and earlier named the package `@tenphi/harnesspm` ([10.1](10-cli.md#moving-from-tenphiharnesspm)). The next `sync` or `update` by a person or a hook turns it into today's hook, in place. A run of the agent's model leaves it, because the new command also fetches.
 - Claude Code uses what the hook writes in the same session: a `CLAUDE.local.md` and a `.claude/settings.local.json` written by a `SessionStart` hook were both read in cloud sessions.
 - Codex asks the person to review a new hook once, in `/hooks`.
 - `--no-hook` skips the hook. Project entries then apply only where `harnesspm sync` runs, and new commits only when you run `update`.

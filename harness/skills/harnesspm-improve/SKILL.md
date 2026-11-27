@@ -7,23 +7,23 @@ description: Change or add a rule, note, skill, script or other unit in any harn
 
 ## 1. Find the owner
 
-For an existing unit, run `npx harnesspm why <ID>`. The ID is at the end of each line in the `AGENTS.md` block. It tells you the owner, the source file and whether you can edit it.
+For an existing unit, run `npx -y @harnesspm/cli why <ID>`. The ID is at the end of each line in the `AGENTS.md` block. It tells you the owner, the source file and whether you can edit it.
 
 For something new, choose the owner:
 
 | The change is about | Owner | Create with |
 | --- | --- | --- |
 | How a package should be used, for all its users | The package (dependency) | — propose upstream, see 3 |
-| This project, for the whole team | The project | `npx harnesspm new <kind> <name>` |
-| How the user or their team works, everywhere | The added harness (see `npx harnesspm status`) | `npx harnesspm new <kind> <name> --to <plugin>` |
-| This project, only for the user or their team | The added harness, project entry | `npx harnesspm new <kind> <name> --to <plugin> --entry` |
+| This project, for the whole team | The project | `npx -y @harnesspm/cli new <kind> <name>` |
+| How the user or their team works, everywhere | The added harness (see `npx -y @harnesspm/cli status`) | `npx -y @harnesspm/cli new <kind> <name> --to <plugin>` |
+| This project, only for the user or their team | The added harness, project entry | `npx -y @harnesspm/cli new <kind> <name> --to <plugin> --entry` |
 
 Ask the user when it is not clear. Never put private data from this project into an added harness without the user's agreement.
 
 ## 2. Edit the source
 
 - Edit the source file that `why` names, never an output (the `AGENTS.md` block, `CLAUDE.local.md`, `.codex/`).
-- Run `npx harnesspm sync`, then `npx harnesspm check <folder>` for the harness folder you changed.
+- Run `npx -y @harnesspm/cli sync`, then `npx -y @harnesspm/cli check <folder>` for the harness folder you changed.
 
 ## 3. Save the change the owner's way
 
@@ -35,4 +35,4 @@ Ask the user when it is not clear. Never put private data from this project into
    4. If a step is not possible, stop and tell the user what is done and what is left. In a cloud session, show the full change.
 3. Never push to the default branch unless the owner's rules allow it.
 
-For a dependency: change it now with a patch (`npx harnesspm new patch <rule ID>`, add `--to <plugin>` to keep it in an added harness), or a `replace` or `exclude`. Then offer to open an issue or pull request at the package's repository.
+For a dependency: change it now with a patch (`npx -y @harnesspm/cli new patch <rule ID>`, add `--to <plugin>` to keep it in an added harness), or a `replace` or `exclude`. Then offer to open an issue or pull request at the package's repository.

@@ -2,8 +2,8 @@
 
 ## Never edit outputs
 
-- Files and links that harnesspm writes, such as `.claude/agents/`, `.codex/agents/`, `.claude/skills/` and `.agents/skills/`, are outputs like the managed block. Never edit them. Change the source that `npx harnesspm why <ID>` names, with the `harnesspm-improve` skill.
+- Files and links that harnesspm writes, such as `.claude/agents/`, `.codex/agents/`, `.claude/skills/` and `.agents/skills/`, are outputs like the managed block. Never edit them. Change the source that `npx -y @harnesspm/cli why <ID>` names, with the `harnesspm-improve` skill.
 
 ## Run sync after a change
 
-- After changing `harnesspm.json` or a harness file, or after `npm install <pkg>` or `pnpm add`, run `npx harnesspm sync`.
+- After changing `harnesspm.json` or a harness file, or after `npm install <pkg>` or `pnpm add`, run `npx -y @harnesspm/cli sync`.

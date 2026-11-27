@@ -179,7 +179,7 @@ Events: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `Permiss
 }
 ```
 
-stdio servers start through `npx harnesspm mcp <plugin>:<server>`. Remote servers are written as they are. Never put secrets in `mcp.json`.
+stdio servers start through `npx -y @harnesspm/cli mcp <plugin>:<server>`. Remote servers are written as they are. Never put secrets in `mcp.json`.
 
 ## Permissions
 

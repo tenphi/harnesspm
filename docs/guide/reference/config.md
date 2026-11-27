@@ -8,7 +8,7 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 
 - `harnesspm.json` is the project's configuration. It is committed, and every field is optional.
 - `harnesspm.local.json` and `~/.harnesspm/config.json` are per machine. They list added harnesses and can turn telemetry off.
-- Run `npx harnesspm sync` after every change.
+- Run `npx -y @harnesspm/cli sync` after every change.
 
 ## `harnesspm.json`
 

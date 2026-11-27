@@ -78,7 +78,7 @@ test('new in a project that uses harnesspm names sync and check, with the instal
   const dir = project({ '@harnesspm/cli': '1' }, { name: 'app' });
   const result = run(dir, 'new', 'rule', 'usage');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\nNext: edit it, then run `npx harnesspm sync` and `npx harnesspm check`\.\n$/);
+  assert.match(result.stdout, /\nNext: edit it, then run `npx -y @harnesspm\/cli sync` and `npx -y @harnesspm\/cli check`\.\n$/);
 });
 
 test("new patch goes into harness/plugin.json when the rule comes through the project's own extends", () => {

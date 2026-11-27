@@ -20,7 +20,7 @@
 }
 ```
 
-Then run `npx harnesspm sync`.
+Then run `npx -y @harnesspm/cli sync`.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
@@ -99,7 +99,7 @@ Codex reads files and skills through shell commands. harnesspm cannot map a shel
 
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
-1. It is `node <project>/node_modules/@harnesspm/cli/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
+1. It is `node <project>/node_modules/@harnesspm/cli/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx -y @harnesspm/cli track …`.
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package, with its [docs copy](04-outputs.md#43-project-outputs), so a read of a copied page counts for the package's docs; each workspace's `AGENTS.md`, with the always-on rules its managed block names; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
@@ -117,7 +117,7 @@ A command handler runs on every machine of the team. It follows the trust model 
 
 1. A sync by a person records the handler in `harnesspm.lock.json`, as `"telemetry": { "send": … }`.
 2. harnesspm sends events only when `send` in `harnesspm.json` matches the lock. Otherwise the handler is **held**: nothing is sent, and `sync` and `status` say so.
-3. A sync by the agent's model keeps the handler the lock has. A handler that an agent adds or changes stays held until a person runs `npx harnesspm sync` or `npx harnesspm approve`. Removing `telemetry` needs no person.
+3. A sync by the agent's model keeps the handler the lock has. A handler that an agent adds or changes stays held until a person runs `npx -y @harnesspm/cli sync` or `npx -y @harnesspm/cli approve`. Removing `telemetry` needs no person.
 4. The lock diff shows a new or changed handler in review, like a new hook. `sync --check` fails while the lock and `harnesspm.json` differ.
 
 The same rule covers file handlers, so there is one rule to learn.
@@ -132,7 +132,7 @@ The team decides in `harnesspm.json`. A person can still opt out on their machin
 | One repository | `"telemetry": false` in `harnesspm.local.json`, which is never committed |
 | Every repository on the machine | `"telemetry": false` in `~/.harnesspm/config.json` |
 
-`npx harnesspm status` shows whether events are sent, held or off on this machine.
+`npx -y @harnesspm/cli status` shows whether events are sent, held or off on this machine.
 
 ## 14.7 Example handlers
 
@@ -167,11 +167,11 @@ Reporting is the project's own rule, not a harnesspm feature. A team that wants 
 # Reporting harness problems
 
 - When a harness rule, doc, skill or tool is wrong, missing or fails, file a ticket in <tracker, such as the Linear team "Web" with the label `harness`>.
-- Say what you tried, what happened and what you expected. Add the output of `npx harnesspm why <ID>`.
+- Say what you tried, what happened and what you expected. Add the output of `npx -y @harnesspm/cli why <ID>`.
 - Then go on with the task. Do not change the unit unless the user asks.
 ```
 
-Add it with `npx harnesspm new rule reporting-harness-problems`, which writes `harness/dev.harnesspm/rules/reporting-harness-problems.md` in the project's own harness, paste the text, and run `npx harnesspm sync`. The agent files the ticket with its own tools, such as the tracker's MCP server. A tracker the agent cannot reach can be a file, such as `harness-reports.md`, that a person reads. An unattended run asks before it runs `npx harnesspm why`, so a team that runs agents that way allows `Bash(npx harnesspm why *)` in its Claude Code settings.
+Add it with `npx -y @harnesspm/cli new rule reporting-harness-problems`, which writes `harness/dev.harnesspm/rules/reporting-harness-problems.md` in the project's own harness, paste the text, and run `npx -y @harnesspm/cli sync`. The agent files the ticket with its own tools, such as the tracker's MCP server. A tracker the agent cannot reach can be a file, such as `harness-reports.md`, that a person reads. An unattended run asks before it runs `npx -y @harnesspm/cli why`, so a team that runs agents that way allows `Bash(npx -y @harnesspm/cli why *)` in its Claude Code settings.
 
 In a headless Claude Code run, such a rule led the agent to report a failing harness tool with the `why` output, without being asked ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#claude-code)).
 

@@ -8,7 +8,7 @@ description: Add your team's or your own rules, notes, skills and tools on top o
 
 - `npx -y @harnesspm/cli add <source>` adds a harness on top of the repository's, on your machine only. It is never committed.
 - With user scope, it applies in every repository on the machine. With `--local`, in one repository.
-- `npx harnesspm doctor` checks that your per-machine files stay out of git.
+- `npx -y @harnesspm/cli doctor` checks that your per-machine files stay out of git.
 
 An **added harness** is an ordinary harness, with a `plugin.json` and units, in a git repository, a folder or an npm package. A team's harness and a person's own harness work the same way. Only their owners differ.
 
@@ -94,19 +94,19 @@ An added harness can hold units for one repository. `projects` in its `plugin.js
 }
 ```
 
-The entry applies wherever the repository's `origin` remote matches, also in a fresh clone in a cloud session. To write a new unit into it, run `npx harnesspm new rule <name> --to alex --entry`.
+The entry applies wherever the repository's `origin` remote matches, also in a fresh clone in a cloud session. To write a new unit into it, run `npx -y @harnesspm/cli new rule <name> --to alex --entry`.
 
 ## Keep the project clean
 
 - Units of an added harness never go into a tracked file. They go into `CLAUDE.local.md`, `.claude/settings.local.json`, `.codex/` and your user-level agent folders.
 - harnesspm lists per-machine files in `.git/info/exclude`, which belongs to your clone and is never committed. It never edits `.gitignore`.
 - CI and `sync --check` ignore added harnesses.
-- `npx harnesspm status` lists every change an added harness makes to the repository's units.
+- `npx -y @harnesspm/cli status` lists every change an added harness makes to the repository's units.
 
 `doctor` checks that a repository is ready for a harness of your own, and that no per-machine file can reach a commit:
 
 ```text
-$ npx harnesspm doctor
+$ npx -y @harnesspm/cli doctor
 🔒 Local files
   ✅ 12 per-machine files: ignored by git and not tracked
 ➕ Harnesses of your own
@@ -123,9 +123,9 @@ When a file is tracked or not ignored, `doctor` fails and names the fix, such as
 
 ## Change it later
 
-- Ask your agent to "remember" something, and it can write a rule into your harness with `npx harnesspm new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent).
-- `npx harnesspm update` fetches new versions of your added harnesses. It skips a working copy with uncommitted changes or unpushed commits, and says so.
-- `npx harnesspm remove <source>` removes a harness and its outputs.
+- Ask your agent to "remember" something, and it can write a rule into your harness with `npx -y @harnesspm/cli new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent).
+- `npx -y @harnesspm/cli update` fetches new versions of your added harnesses. It skips a working copy with uncommitted changes or unpushed commits, and says so.
+- `npx -y @harnesspm/cli remove <source>` removes a harness and its outputs.
 
 ## More
 

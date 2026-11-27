@@ -12,10 +12,17 @@ export const PACKAGE_NAME = '@harnesspm/cli';
 export const OLD_PACKAGE_NAMES = ['@tenphi/harnesspm'];
 /** Every name of the package, the current one first. */
 export const PACKAGE_NAMES = [PACKAGE_NAME, ...OLD_PACKAGE_NAMES];
-/** Runs harnesspm in a project that depends on it: npx finds the installed command. */
-export const NPX_LOCAL = 'npx harnesspm';
-/** Runs harnesspm anywhere: npx downloads the package by its full name when it is not installed. */
+/**
+ * How harnesspm runs, in every text, message and hook it writes (spec 10.1): npx runs the installed version in a project
+ * that depends on it, and downloads the package by its full name elsewhere. Never the bare `npx harnesspm`: outside such
+ * a project, npx would fetch whatever is published under the unscoped name, and a hook has nobody to ask.
+ */
 export const NPX_ANY = `npx -y ${PACKAGE_NAME}`;
+/**
+ * The bare form that earlier versions wrote and that some packages' text still types. harnesspm only matches it, in
+ * allow rules for a project's scripts, where npx finds the installed command (spec 5.4).
+ */
+export const NPX_BARE = 'npx harnesspm';
 
 /** A command prefix that starts harnesspm: as shell words, for hooks, and as an argument list, for MCP servers. */
 export interface Runner {

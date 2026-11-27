@@ -8,9 +8,9 @@
 - Authors use `check` and `new`.
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
-- The npm package is `@harnesspm/cli`. Up to 0.15 it was `@tenphi/harnesspm`, which harnesspm still recognizes until 1.0 ([below](#moving-from-tenphiharnesspm)).
+- The npm package is `@harnesspm/cli`. Up to 0.16 it was `@tenphi/harnesspm`, which harnesspm still recognizes until 1.0 ([below](#moving-from-tenphiharnesspm)).
 
-The npm package is `@harnesspm/cli`, and the command it installs is `harnesspm`. `npx -y @harnesspm/cli …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Tool lines in the managed block use this form ([4.6](04-outputs.md#46-managed-blocks)). `npx harnesspm …` works only in a project that depends on harnesspm, and messages there may use it. An allow rule always has the prefix of the command it allows.
+The npm package is `@harnesspm/cli`, and the command it installs is `harnesspm`. `npx -y @harnesspm/cli …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Every text, message, block and hook that harnesspm writes uses this one form ([4.6](04-outputs.md#46-managed-blocks)). It never writes the bare `npx harnesspm …`: that works only in a project that depends on harnesspm, and elsewhere npx would fetch whatever is published under the unscoped name, without asking in a hook. An allow rule always has the prefix of the command it allows.
 
 `harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's packages ([below](#the-project-in-help)), and `help <package | rule ID | tool>` prints one of them in full ([below](#help-for-a-package-a-rule-or-a-tool)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
 
@@ -73,7 +73,7 @@ For every target:
 - `help` needs no install: it reads the lock and the fetched packages. When the project has neither an install nor fetched packages, `help` fetches first, which only downloads and checks integrity.
 - Each run sends a `help` event to the project's handler ([14.2](14-telemetry.md#142-events)), so a team can see whether agents follow the block's pointers.
 
-Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx harnesspm sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md)).
+Package managers run these scripts on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`, so run `npx -y @harnesspm/cli sync` after those. `sync --check` in CI catches a missed one. `postinstall` would also run when others install a published package, so `init` uses it only in a private package; Yarn 2 and later run `postinstall` but not `prepare` ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md)).
 
 ### The install hook
 
@@ -95,7 +95,7 @@ The `node -e` part resolves `@harnesspm/cli/package.json` from the project folde
 `harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. `harnesspm track --agent <agent>` is the command of harnesspm's own telemetry hooks ([14.4](14-telemetry.md#144-agent-events)). People do not need either.
 
 ```text
-$ npx harnesspm status
+$ npx -y @harnesspm/cli status
 📦 dependencies  @cube-dev/ui-kit 0.206.1 → @tenphi/tasty 3.17.1, @tenphi/glaze 2.0.0
 🏢 project       harnesspm.json: 1 replace · 1 patch
 ➕ added         github:cube-js/frontend-harness (user) · github:alex/harness (user), project entry cube-ui-kit
@@ -106,11 +106,11 @@ $ npx harnesspm status
 
 ### Moving from `@tenphi/harnesspm`
 
-Up to version 0.15, the package was `@tenphi/harnesspm`. From 0.16 it is `@harnesspm/cli`, with the same command, `harnesspm`, and the same versions, so a project moves with one install:
+Up to version 0.16, the package was `@tenphi/harnesspm`. From 0.17 it is `@harnesspm/cli`, with the same command, `harnesspm`, and the same versions, so a project moves with one install:
 
 ```shell
 npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm
-npx harnesspm init
+npx -y @harnesspm/cli init
 ```
 
 `init` updates the install hook; the next `sync` rewrites the rest. Until then, and until harnesspm 1.0, harnesspm treats the earlier name as its own:
@@ -153,7 +153,7 @@ npx harnesspm init
 
 ## 10.5 Doctor
 
-`npx harnesspm doctor` answers one question: can a person work here with harnesses, the repository's and their own, without per-machine files reaching a commit?
+`npx -y @harnesspm/cli doctor` answers one question: can a person work here with harnesses, the repository's and their own, without per-machine files reaching a commit?
 
 | Group | Check | Fails when |
 | --- | --- | --- |
@@ -163,7 +163,7 @@ npx harnesspm init
 | 🛡️ Trust | Entries that wait for trust or for a person, with a held telemetry handler: the list that `sync` prints. | Never: these are warnings ([10.4](#104-exit-codes)). |
 
 ```text
-$ npx harnesspm doctor
+$ npx -y @harnesspm/cli doctor
 🔒 Local files
   ❌ CLAUDE.local.md is tracked by git, so a commit can include this machine's files, and harnesspm writes no added harnesses into it. Run `git rm --cached CLAUDE.local.md` and commit.
 ➕ Harnesses of your own
