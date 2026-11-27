@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { installPackage, isLink, PLUGIN_SCHEMA, project, read, run, runWith, skill, writeFiles } from './helpers.ts';
@@ -157,7 +158,7 @@ test('a nested AGENTS.md that git tracks gets a CLAUDE.md that imports it, since
   assert.match(check.stdout, /src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing, so Claude Code does not read src\/button\/AGENTS\.md/);
   assert.match(check.stdout, /src\/form\/CLAUDE\.md: the @AGENTS\.md line is missing/);
   assert.doesNotMatch(check.stdout, /src\/menu|src\/draft|vendor/);
-  assert.match(run(dir, 'doctor').stdout, /📦 Outputs\n {2}❌ src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing/);
+  assert.match(run(dir, 'doctor').stdout, /📝 Outputs\n {2}❌ src\/button\/CLAUDE\.md: the @AGENTS\.md line is missing/);
 
   // CI leaves them to --check, like every committed output.
   runWith(dir, { CI: 'true' }, 'sync');
@@ -726,19 +727,59 @@ function fakeCommand(dir: string): void {
   fs.chmodSync(path.join(dir, 'node_modules/.bin/harnesspm'), 0o755);
 }
 
-test('init sets up a project and is safe to run twice', () => {
+test('init sets up a project, adds /.harnesspm/ to .gitignore once, and is safe to run twice', () => {
   const dir = withHarnesspm(chain(false));
-  writeFiles(dir, { 'package-lock.json': '{}\n' });
+  writeFiles(dir, { 'package-lock.json': '{}\n', '.gitignore': 'node_modules' });
   const first = run(dir, 'init');
   assert.equal(first.status, 0, first.stderr);
-  // The files that belong in git, and a word on the rest, so nobody works it out from `git status`.
-  assert.match(first.stdout, /\nTo commit: AGENTS\.md, CLAUDE\.md, harnesspm\.json, harnesspm\.lock\.json, package\.json, package-lock\.json\nLinks and settings for this machine stay out of git: \.git\/info\/exclude lists them\.\n$/);
+  assert.match(first.stdout, /^Wrote harnesspm\.json, the "prepare" script \(syncs on every install\), CLAUDE\.md \(imports AGENTS\.md\), \.gitignore \(\/\.harnesspm\/\)\n/);
+  // The one list of files that belong in git, the check for CI, and what the agent does next (spec 10.1).
+  assert.match(first.stdout, /\nTo commit: \.gitignore, AGENTS\.md, CLAUDE\.md, harnesspm\.json, harnesspm\.lock\.json, package\.json, package-lock\.json\nIn CI, after the install: npx -y @harnesspm\/cli sync --check\nAgent: report this to the person\.\n$/);
+  // The docs copies need the line, so formatters skip them, and with it the sync does not warn.
+  assert.equal(read(dir, '.gitignore'), 'node_modules\n/.harnesspm/\n');
+  assert.doesNotMatch(first.stderr, /\.gitignore does not ignore/);
   const pkg = JSON.parse(read(dir, 'package.json'));
   assert.equal(pkg.scripts.prepare, HOOK);
   assert.equal(JSON.parse(read(dir, 'harnesspm.json')).$schema, 'https://unpkg.com/@harnesspm/cli/schema/harnesspm.schema.json');
   assert.match(read(dir, 'AGENTS.md'), /BEGIN:harnesspm/);
-  run(dir, 'init');
+  const second = run(dir, 'init');
+  assert.equal(second.status, 0, second.stderr);
+  assert.doesNotMatch(second.stdout, /Wrote|Installed/, 'nothing to write the second time');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, HOOK);
+  assert.equal(read(dir, '.gitignore'), 'node_modules\n/.harnesspm/\n', 'the line is added once');
+
+  // sync never edits .gitignore: without the line, it warns.
+  writeFiles(dir, { '.gitignore': 'node_modules\n' });
+  assert.match(run(dir, 'sync').stderr, /\.gitignore does not ignore \.harnesspm\//);
+  assert.equal(read(dir, '.gitignore'), 'node_modules\n');
+  // A .gitignore that already ignores the folder another way keeps its text.
+  writeFiles(dir, { '.gitignore': '.harnesspm\n' });
+  run(dir, 'init');
+  assert.equal(read(dir, '.gitignore'), '.harnesspm\n');
+});
+
+test('init lists the tools that wait for a person, with what each does, whether it asks for a prompt, and its hooks', () => {
+  const dir = withHarnesspm(project({ '@acme/kit': '1' }, { private: true }, false));
+  installPackage(dir, '@acme/kit', {
+    plugin: 'kit',
+    ext: { scripts: { tokens: { file: './dev.harnesspm/scripts/tokens.mjs', description: 'Find a token', allow: true }, fmt: { file: './dev.harnesspm/scripts/fmt.mjs' } } },
+    harness: {
+      'dev.harnesspm/rules/usage.md': '# Kit\n\nUse the kit.\n',
+      'dev.harnesspm/scripts/tokens.mjs': '\n',
+      'dev.harnesspm/scripts/fmt.mjs': '\n',
+      'dev.harnesspm/hooks.json': JSON.stringify({ hooks: { PostToolUse: [{ id: 'fmt', matcher: { claude: 'Edit|Write' }, run: 'fmt' }] } }),
+    },
+  });
+  const result = run(dir, 'init');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    result.stdout,
+    /\n\nRules, docs and skills work now\.\n⏳ Waiting for a person: these tools stay off until a person trusts their package\.\n  @acme\/kit  kit:tokens — Find a token · no prompt\n  @acme\/kit  a PostToolUse hook runs kit:fmt\n  To turn one on, a person adds its package to "trust" in harnesspm\.json, then runs `npx -y @harnesspm\/cli approve` in their own terminal\. An agent never changes "trust" itself\.\n\n/,
+  );
+  assert.doesNotMatch(result.stdout, /- @acme\/kit: /, 'the package is listed once, by its tools');
+  assert.match(result.stdout, /\nAgent: report this to the person and wait for their trust decision\.\n$/);
+  // A person's sync lists the same package in one line, with the step that turns it on.
+  assert.match(run(dir, 'sync').stdout, /^⏳ Waiting for a person\n  - @acme\/kit: 2 scripts, 1 hook \(not trusted\)\. A person adds "@acme\/kit": true to "trust" in harnesspm\.json, then runs `npx -y @harnesspm\/cli approve`\.\n/);
 });
 
 test('init uses postinstall in a private package, and keeps an existing script', () => {
@@ -826,24 +867,96 @@ test('with both names of harnesspm installed, the current one gives the harness'
   assert.doesNotMatch(read(dir, 'AGENTS.md'), /@tenphi\/harnesspm/);
 });
 
-test('init stops when harnesspm is not a dependency of the project, and changes nothing', () => {
-  // The script that init adds calls the `harnesspm` command: without the dependency, the next install would fail.
-  const dir = project({}, { private: true }, false);
-  const before = read(dir, 'package.json');
-  const result = run(dir, 'init');
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /@harnesspm\/cli is not a dependency of this project/);
-  assert.match(result.stderr, /Run `npm i -D @harnesspm\/cli` first, then `npx -y @harnesspm\/cli init`\./);
-  assert.equal(read(dir, 'package.json'), before, 'no install script is added');
-  for (const file of ['harnesspm.json', 'AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json']) assert.ok(!fs.existsSync(path.join(dir, file)), `${file} is not written`);
+/** The version that `init` installs: this one, or a later compatible one. */
+const OWN_VERSION = (JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }).version;
 
-  // Listed in any of the fields that an install reads, it passes.
-  assert.equal(run(withHarnesspm(project({}, { private: true }, false), 'dependencies'), 'init').status, 0);
-  assert.equal(run(withHarnesspm(project({}, { private: true }, false), 'optionalDependencies'), 'init').status, 0);
+/**
+ * Stand-ins for npm, pnpm, Yarn and Bun on PATH: each records its arguments in calls.log next to it and adds the package
+ * to devDependencies and node_modules, as `add -D` does. With `fail`, each one fails and changes nothing.
+ */
+function packageManagers(fail = false): { env: Record<string, string>; calls: () => string[] } {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-pm-'));
+  const log = path.join(bin, 'calls.log');
+  const script = `#!/usr/bin/env node
+const fs = require('node:fs');
+fs.appendFileSync(${JSON.stringify(log)}, require('node:path').basename(process.argv[1]) + ' ' + process.argv.slice(2).join(' ') + '\\n');
+${fail ? "console.error('npm error 404 Not Found');\nprocess.exit(1);" : ''}
+const spec = process.argv.at(-1);
+const name = spec.slice(0, spec.lastIndexOf('@'));
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+pkg.devDependencies = { ...pkg.devDependencies, [name]: spec.slice(spec.lastIndexOf('@') + 1) };
+fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+fs.mkdirSync('node_modules/' + name, { recursive: true });
+fs.writeFileSync('node_modules/' + name + '/package.json', JSON.stringify({ name, version: '1.0.0' }));
+`;
+  for (const name of ['npm', 'pnpm', 'yarn', 'bun']) {
+    fs.writeFileSync(path.join(bin, name), script);
+    fs.chmodSync(path.join(bin, name), 0o755);
+  }
+  return { env: { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` }, calls: () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : []) };
+}
+
+test('init installs harnesspm as a dev dependency with the package manager of the lockfile', () => {
+  const spec = `@harnesspm/cli@^${OWN_VERSION}`;
+  const cases: [Record<string, string>, Record<string, unknown>, string][] = [
+    [{ 'package-lock.json': '{}\n' }, {}, 'npm i -D'],
+    [{}, {}, 'npm i -D'],
+    [{ 'pnpm-lock.yaml': '' }, {}, 'pnpm add -D'],
+    [{ 'pnpm-lock.yaml': '', 'pnpm-workspace.yaml': 'packages: ["packages/*"]\n' }, {}, 'pnpm add -D -w'],
+    [{ 'yarn.lock': '' }, {}, 'yarn add -D'],
+    [{ 'yarn.lock': '' }, { workspaces: ['packages/*'] }, 'yarn add -D -W'],
+    [{ 'yarn.lock': '', '.yarnrc.yml': 'nodeLinker: node-modules\n' }, { workspaces: ['packages/*'] }, 'yarn add -D'],
+    [{ 'bun.lock': '' }, {}, 'bun add -d'],
+    [{}, { packageManager: 'pnpm@10.28.0' }, 'pnpm add -D'],
+  ];
+  for (const [files, extra, add] of cases) {
+    const dir = project({}, { private: true, ...extra }, false);
+    writeFiles(dir, files);
+    const pm = packageManagers();
+    const result = runWith(dir, pm.env, 'init');
+    assert.equal(result.status, 0, `${add}: ${result.stderr}`);
+    assert.deepEqual(pm.calls(), [`${add} ${spec}`]);
+    assert.match(result.stdout, new RegExp(`^Installed @harnesspm/cli as a dev dependency \\(${add.replace(/[-]/g, '\\$&')}\\)\n`));
+    const pkg = JSON.parse(read(dir, 'package.json'));
+    assert.equal(pkg.devDependencies['@harnesspm/cli'], `^${OWN_VERSION}`);
+    assert.equal(pkg.scripts.postinstall, HOOK, 'the hook goes in after the install, which never runs it');
+  }
+
+  // Listed already, in any of the fields that an install reads, nothing is installed.
+  for (const field of ['devDependencies', 'dependencies', 'optionalDependencies']) {
+    const pm = packageManagers();
+    const result = runWith(withHarnesspm(project({}, { private: true }, false), field), pm.env, 'init');
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(pm.calls(), []);
+    assert.doesNotMatch(result.stdout, /Installed/);
+  }
   // harnesspm's own repository is the package, so it has no such dependency.
   const own = project({}, {}, false);
   writeFiles(own, { 'package.json': JSON.stringify({ name: '@harnesspm/cli', version: '1.0.0' }) });
-  assert.equal(run(own, 'init').status, 0);
+  const pm = packageManagers();
+  assert.equal(runWith(own, pm.env, 'init').status, 0);
+  assert.deepEqual(pm.calls(), []);
+});
+
+test('init stops and changes nothing when the install fails, or with Yarn Plug\'n\'Play', () => {
+  const dir = project({}, { private: true }, false);
+  const before = read(dir, 'package.json');
+  const failed = runWith(dir, packageManagers(true).env, 'init');
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /npm error 404 Not Found/, "the package manager's output goes to stderr");
+  assert.match(failed.stderr, /`npm i -D @harnesspm\/cli@\S+` failed, so init stopped before it changed anything\. Add @harnesspm\/cli as a dev dependency yourself, then run `npx -y @harnesspm\/cli init` again\./);
+  assert.equal(read(dir, 'package.json'), before, 'no install script is added');
+  for (const file of ['harnesspm.json', 'AGENTS.md', 'CLAUDE.md', 'harnesspm.lock.json', '.gitignore']) assert.ok(!fs.existsSync(path.join(dir, file)), `${file} is not written`);
+
+  // Yarn 2 and later use Plug'n'Play unless .yarnrc.yml sets another linker, and Plug'n'Play has no node_modules.
+  const pnp = project({}, { private: true }, false);
+  writeFiles(pnp, { 'yarn.lock': '', '.yarnrc.yml': 'enableTelemetry: false\n' });
+  const pm = packageManagers();
+  const refused = runWith(pnp, pm.env, 'init');
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /This project uses Yarn Plug'n'Play, which writes no node_modules, where harnesspm finds each package's harness\. Set `nodeLinker: node-modules` in \.yarnrc\.yml/);
+  assert.deepEqual(pm.calls(), [], 'nothing is installed');
+  assert.ok(!fs.existsSync(path.join(pnp, 'harnesspm.json')));
 });
 
 test('status names the layers and the always-on size', () => {

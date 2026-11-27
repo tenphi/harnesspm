@@ -39,5 +39,5 @@ Keep always-on rules short. One topic per file, split into small `##` sections, 
 1. If `package.json` has a `files` field, make sure it lists `harness` and the docs folder, if used.
 2. Run `npx -y @harnesspm/cli check`. Fix every problem.
 3. Add `"prepack": "harnesspm check"` to the `package.json` scripts.
-4. Add a short note to the README: the package ships a harness for coding agents, and a project gets it with `npm i -D @harnesspm/cli` and `npx -y @harnesspm/cli init`. A project that does not use harnesspm gets nothing by itself.
+4. Add a short note to the README: the package ships a harness for coding agents, and a project gets it with `npx -y @harnesspm/cli init`. A project that does not use harnesspm gets nothing by itself.
 5. To see the harness as users' agents will, run `npx -y @harnesspm/cli init` in this repository. Its own harness then shows in its `AGENTS.md` block.

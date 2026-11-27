@@ -20,25 +20,27 @@ async function main(): Promise<void> {
 
 const HELP = `harnesspm — the harness package manager
 
-Usage: harnesspm [-C <dir>] <command>
+Usage: npx -y @harnesspm/cli [-C <dir>] [<command>]
+  harnesspm                      where to start: the tasks for this folder, or this project's report
   -C <dir>                       act on the project in <dir>, such as a repository you cloned. \`run\` keeps
                                  the current folder for the script, so file arguments stay valid
-  harnesspm help                 these commands, and the project's packages, one line each
+  harnesspm help                 the project's packages, one line each; outside a project, these commands
   harnesspm help <package | rule ID | tool>
                                  a package's rules, docs, tools, MCP servers, skills and hooks in full,
                                  one rule, or a tool's usage and run command. Needs no install
 
 Projects
-  harnesspm init                 set up harnesspm in this project
+  harnesspm init                 set up harnesspm in this project: install it, write its files and sync
   harnesspm sync [--check | --write]
                                  write the agent files (--check: compare only, for CI;
                                  --write: committed files too when CI=true)
-  harnesspm status               layers, packages and always-on size
-  harnesspm doctor               check that local files stay out of git and the outputs are in place
+  harnesspm status               the project's report: packages, checks, and what waits for a person
+  harnesspm doctor               the same report, which exits 1 when a check fails
   harnesspm why <ID>             where a unit comes from and how to change it
   harnesspm run <plugin>:<script> [-- args]
                                  run a script of a trusted package
-  harnesspm approve [<package>]  approve a "pin" package's new version, and write what an agent could not
+  harnesspm approve [<package>]  a person's step: write what an agent could not grant, and approve
+                                 a "pin" package's new version
   harnesspm fetch                download the harness packages in the lock, for jobs without an install
 
 Harnesses on top of the repository's (your team's, your own)
@@ -58,7 +60,7 @@ Authors
 /** Details for a command whose usage line is not enough. */
 const DETAILS: Record<string, string> = {
   new: `Kinds: rule, skill, agent, script, hook, mcp. \`new patch\` takes a rule ID, such as acme-ui:rules/usage.
-  --to <plugin>   write into a harness you added (\`harnesspm status\` lists them), not the project's own harness/
+  --to <plugin>   write into a harness you added (\`npx -y @harnesspm/cli status\` lists them), not the project's own harness/
   --entry         with --to: write into that harness's entry for this repository`,
 };
 
@@ -75,7 +77,7 @@ function commandHelp(command: string): string | undefined {
   }
   if (picked.length === 0) return undefined;
   const details = DETAILS[command];
-  return [...picked, ...(details !== undefined ? ['', details] : []), '', 'Every command: harnesspm help. Every option: https://harnesspm.tenphi.me/reference/cli/'].join('\n');
+  return [...picked, ...(details !== undefined ? ['', details] : []), '', 'Every command: npx -y @harnesspm/cli --help. Every option: https://harnesspm.tenphi.me/reference/cli/'].join('\n');
 }
 
 const out: Output = {
@@ -96,7 +98,7 @@ function projectFolder(argv: string[]): { cwd: string; named: boolean; argv: str
   return { cwd, named: true, argv: argv.slice(2) };
 }
 
-function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, projectHelp, remove, run, status, sync, targetHelp, update, why }: typeof import('./commands.ts')): number | Promise<number> {
+function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, mcp, newUnit, notAProject, projectHelp, remove, run, start, status, sync, targetHelp, update, why }: typeof import('./commands.ts')): number | Promise<number> {
   const { cwd, named, argv } = projectFolder(argvIn);
   const [command, ...rest] = argv;
   const isHelp = (arg: string | undefined): boolean => arg === '--help' || arg === '-h';
@@ -175,11 +177,15 @@ function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, 
       console.log(pkg.version);
       return 0;
     }
-    case 'help':
     case undefined:
+      // Every task starts here: the project's report, or the tasks for this folder (spec 10.1).
+      return start(cwd, out);
     case '--help':
     case '-h':
-      if (command === 'help' && args[0] !== undefined) {
+      console.log(HELP.trimEnd());
+      return 0;
+    case 'help': {
+      if (args[0] !== undefined) {
         // A command first, then a package, rule or tool of the project (spec 10.1).
         const text = commandHelp(args[0]);
         if (text !== undefined) {
@@ -188,11 +194,15 @@ function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, 
         }
         return targetHelp(cwd, args[0], out);
       }
+      // Inside a project, or with -C, the project's packages lead. Elsewhere, the commands.
+      const code = projectHelp(cwd, out);
+      if (code !== undefined) return code;
       console.log(HELP.trimEnd());
-      // Inside a project, or with -C, the project's own harness follows.
-      return projectHelp(cwd, out, named);
+      if (named) console.log(`\n${notAProject(cwd)}`);
+      return 0;
+    }
     default:
-      throw new HarnessError(`Unknown command "${command}". Run \`harnesspm help\`.`);
+      throw new HarnessError(`Unknown command "${command}". Every command: \`npx -y @harnesspm/cli --help\`.`);
   }
 }
 

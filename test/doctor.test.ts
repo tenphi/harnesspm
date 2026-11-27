@@ -41,17 +41,19 @@ test('doctor: a tracked per-machine file fails, with the command that untracks i
   assert.match(result.stdout, /❌ 1 problem\./);
 });
 
-test('doctor: a hand-made harnesspm.local.json fails until sync lists it, and status points to doctor', () => {
+test('doctor: a hand-made harnesspm.local.json fails until sync lists it; status prints the same report and exits 0', () => {
   const dir = app();
   writeFiles(dir, { 'harnesspm.local.json': '{ "telemetry": false }\n' });
   const before = run(dir, 'doctor');
   assert.equal(before.status, 1);
   assert.match(before.stdout, /❌ harnesspm\.local\.json is not ignored by git, so `git add` can pick it up\. Run `npx -y @harnesspm\/cli sync`, which lists it in \.git\/info\/exclude\./);
-  assert.match(run(dir, 'status').stdout, /🩺 local files {3}1 problem\. Run `npx -y @harnesspm\/cli doctor`\./);
+  const status = run(dir, 'status');
+  assert.equal(status.status, 0, 'status reports and never fails');
+  assert.equal(status.stdout, before.stdout, 'one report for status and doctor');
 
   assert.equal(run(dir, 'sync').status, 0);
   assert.equal(run(dir, 'doctor').status, 0);
-  assert.doesNotMatch(run(dir, 'status').stdout, /🩺/);
+  assert.doesNotMatch(run(dir, 'status').stdout, /❌/);
 });
 
 test('doctor: a per-machine file that harnesspm does not write goes into .gitignore', () => {
@@ -127,11 +129,11 @@ test("status and doctor: an AGENTS.md over Codex's 32 KiB limit is called over, 
   const size = (fs.statSync(path.join(dir, 'AGENTS.md')).size / 1024).toFixed(1);
   const status = run(dir, 'status');
   assert.match(status.stdout, new RegExp(`📏 always-on {5}Codex ${size} KiB of 32 KiB`));
-  assert.match(status.stderr, /⚠️ {2}AGENTS\.md is over Codex's 32 KiB limit: Codex reads only the first 32 KiB\. Move details into on-demand rules or docs\./);
-  assert.doesNotMatch(status.stderr, /close to/);
+  assert.match(status.stdout, new RegExp(`📝 Outputs\n[^]*  ⚠️  AGENTS\\.md is ${size} KiB, over Codex's 32 KiB limit: Codex reads only the first 32 KiB\\. Move details into on-demand rules or docs\\.`));
+  assert.doesNotMatch(status.stdout, /close to/);
   const doctor = run(dir, 'doctor');
   assert.equal(doctor.status, 0, 'a warning, not a failure');
-  assert.match(doctor.stdout, new RegExp(`📦 Outputs\n[^]*  ⚠️  AGENTS\\.md is ${size} KiB, over Codex's 32 KiB limit: Codex reads only the first 32 KiB\\. Move details into on-demand rules or docs\\.`));
+  assert.equal(doctor.stdout, status.stdout);
 });
 
 test('status and doctor name each managed block that Codex never reaches, along its folder path', () => {
@@ -151,12 +153,12 @@ test('status and doctor name each managed block that Codex never reaches, along 
   const webBlock = (rootBytes / 1024).toFixed(1);
 
   const status = run(dir, 'status');
-  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in AGENTS\\.md: it starts at ${(before / 1024).toFixed(1)} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, move the block to the top of its file, where sync keeps it, or move details into on-demand rules or docs\\.`));
-  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\. Agents can still get what it holds with \`npx -y @harnesspm/cli help <package>\`\\.`));
-  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\. Agents can still get what it holds with `npx -y @harnesspm\/cli help <package>`\./);
+  assert.match(status.stdout, new RegExp(`⚠️ {2}Codex never reads the harness block in AGENTS\\.md: it starts at ${(before / 1024).toFixed(1)} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, move the block to the top of its file, where sync keeps it, or move details into on-demand rules or docs\\.`));
+  assert.match(status.stdout, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\. Agents can still get what it holds with \`npx -y @harnesspm/cli help <package>\`\\.`));
+  assert.match(status.stdout, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\. Agents can still get what it holds with `npx -y @harnesspm\/cli help <package>`\./);
   const doctor = run(dir, 'doctor');
   assert.equal(doctor.status, 0, 'warnings, not failures');
-  assert.match(doctor.stdout, /📦 Outputs\n[^]*  ⚠️  Codex never reads the harness block in packages\/web\/AGENTS\.md/);
+  assert.match(doctor.stdout, /📝 Outputs\n[^]*  ⚠️  Codex never reads the harness block in packages\/web\/AGENTS\.md/);
 
   // Moved to the top, the root block stays there and Codex reads it. The workspace block is still past the limit.
   const text = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
@@ -165,8 +167,8 @@ test('status and doctor name each managed block that Codex never reaches, along 
   assert.match(run(dir, 'sync').stdout, /Nothing changed/);
   assert.ok(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8').startsWith('<!-- BEGIN:harnesspm'));
   const after = run(dir, 'status');
-  assert.doesNotMatch(after.stderr, /harness block in AGENTS\.md/);
-  assert.match(after.stderr, /Codex never reads the harness block in packages\/web\/AGENTS\.md/);
+  assert.doesNotMatch(after.stdout, /harness block in AGENTS\.md/);
+  assert.match(after.stdout, /Codex never reads the harness block in packages\/web\/AGENTS\.md/);
 });
 
 test('status counts the AGENTS.md files above a project that sits below the git root, as Codex does', () => {
@@ -178,7 +180,7 @@ test('status counts the AGENTS.md files above a project that sits below the git 
   installPackage(dir, '@acme/kit', { plugin: 'kit', harness: { 'dev.harnesspm/rules/forms.md': '# Forms\n\nUse the Form component.\n' } });
   assert.equal(run(dir, 'sync').status, 0);
   const above = (fs.statSync(path.join(repo, 'AGENTS.md')).size / 1024).toFixed(1);
-  assert.match(run(dir, 'status').stderr, new RegExp(`Codex never reads the harness block in AGENTS\\.md: it starts at ${above} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it`));
+  assert.match(run(dir, 'status').stdout, new RegExp(`Codex never reads the harness block in AGENTS\\.md: it starts at ${above} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it`));
 });
 
 test('doctor: outside a git repository it warns and does not fail', () => {
@@ -204,7 +206,7 @@ test('doctor: an install hook in the old form is a warning that names init', () 
   assert.doesNotMatch(run(dir, 'doctor').stdout, /also when harnesspm is not installed/);
 });
 
-test('doctor: an untrusted package is a warning that says the fix once', () => {
+test('doctor: an untrusted package waits for a person, with the step on its line', () => {
   const dir = project({ '@acme/kit': '1' });
   installPackage(dir, '@acme/kit', {
     plugin: 'kit',
@@ -214,6 +216,7 @@ test('doctor: an untrusted package is a warning that says the fix once', () => {
   assert.equal(run(dir, 'sync').status, 0);
   const result = run(dir, 'doctor');
   assert.equal(result.status, 0, result.stdout);
-  const line = result.stdout.split('\n').find((l) => l.includes('@acme/kit'));
-  assert.equal(line, '  ⚠️  Off: @acme/kit: 1 script (not trusted; a person turns it on in "trust" in harnesspm.json)');
+  const line = result.stdout.split('\n').find((l) => l.startsWith('  - @acme/kit'));
+  assert.equal(line, '  - @acme/kit: 1 script (not trusted). A person adds "@acme/kit": true to "trust" in harnesspm.json, then runs `npx -y @harnesspm/cli approve`.');
+  assert.match(result.stdout, /\n⏳ Waiting for a person\n  - @acme\/kit/);
 });

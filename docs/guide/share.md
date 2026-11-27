@@ -1,12 +1,12 @@
 ---
-description: Ship rules, docs, skills and tools for agents in your library's npm package. Ask your agent to add the harness, decide what goes in, publish it, tell your users, and pass on the harness of the libraries you build on.
+description: Ship rules, docs, skills and tools for agents in your library's npm package. One command starts the harness, then decide what goes in, publish it, tell your users, and pass on the harness of the libraries you build on.
 ---
 
 # Share a harness from your library
 
 **In short**
 
-- Ask your agent to add a harness to your library with harnesspm. It is a `harness/` folder in your npm package, with a `plugin.json` and Markdown rules. harnesspm is only a dev dependency.
+- Run `npx -y @harnesspm/cli new rule usage` in your library, or ask your agent to. It starts a `harness/` folder in your npm package, with a `plugin.json` and a Markdown rule, and prints the next steps. harnesspm is only a dev dependency.
 - You decide what every user's agent must always know. Keep that short.
 - List `harness` in the `files` field of `package.json`, run `harnesspm check` at `prepack`, and say in the README that the package ships a harness.
 - Use `extends` to pass on the harness of the libraries you build on, and `patch` to adapt their rules for your users.
@@ -26,23 +26,10 @@ A harness costs your users context, so the choice is yours:
 Paste this into Claude Code or Codex, in your library's repository:
 
 ```text
-Use harnesspm to share a harness from this package,
-so that the agents of its users know how to use it.
-
-1. Install @harnesspm/cli as a dev dependency.
-2. Follow https://harnesspm.tenphi.me/guides/share.
-   The installed package has the steps too, in its
-   harnesspm-export skill.
-3. Draft one short rule about the mistakes agents
-   make with this package, from our docs and source.
-   I will correct it.
-4. Set the harness's `docs` field to our docs folder.
-5. Show me the harness before you commit.
+Run `npx -y @harnesspm/cli new rule usage` in this package and do what it prints.
 ```
 
-Your agent knows nothing about harnesspm in this repository yet. So the prompt names harnesspm, and says where the steps are. Keep both when you write your own.
-
-Your agent follows the steps below. The rule it writes is a draft: you know which mistakes agents really make with your library. Then ask for what you need, and name harnesspm each time:
+`new` writes the harness and prints the next steps, with the `harnesspm-export` skill that has every step below. The rule your agent writes is a draft: you know which mistakes agents really make with your library, so read it before you publish. Then ask for what you need, and name harnesspm each time:
 
 ```text
 Add a skill to our harnesspm harness that walks
@@ -50,16 +37,6 @@ an agent through a migration to version 3.
 ```
 
 Does your library build on another one that ships a harness? Ask: "Pass on the harness of `@acme/colors` in our harnesspm harness." Your users then get both, in the version you use.
-
-## Install harnesspm
-
-```shell
-npm i -D @harnesspm/cli
-```
-
-Your library needs harnesspm only to write and check its harness, so it is a dev dependency. Your users install harnesspm in their own project.
-
-The steps also ship in the package, as the `harnesspm-export` skill: `node_modules/@harnesspm/cli/harness/skills/harnesspm-export/SKILL.md`.
 
 ## The smallest harness
 
@@ -70,8 +47,12 @@ $ npx -y @harnesspm/cli new rule usage
 Wrote in the project's own harness (harness/):
   harness/plugin.json
   harness/dev.harnesspm/rules/usage.md
-Next: edit it, then run `npx -y @harnesspm/cli check`. To see the harness in this repository's AGENTS.md too, run `npx -y @harnesspm/cli init`.
+Next: edit it, then run `npx -y @harnesspm/cli check`.
+To publish it, add "harness" to "files" in package.json, and "prepack": "harnesspm check" with @harnesspm/cli as a dev dependency.
+Every step, and what goes into a harness: the harnesspm-export skill, …/@harnesspm/cli/harness/skills/harnesspm-export/SKILL.md
 ```
+
+The skill is the copy that ships with harnesspm: in npx's cache, or in `node_modules/@harnesspm/cli/` once harnesspm is a dev dependency.
 
 `npx -y @harnesspm/cli new --help` lists every kind. The manifest, `harness/plugin.json`, starts like this:
 
@@ -85,6 +66,8 @@ Next: edit it, then run `npx -y @harnesspm/cli check`. To see the harness in thi
 `plugin.json` is an [Agent Plugins 1.0](https://agent-plugins.org/) manifest. Its `name` is the **plugin name**: it starts the ID of every unit, such as `my-lib:rules/usage`. Everything harnesspm adds lives in the `dev.harnesspm` extension field and folder.
 
 ## Publish it
+
+Your library needs harnesspm only to write and check its harness, so it is a dev dependency: `npm i -D @harnesspm/cli`. Your users install harnesspm in their own project.
 
 ```json
 {
@@ -111,7 +94,6 @@ Publish as usual. A project that uses harnesspm gets your harness on its next in
 This package ships a harness for coding agents: rules, docs and tools that match the version you install. To give it to Claude Code and Codex, set up [harnesspm](https://harnesspm.tenphi.me) in your project:
 
 ```shell
-npm i -D @harnesspm/cli
 npx -y @harnesspm/cli init
 ```
 ````
@@ -123,13 +105,12 @@ Change "rules, docs and tools" to what your harness has.
 Sharing needs no `npx -y @harnesspm/cli init` in the library's repository. Run it when you want to see the harness as your users' agents will, or ask your agent:
 
 ```text
-Set up harnesspm in this repository too:
-run `npx -y @harnesspm/cli init`.
+Run `npx -y @harnesspm/cli init` in this repository too, and do what it prints.
 ```
 
 - Your own harness then shows in the block in your `AGENTS.md`, under `(this project)`, and your agents read it. Work with it for a while, and fix what misleads them.
 - `npx -y @harnesspm/cli why <ID>` and `npx -y @harnesspm/cli status` work in the repository. Without `init`, `why` finds no unit there.
-- `init` adds `harnesspm sync` to the `prepare` script, and writes files to commit. [Get started](./setup.md#3-commit-what-it-wrote) has the list.
+- `init` adds `harnesspm sync` to the `prepare` script, writes files to commit, and lists them.
 
 ## Rules
 

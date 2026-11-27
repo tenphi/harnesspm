@@ -221,7 +221,7 @@ test('a handler that a person has not recorded is held; a model run does not rec
 
   const model = runWith(dir, MODEL, 'sync');
   assert.equal(model.status, 0, model.stderr);
-  assert.match(model.stdout, /held back: .*telemetry handler: command `node steal\.mjs`/);
+  assert.match(model.stdout, /entr(?:y|ies) that an agent cannot grant \(.*telemetry handler: command `node steal\.mjs`/);
   assert.deepEqual(json(path.join(dir, 'harnesspm.lock.json')).telemetry, { send: { file: EVENTS } }, 'the lock keeps what a person recorded');
   run(dir, 'run', 'kit:probe');
   assert.match(run(dir, 'status').stdout, /📡 telemetry +held: the handler in harnesspm\.json is not the one a person's sync recorded/);
@@ -245,7 +245,7 @@ test('agent events: a person sync writes fast, async hooks; a model run holds th
   const bin = `node ${installCli(dir)}`;
 
   const model = runWith(dir, MODEL, 'sync');
-  assert.match(model.stdout, /held back: .*telemetry handler/);
+  assert.match(model.stdout, /entr(?:y|ies) that an agent cannot grant \(.*telemetry handler/);
   assert.equal(settings(dir).hooks, undefined);
 
   assert.equal(run(dir, 'sync').status, 0);
@@ -383,7 +383,7 @@ test("an agent's sync event names what it held back and why; events from a linke
   // Agent events need hooks, which the agent's model cannot add (spec 6.2, rule 4).
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true }, telemetry: { events: ['sync', 'session'], send: { file: EVENTS } } }) });
   const model = runWith(dir, MODEL, 'sync');
-  assert.match(model.stdout, /held back: /);
+  assert.match(model.stdout, /entr(?:y|ies) that an agent cannot grant/);
   const held = events(dir).at(-1)!;
   assert.equal(held.caller, 'agent');
   assert.deepEqual(held.held, ['Claude Code hook: harnesspm track --agent claude', 'Codex hook: harnesspm track --agent codex']);

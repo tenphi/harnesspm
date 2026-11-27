@@ -31,24 +31,21 @@ To give a harness to everyone who works on a repository, make it a dependency in
 
 ## Ask your agent
 
-Paste this into Claude Code or Codex, in any folder:
+Two things stay with you: what goes into the always-on rules, and adding the harness, which trusts its tools. Paste one of these into Claude Code or Codex.
+
+To add a harness you have, such as your team's:
 
 ```text
-Start a harness of my own with harnesspm
-in ~/dev/my-harness. It holds how I work,
-for every repository.
-
-1. Run harnesspm as `npx -y @harnesspm/cli`.
-   Do not install it anywhere.
-2. Follow "Start one" in
-   https://harnesspm.tenphi.me/guides/add-your-own.
-3. Draft one short always-on rule about how I work,
-   from what you know. I will correct it.
-4. Commit it, and show me the harness.
-   Do not add it yourself.
+Run `npx -y @harnesspm/cli add <source>` and do what it prints.
 ```
 
-Your agent knows nothing about harnesspm in that folder. So the prompt names harnesspm, and says where the steps are. Keep both when you write your own.
+Your agent gets the harness's rules and skills at once. Its hook and tools wait until you run the same `add` in your own terminal ([Add one](#add-one)).
+
+To start a harness of your own, in a new folder:
+
+```text
+Run `npx -y @harnesspm/cli new rule workflow` in ~/dev/my-harness and do what it prints.
+```
 
 Your agent does [Start one](#start-one) below. The rule it writes is a draft: you know how you work. Then you [add it](#add-one) in your own terminal.
 
@@ -61,7 +58,7 @@ mkdir -p ~/dev/my-harness && cd ~/dev/my-harness && git init
 npx -y @harnesspm/cli new rule workflow
 ```
 
-- `new` creates `harness/plugin.json`, with the folder's name as the plugin name, and `harness/dev.harnesspm/rules/workflow.md`, an always-on rule. Ignore the `init` it suggests: your harness is not a project.
+- `new` creates `harness/plugin.json`, with the folder's name as the plugin name, and `harness/dev.harnesspm/rules/workflow.md`, an always-on rule. It then prints the next steps: `check`, a commit, and the `add` that a person runs.
 - Write the rule, then run `npx -y @harnesspm/cli check`, and commit.
 - A folder works on this machine. To use the harness on other machines and in cloud sessions, push it to a repository of yours and add it from there.
 - The person adds it, as below. An agent that starts a harness for someone stops before `add`.

@@ -34,14 +34,21 @@ my-lib/
         └── rules/…     Markdown rules
 ```
 
+### Start
+
+```bash
+npx -y @harnesspm/cli
+```
+
+Every task starts with this one command. In a project it prints the project's report. Elsewhere it says what the folder is and names the command that starts each task, and that command prints the next step ([10.1](10-cli.md#where-every-task-starts)).
+
 ### Use (import)
 
 ```bash
-npm i -D @harnesspm/cli
 npx -y @harnesspm/cli init
 ```
 
-Every full install, such as `npm install` or `pnpm install`, then runs `harnesspm sync`. It finds the harness of each dependency, follows `extends` chains, applies the project's changes, and writes each agent's native files. The project commits the generated block in `AGENTS.md` and `harnesspm.lock.json`, so upgrades show up in pull requests.
+`init` installs `@harnesspm/cli` as a dev dependency, then sets the project up. Every full install, such as `npm install` or `pnpm install`, then runs `harnesspm sync`. It finds the harness of each dependency, follows `extends` chains, applies the project's changes, and writes each agent's native files. The project commits the generated block in `AGENTS.md` and `harnesspm.lock.json`, so upgrades show up in pull requests.
 
 ### Add on top
 
@@ -120,7 +127,7 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | --- | --- | --- |
 | S1 | A library shares its harness | Adds `harness/` and lists it in `files`. |
 | S2 | A library builds on upstream harness | Lists the upstream packages in `extends`, adds its own units. |
-| S3 | A project uses the harness of its dependencies | `npm i -D @harnesspm/cli` and `npx -y @harnesspm/cli init`, once. |
+| S3 | A project uses the harness of its dependencies | `npx -y @harnesspm/cli init`, once. It installs harnesspm, and its report says what to commit and what waits for the person. |
 | S4 | A project changes one upstream rule | One `patch` for a few sections, or one `replace` or `exclude` entry. |
 | S5 | A project upgrades a dependency | Nothing after a full install. After `npm install <pkg>` or `pnpm add`, `npx -y @harnesspm/cli sync`. The pull request shows what changed. |
 | S6 | Several repositories share a policy | A harness-only package, added as a dev dependency. |
@@ -133,12 +140,12 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | S13 | A job reads the harness without an install, such as a review bot | `npx -y @harnesspm/cli fetch`. |
 | S14 | A team sees how agents use its harnesses | `telemetry` in `harnesspm.json` with a handler, then `npx -y @harnesspm/cli sync`. |
 | S15 | An agent finds a harness unit that is wrong, missing or failing | Nothing in harnesspm. The project's own rule tells agents where to report, and `harnesspm why` gives the details. |
-| S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx -y @harnesspm/cli doctor`. |
+| S16 | A person checks that a repository is ready for a harness of their own, and that no per-machine file can reach a commit | `npx -y @harnesspm/cli doctor`, or the bare command in a project, which prints the same report. |
 | S17 | A teammate's merged change adds a hook, an MCP server or an allow rule | Nothing. The next install writes it on every machine, also when an agent runs the install. |
 | S18 | An agent clones the repositories its task needs, such as into `work/app`, and uses their harnesses from its own folder | Nothing in the cloning repository. The block commands in the clone's `AGENTS.md` say how: `npx -y @harnesspm/cli -C work/app help` lists its packages, `-C work/app help <package>` prints one, and `-C work/app run <unit>` runs a tool, also before the clone is installed. Hooks of the clone run there only after a `sync` in that folder (S20). |
 | S19 | A repository has many harness packages or workspaces, and its `AGENTS.md` must stay inside the agents' limits | Nothing. The managed block names each rule and tool in one line. Agents print a package's rules with `help <package>` and a tool's options with `help <tool>`. |
 | S20 | A session starts in a folder above several repositories, such as a Claude Code cloud session with more than one, a person's folder of clones, or a job runner's work folder | `npx -y @harnesspm/cli sync` in that folder, after the installs: in the environment's setup script, once on a person's machine, or in the runner's checkout step. Each repository's hooks run there, and a block in that folder's `AGENTS.md` names each repository and its `help` command. A later sync of a repository keeps its entries there current. The `SessionStart` hook of an added harness syncs that folder too, so each repository gets its project entry. |
-| S21 | An agent looks for a dependency's docs with its search tool, not through the block | One `/.harnesspm/` line in `.gitignore`, so formatters skip the copies. `sync` and `fetch` copy every dependency's docs into `.harnesspm/docs/`, and a `.rgignore` that git ignores lets search tools in. |
+| S21 | An agent looks for a dependency's docs with its search tool, not through the block | Nothing: `init` adds one `/.harnesspm/` line to `.gitignore`, so formatters skip the copies. `sync` and `fetch` copy every dependency's docs into `.harnesspm/docs/`, and a `.rgignore` that git ignores lets search tools in. |
 
 ## 1.7 What is committed
 
@@ -146,4 +153,4 @@ Every feature serves at least one of these. Each must take as few steps as possi
 | --- | --- |
 | `harnesspm.json`, `harnesspm.lock.json`, the managed blocks in `AGENTS.md`, the `@AGENTS.md` lines in `CLAUDE.md` files (at the root and next to each nested `AGENTS.md`) | Everything else: links, docs copies, agent settings, `.codex/`, outputs of added harnesses |
 
-Committed files depend only on the dependency and project layers, so every teammate and CI produce the same result. harnesspm never edits `.gitignore`.
+Committed files depend only on the dependency and project layers, so every teammate and CI produce the same result. Only `init` edits `.gitignore`: it adds the one line `/.harnesspm/` when no `.gitignore` ignores that folder, and `.gitignore` is then among the files to commit. `sync` never edits it, and warns while the line is missing.

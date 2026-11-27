@@ -71,7 +71,7 @@ cd ~/work && npx -y @harnesspm/cli sync
 
 ## Upgrades
 
-A full install runs `harnesspm sync` for you. [Keep it current](./setup.md#5-keep-it-current) lists the installs that run no script, and what to run after them.
+A full install runs `harnesspm sync` for you. [Keep it current](./setup.md#4-keep-it-current) lists the installs that run no script, and what to run after them.
 
 The pull request shows the change. The lock records each package's version and every unit's hash. The block names no versions, so it changes only when a rule, a doc or a tool does. Here `@acme/ui` 4.3.0 changed only its `tokens` script:
 
@@ -98,10 +98,10 @@ The block points at one path per package, so harnesspm uses one version of each 
 Always-on text is in every session. The managed block names each rule and tool in one line, so it stays small with many packages and workspaces. `npx -y @harnesspm/cli status` reports the size for each agent:
 
 ```text
-📏 always-on     Codex 1.9 KiB of 32 KiB · Claude Code 32 lines
+📏 always-on     Codex 1.7 KiB of 32 KiB · Claude Code 31 lines
 ```
 
-Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. `status` warns when `AGENTS.md` comes close to that limit and says when it is over, and `doctor` warns too. Both also name each harnesspm block that Codex never reaches, such as one after long hand-written text, and say that agents can still get it with `help <package>`. Move that block to the top of the file: `sync` keeps it there. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
+Codex reads `AGENTS.md` files up to 32 KiB by default and cuts off the rest. The report that `status` and `doctor` print warns when `AGENTS.md` comes close to that limit and says when it is over. It also names each harnesspm block that Codex never reaches, such as one after long hand-written text, and say that agents can still get it with `help <package>`. Move that block to the top of the file: `sync` keeps it there. Claude Code's docs advise under about 200 lines per `CLAUDE.md`. Both facts have sources in [agent capabilities](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md). To drop a package or a unit you do not need, see [Change upstream units](./change-upstream.md).
 
 ## More
 

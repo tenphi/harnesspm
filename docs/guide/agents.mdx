@@ -1,57 +1,11 @@
 ---
 title: For AI agents
-description: Where an AI coding agent starts with harnesspm - what is already installed, the rules that always apply, and the page for each task.
+description: Where an AI coding agent starts with harnesspm - one command that says what the folder is and what to run next.
 ---
 
 **In short**
 
-- This page is for you, an AI coding agent that a person asked to work with harnesspm. It gives the rules that always apply and the guide for each task, which has every step.
-- In a project that already uses harnesspm, read what is installed first. It matches the installed version. This site describes the latest one.
-- Never give yourself permissions. Trust and approval belong to the person.
-- [llms.txt](https://harnesspm.tenphi.me/llms.txt) lists every page of this site with a Markdown copy.
-
-## What is installed
-
-A project that uses harnesspm already gives you this:
-
-| Where | What |
-| --- | --- |
-| The managed block in `AGENTS.md` | The commands that reach the harness, then one line for each rule, docs index and tool of each package. Every line ends with a unit ID. `npx -y @harnesspm/cli help <package>` prints a package's rules in full, and `help <tool>` a tool's usage. |
-| The skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve` | The steps for using, sharing and improving a harness. |
-| `.harnesspm/docs/harnesspm/llms.txt` | The specification, at the installed version. |
-
-No block in `AGENTS.md` means the project does not use harnesspm yet:
-
-- To use the harness of its dependencies, start with [Get started](./setup.md).
-- To share a harness from a library, start with [Share a harness from your library](./share.md). It needs only the dev dependency. The skills are then files in `node_modules/@harnesspm/cli/harness/skills/`.
-
-## Rules that always apply
-
-1. **Never edit an output.** The managed block, `CLAUDE.local.md`, and the files and links in `.claude/`, `.codex/` and `.agents/skills/` are generated. Change the source that `npx -y @harnesspm/cli why <ID>` names.
-2. **Sync after a change.** After you change `harnesspm.json` or a harness file, and after `npm install <pkg>` or `pnpm add <pkg>`, run `npx -y @harnesspm/cli sync`.
-3. **Ask before you trust.** Do not add a package to `trust` in `harnesspm.json` without the person's agreement. Say what each pending tool does: `harness/plugin.json` of its package has each script's `description`, and `"allow": true` when it asks to run without a prompt.
-4. **Do not grant permissions.** When you run harnesspm, new allow rules, hooks and MCP servers stay pending, unless the default branch already records them. The held-back line says what differs. Ask the person to run `npx -y @harnesspm/cli approve` in their own terminal. In a Claude Code cloud session, where the person has no terminal, give them the line that harnesspm prints for the environment's setup script instead. Do not edit agent settings files to work around it.
-5. **Save a change the owner's way.** Read `AGENTS.md` and `CONTRIBUTING.md` of the repository that owns the unit. When they say nothing, show the change, ask, and use a branch and a pull request.
-6. **Keep added harnesses out of the project.** Their outputs are per machine. Never commit them.
-7. **Report at the end.** Say what you wrote, what is pending, and what the person has to do.
-
-Why rules 3 and 4 are strict: a harness can ship scripts, hooks and MCP servers. They run code on the person's machine, some of them without a prompt. [Trust and safety](./trust.md) has the full model.
-
-## Pick the task
-
-| The person asks to | Read |
-| --- | --- |
-| Set up harnesspm, or use what the dependencies ship | [Get started](./setup.md), then [Use a package's harness](./use.md) |
-| Turn on a package's tools | [Trust and safety](./trust.md) |
-| Fix or drop a rule that comes from a dependency | [Change upstream units](./change-upstream.md) |
-| Remember something, or improve a harness | [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent) |
-| Share a harness from a library | [Share a harness from your library](./share.md), with the [package format](./reference/package-format.md) |
-| Add their own or their team's harness | [Add your own or your team's harness](./add-your-own.md) |
-| Work in a monorepo | [Monorepos](./monorepos.md) |
-| Work in a Claude Code cloud session | [Cloud sessions](./cloud.md) |
-| See how agents use the harness | [Telemetry](./telemetry.md) |
-| Look up a command or a field | [CLI](./reference/cli.md), [harnesspm.json](./reference/config.md) |
-
-The guides are for the person and for you. A guide that starts a task opens with what the person decides and an "Ask your agent" prompt for them to paste. The steps after the prompt are yours.
-
-The [specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md) has every rule behind these pages.
+- Run `npx -y @harnesspm/cli` in the folder the person named. In a project that uses harnesspm, it prints the project's report. Elsewhere, it says what the folder is and which command starts each task. Run that command, and do what it prints.
+- Never give yourself permissions. Trust and `approve` belong to the person: when harnesspm says that a step waits for a person, report it and wait.
+- In a project that uses harnesspm, the managed block in `AGENTS.md` and the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve` match the installed version. This site describes the latest one.
+- [llms.txt](https://harnesspm.tenphi.me/llms.txt) lists every page of this site with a Markdown copy, and the [specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md) has every rule behind them.
