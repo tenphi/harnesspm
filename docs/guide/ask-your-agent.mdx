@@ -7,19 +7,19 @@ description: Prompts for the common harnesspm tasks, what your agent does with e
 
 - These prompts work in a repository where `npx -y @harnesspm/cli init` has run: after [Get started](./setup.md), or in a library after [See what your users get](./share.md#see-what-your-users-get). Your agent then has three skills for harnesspm.
 - Each task below has a prompt, what your agent does, and what you decide.
-- The prompts that start with harnesspm open their guides: [Get started](./setup.md), [Share a harness from your library](./share.md) and [Add your own or your team's harness](./add-your-own.md). The [agent start page](./agents.mdx) names the guide for each task.
+- The tasks that start with harnesspm have a one-line prompt in their guides: [Get started](./setup.md), [Share a harness from your library](./share.md) and [Add your own or your team's harness](./add-your-own.md). Each names the command that starts the task, and the command prints the steps.
 
 The prompts are examples. Use your own words, and your own package names in place of `@acme/ui`. Keep the word harnesspm in each prompt: it tells your agent which tool and which skill to use.
 
-## See what you got
+## See what you got, and check the setup
 
 ```text
-What did harnesspm give you from our dependencies?
-Show me `npx -y @harnesspm/cli status`.
+Run `npx -y @harnesspm/cli` and tell me what it reports.
 ```
 
-- **Your agent** lists the packages with a harness, the tools that wait for trust, and the size of the always-on text.
+- **Your agent** lists the packages with a harness, the size of the always-on text, the checks that per-machine files stay out of git, and what waits for you. The command changes nothing, and each problem names the command that fixes it.
 - **You** learn what your agent now knows. Each rule in `AGENTS.md` ends with an ID that names its source.
+- **You decide** on any fix that changes what git tracks.
 
 ## Turn on a package's tools
 
@@ -56,12 +56,3 @@ we use Conventional Commits in this repository.
 ## Add your own harness to every repository
 
 Your own rules, notes and skills can live in a repository of yours, and apply on top of any project. [Add your own or your team's harness](./add-your-own.md#ask-your-agent) has the prompt that starts one, and what stays with you: you add it in your own terminal, because adding a harness is your trust decision.
-
-## Check the setup
-
-```text
-Run `npx -y @harnesspm/cli doctor` and tell me what it reports.
-```
-
-- **Your agent** runs the checks. `doctor` changes nothing, and each problem names the command that fixes it.
-- **You decide** on any fix that changes what git tracks.

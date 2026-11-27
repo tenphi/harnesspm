@@ -38,10 +38,10 @@ Paths are relative to the project root. Unknown fields give a warning. The schem
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `events` | `"all"` or string[] | `"all"` | Which of `run`, `mcp`, `sync`, `why`, `read`, `skill` and `session` to send. |
+| `events` | `"all"` or string[] | `"all"` | Which of `run`, `mcp`, `sync`, `why`, `help`, `read`, `skill` and `session` to send. |
 | `send` | string or `{ "file": "<path>" }` | required | The handler. A string is a command that gets each event as JSON on stdin. `file` appends one JSON line per event. |
 
-The handler is active only after a person's `sync` recorded it in the lock. See [Telemetry](../telemetry.md).
+The handler is active only after a person's `sync` or `approve` recorded it in the lock. See [Telemetry](../telemetry.md).
 
 ### The project's own harness
 
@@ -76,11 +76,16 @@ Per machine, for every repository. Same fields:
 
 ## Files harnesspm writes
 
-| File | Committed | Edit by hand |
-| --- | --- | --- |
-| `harnesspm.lock.json` | Yes | No |
-| The block in `AGENTS.md`, between `BEGIN:harnesspm` and `END:harnesspm` | Yes | No. Text outside the block is yours. |
-| `@AGENTS.md` in `CLAUDE.md`, at the root and next to each nested `AGENTS.md` that git tracks | Yes | The rest of `CLAUDE.md` is yours. |
-| Everything else: `.claude/`, `.codex/`, `.agents/skills/`, `CLAUDE.local.md`, `node_modules/.harnesspm/` | No | No |
+`init` ends with the list of files to commit: the ones in this table that git sees as new or changed.
+
+| File | What it holds | Committed | Edit by hand |
+| --- | --- | --- | --- |
+| `harnesspm.json` | The project's configuration, which `init` creates | Yes | Yes |
+| `harnesspm.lock.json` | Every harness package and every unit's hash | Yes | No |
+| The block in `AGENTS.md`, between `BEGIN:harnesspm` and `END:harnesspm` | The commands that reach the harness, then one line for each rule, docs index and tool of each package | Yes | No. Text outside the block is yours. |
+| `@AGENTS.md` in `CLAUDE.md`, at the root and next to each nested `AGENTS.md` that git tracks | The import that makes Claude Code read the block | Yes | The rest of `CLAUDE.md` is yours. |
+| `package.json` and the package manager's lockfile | The dev dependency and the `postinstall` or `prepare` script, which `init` adds | Yes | Yes, but keep the script as `init` wrote it. |
+| `/.harnesspm/` in `.gitignore` | The line that `init` adds, so formatters skip the docs copies | Yes | The rest of `.gitignore` is yours. |
+| Everything else: `.claude/`, `.codex/`, `.agents/skills/`, `CLAUDE.local.md`, `node_modules/.harnesspm/`, the docs copies in `.harnesspm/docs/` and `.rgignore` | Links, settings and copies for each agent on this machine, listed in `.git/info/exclude` | No | No |
 
 The specification's [Outputs chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/04-outputs.md) lists every file.

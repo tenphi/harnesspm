@@ -1,0 +1,11 @@
+harnesspm {version}: rules, docs, skills and tools from npm packages, for Claude Code and Codex.
+This folder (app) does not use harnesspm. 3 dependencies ship a harness: @acme/ui, @acme/colors, @acme/styles.
+
+Pick the task, run its command, and follow what it prints:
+  Give this project's agents its dependencies' harness   npx -y @harnesspm/cli init
+  Share a harness from this package                      npx -y @harnesspm/cli new rule usage
+  Add your own or your team's harness, on every repo     npx -y @harnesspm/cli add <github:owner/repo | folder>
+  Start a harness of your own, in an empty folder        npx -y @harnesspm/cli new rule workflow
+
+A person decides what runs: they add a harness and trust a package. An agent asks first.
+Every command: npx -y @harnesspm/cli --help · Docs: https://harnesspm.tenphi.me

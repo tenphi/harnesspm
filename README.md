@@ -11,7 +11,7 @@ A **harness** is everything a coding agent needs to use a library well: rules, d
 | Flow | Who | What they do |
 | --- | --- | --- |
 | 📤 **Share** | A library | Adds a `harness/` folder to its npm package. It can pass on the harness of the libraries it builds on (`extends`). |
-| 📥 **Use** | A project | `npm i -D @harnesspm/cli` and `npx -y @harnesspm/cli init`. After every install, Claude Code and Codex see the harness of the installed versions. |
+| 📥 **Use** | A project | `npx -y @harnesspm/cli init`. After every install, Claude Code and Codex see the harness of the installed versions. |
 | ➕ **Add on top** | A person | `npx -y @harnesspm/cli add github:me/harness`. A team's or their own workflow, context and tools apply on top, without changing the project's repository. |
 | 🛠️ **Improve** | An agent | `npx -y @harnesspm/cli why <unit>` finds the source. The agent edits it and saves the change the way the owner's rules say, by default with a pull request. |
 
@@ -25,24 +25,27 @@ added        (harnesses you add: your team's, your own)       → per-machine fi
 
 ## Quick start
 
+Every task starts with one command. In any folder, it says what the folder is and names the command for each task:
+
+```bash
+npx -y @harnesspm/cli
+```
+
 In a project:
 
 ```bash
-npm i -D @harnesspm/cli
 npx -y @harnesspm/cli init
 ```
 
-`init` creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json` and `harnesspm.lock.json`. Or ask your agent to do it: [Get started](https://harnesspm.tenphi.me/guides/setup/) has the prompt.
+`init` installs harnesspm as a dev dependency, creates `harnesspm.json` and runs `harnesspm sync` after every full install. Commit what it lists. Or ask your agent: "Run `npx -y @harnesspm/cli init` in this project and do what it prints." [Get started](https://harnesspm.tenphi.me/guides/setup/) has every step.
 
 In a library, to share its harness:
 
 ```bash
-npm i -D @harnesspm/cli
 npx -y @harnesspm/cli new rule usage
-npx -y @harnesspm/cli check
 ```
 
-Add `"harness"` to the `files` field of `package.json`. [Share a harness from your library](https://harnesspm.tenphi.me/guides/share/) has the prompt for your agent. To add your own or your team's harness on top of every repository on your machine:
+It prints the next steps: `check`, and what goes into `package.json` to publish the harness. [Share a harness from your library](https://harnesspm.tenphi.me/guides/share/) has every step. To add your own or your team's harness on top of every repository on your machine:
 
 ```bash
 npx -y @harnesspm/cli add github:<owner>/<repo>
@@ -50,7 +53,7 @@ npx -y @harnesspm/cli add github:<owner>/<repo>
 
 To see how agents use the harness, a team can turn on telemetry in `harnesspm.json`. It is off by default, sends events only to the team's own handler (a command or a file), and never sends arguments or file contents. See [chapter 14](docs/spec/14-telemetry.md).
 
-`npx -y @harnesspm/cli help` lists every command, and `npx -y @harnesspm/cli <command> --help` shows one. [CHANGELOG.md](CHANGELOG.md) lists the changes.
+`npx -y @harnesspm/cli --help` lists every command, and `npx -y @harnesspm/cli <command> --help` shows one. [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## Requirements
 

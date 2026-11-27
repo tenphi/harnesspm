@@ -18,23 +18,19 @@ import { Card, CardGrid, CodeGroup } from '@tenphi/cookbook/components';
 import Flow from './components/Flow.astro';
 import ManagedBlock from './components/ManagedBlock.astro';
 import Terminal from './components/Terminal.astro';
+import harnesspmPackage from '../package.json';
+import start from './examples/start.txt?raw';
 import whyColorsUsage from './examples/why-colors-usage.txt?raw';
 
 <CodeGroup
   label="Set up harnesspm in a project"
   items={[
-    { label: 'npm', language: 'shell', code: 'npm i -D @harnesspm/cli\nnpx -y @harnesspm/cli init' },
-    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @harnesspm/cli\npnpm exec harnesspm init' },
-    { label: 'yarn', language: 'shell', code: 'yarn add -D @harnesspm/cli\nyarn harnesspm init' },
-    {
-      label: 'Ask your agent',
-      language: 'text',
-      code: 'Set up harnesspm in this project:\ninstall @harnesspm/cli as a dev dependency\nand run `npx -y @harnesspm/cli init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
-    },
+    { label: 'Command', language: 'shell', code: 'npx -y @harnesspm/cli init' },
+    { label: 'Ask your agent', language: 'text', code: 'Run `npx -y @harnesspm/cli init` in this project and do what it prints.' },
   ]}
 />
 
-Run these once in a project, or ask your agent to. `init` makes every install run `harnesspm sync`, which updates what your agents read.
+Run it once in a project, or ask your agent to. `init` installs harnesspm and makes every install run `harnesspm sync`, which updates what your agents read. Then it says what to commit, and which tools wait for your trust.
 
 ## Your agent doesn't know your libraries
 
@@ -152,9 +148,13 @@ It applies in every repository on your machine, and one line in a setup script b
 
 ## Start where you are
 
+Every task starts with one command. In any folder, `npx -y @harnesspm/cli` says what the folder is and names the command for each task, and that command prints the next step:
+
+<Terminal command="npx -y @harnesspm/cli" output={start.replaceAll('{version}', harnesspmPackage.version)} />
+
 <CardGrid>
   <Card title="Use" href="/guides/setup">
-    Your project gets the harness of its dependencies. One prompt or two commands, then every install keeps it current.
+    Your project gets the harness of its dependencies. One command, then every install keeps it current.
   </Card>
   <Card title="Share" href="/guides/share">
     Your library ships rules, docs, skills and tools in its npm package, and passes on the harness of the libraries it builds on.
@@ -164,7 +164,7 @@ It applies in every repository on your machine, and one line in a setup script b
   </Card>
 </CardGrid>
 
-You say what you want, and your agent does the steps. Each of these guides opens with a prompt to give your agent, then has every step, for your agent and for you.
+You say what you want, and your agent does the steps. Each of these guides opens with a one-line prompt to give your agent, then has every step, for your agent and for you.
 
 Every format, rule and command is in [the specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md), on GitHub. It also ships in the npm package, so your agents read the version you installed.
 

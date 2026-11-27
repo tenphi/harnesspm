@@ -7,7 +7,13 @@
  *   node docs-site/examples/acme.mjs <new folder>
  *   cd <new folder>/app
  *   export HOME=<new folder>/home          # keeps your own ~/.claude and ~/.codex untouched
+ *   export PATH=<new folder>/bin:$PATH     # a stand-in npm, which installs harnesspm from this repository
+ *   node <this repository>/src/cli.ts
  *   node <this repository>/src/cli.ts init
+ *
+ * The app does not list harnesspm, so `init` installs it, as in a real project. The packages are made up, so `npm` is a
+ * stand-in: `npm i -D @harnesspm/cli@…` writes harnesspm as an install does, from this repository's files, and any
+ * other command fails. test/examples.test.ts runs these commands and compares the output with the site's.
  *
  * Run the commands in your own terminal: when an agent's model runs them,
  * new hooks and allow rules stay pending, and the output says so.
@@ -167,6 +173,30 @@ function installPackages() {
   install('@acme/ui', '4.2.0', 'acme-ui', ui.extension, ui.files);
 }
 
+/**
+ * The stand-in npm: `npm i -D @harnesspm/cli@<range>` puts harnesspm into the app as an install does, with the files the
+ * npm package ships. `process.getBuiltinModule` works in CommonJS and in ES modules alike.
+ */
+function standInNpm() {
+  const own = JSON.parse(fs.readFileSync(path.join(repository, 'package.json'), 'utf8'));
+  return `#!/usr/bin/env node
+const fs = process.getBuiltinModule('node:fs');
+const path = process.getBuiltinModule('node:path');
+const [command, flag, spec = ''] = process.argv.slice(2);
+if (!['i', 'install'].includes(command) || flag !== '-D' || !spec.startsWith('${own.name}@')) {
+  console.error('This npm is a stand-in for the example app. It only runs \`npm i -D ${own.name}@<range>\`.');
+  process.exit(1);
+}
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+pkg.devDependencies = { ...pkg.devDependencies, '${own.name}': '^${own.version}' };
+fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+const self = path.join('node_modules', '${own.name}');
+fs.mkdirSync(self, { recursive: true });
+fs.writeFileSync(path.join(self, 'package.json'), JSON.stringify(${JSON.stringify({ name: own.name, version: own.version, repository: own.repository })}, null, 2) + '\\n');
+for (const entry of ['harness', 'docs/spec', 'schema']) fs.cpSync(path.join(${JSON.stringify(repository)}, entry), path.join(self, entry), { recursive: true });
+`;
+}
+
 if (upgrade) {
   // The new version changes the script, so the lock shows a new hash.
   install('@acme/ui', '4.3.0', 'acme-ui', ui.extension, {
@@ -179,18 +209,15 @@ if (upgrade) {
     console.error(`${root} is not empty. Name a new folder.`);
     process.exit(1);
   }
-  const own = JSON.parse(fs.readFileSync(path.join(repository, 'package.json'), 'utf8'));
   write(app, {
-    'package.json': json({ name: 'app', version: '1.0.0', private: true, dependencies: { '@acme/ui': '^4.2.0' }, devDependencies: { [own.name]: `^${own.version}` } }),
+    'package.json': json({ name: 'app', version: '1.0.0', private: true, dependencies: { '@acme/ui': '^4.2.0' } }),
     '.gitignore': 'node_modules\n',
     // An install writes a lockfile, and `init` names it with the files to commit.
     'package-lock.json': json({ name: 'app', version: '1.0.0', lockfileVersion: 3, requires: true, packages: {} }),
   });
   installPackages();
-  // harnesspm itself, as an install puts it: the files the npm package ships.
-  const self = path.join(app, 'node_modules', own.name);
-  write(self, { 'package.json': json({ name: own.name, version: own.version, repository: own.repository }) });
-  for (const entry of ['harness', 'docs/spec', 'schema']) fs.cpSync(path.join(repository, entry), path.join(self, entry), { recursive: true });
+  write(root, { 'bin/npm': standInNpm() });
+  fs.chmodSync(path.join(root, 'bin/npm'), 0o755);
   fs.mkdirSync(path.join(root, 'home'), { recursive: true });
   spawnSync('git', ['init', '-q'], { cwd: app });
   console.log(`Wrote the example app into ${app}.`);
