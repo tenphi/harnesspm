@@ -26,7 +26,7 @@ export default defineDocsConfig({
     headerLinks: [
       {
         label: 'npm',
-        link: 'https://www.npmjs.com/package/@tenphi/harnesspm',
+        link: 'https://www.npmjs.com/package/@harnesspm/cli',
         newTab: true,
       },
     ],

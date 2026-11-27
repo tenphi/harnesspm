@@ -1,6 +1,10 @@
 {
   "lockfileVersion": 1,
   "packages": {
+    "@harnesspm/cli": {
+      "plugin": "harnesspm",
+      "project": true
+    },
     "@tenphi/cookbook": {
       "version": "0.34.1",
       "plugin": "cookbook",
@@ -18,10 +22,6 @@
       "plugin": "glaze",
       "resolved": "https://registry.npmjs.org/@tenphi/glaze/-/glaze-3.2.0.tgz",
       "integrity": "sha512-KcI9hpEeBQtf5Yy93KwQ+APrPPO3a8/HHXSVeRmuqCLhAo1SSjVBpZX5HGzDFPczAwqCbu9/fWYjxVVLY658dQ=="
-    },
-    "@tenphi/harnesspm": {
-      "plugin": "harnesspm",
-      "project": true
     },
     "@tenphi/tasty": {
       "version": "3.19.2",
@@ -65,27 +65,27 @@
     },
     "harnesspm:docs": {
       "kind": "docs",
-      "hash": "b41040b2469a98c1"
+      "hash": "c49c3850c9854a13"
     },
     "harnesspm:rules/generated-files": {
       "kind": "rules",
-      "hash": "755c5b2ec8e867ce"
+      "hash": "fa394ff4cd32a31a"
     },
     "harnesspm:rules/harnesspm-config": {
       "kind": "rules",
-      "hash": "d63e2afc5e1cff0c"
+      "hash": "fe528bce29c7d31b"
     },
     "harnesspm:skills/harnesspm-export": {
       "kind": "skills",
-      "hash": "57a522200fd69144"
+      "hash": "6b01a6e4d32ee8ec"
     },
     "harnesspm:skills/harnesspm-import": {
       "kind": "skills",
-      "hash": "dafae2a336f447cb"
+      "hash": "302f9deb6ce32c3c"
     },
     "harnesspm:skills/harnesspm-improve": {
       "kind": "skills",
-      "hash": "7543189ff8b9b71d"
+      "hash": "98486efa55e31576"
     },
     "tasty-lint:docs": {
       "kind": "docs",

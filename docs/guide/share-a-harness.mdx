@@ -19,7 +19,7 @@ Paste this into Claude Code or Codex, in your library's repository:
 Use harnesspm to share a harness from this package,
 so that the agents of its users know how to use it.
 
-1. Install @tenphi/harnesspm as a dev dependency.
+1. Install @harnesspm/cli as a dev dependency.
 2. Follow https://harnesspm.tenphi.me/guides/share.
    The installed package has the steps too, in its
    harnesspm-export skill.
@@ -62,7 +62,7 @@ Does your library build on another one that ships a harness? Ask: "Pass on the h
 
 ```text
 Set up harnesspm in this repository too:
-run `npx harnesspm init`.
+run `npx -y @harnesspm/cli init`.
 ```
 
 Sharing does not need this step. It is the way to see your harness as your users' agents will: it then shows in your own `AGENTS.md`, and your agent reads it. Work with it for a while, and fix what misleads it.

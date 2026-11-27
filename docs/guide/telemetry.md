@@ -21,7 +21,7 @@ description: Turn on opt-in events about how agents and people use your harness,
 }
 ```
 
-Then run `npx harnesspm sync`. A file handler appends one JSON line per event. A command handler, such as `"node scripts/harness-events.mjs"`, gets each event as JSON on stdin. It runs from the project root, in a detached process, for at most 10 seconds.
+Then run `npx -y @harnesspm/cli sync`. A file handler appends one JSON line per event. A command handler, such as `"node scripts/harness-events.mjs"`, gets each event as JSON on stdin. It runs from the project root, in a detached process, for at most 10 seconds.
 
 The handler gets events only after a person's `sync` has recorded it in `harnesspm.lock.json`. An agent that adds or changes a handler cannot turn it on. Review a new handler in the lock diff, like a new hook.
 
@@ -62,7 +62,7 @@ For many events, prefer a file and ship it on a schedule. An OpenTelemetry Colle
 A tool of your project that is not a harnesspm script, such as `yarn probe`, can send its runs to the same handler:
 
 ```js
-import { reportRun } from '@tenphi/harnesspm/telemetry';
+import { reportRun } from '@harnesspm/cli/telemetry';
 
 reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
 
@@ -80,17 +80,17 @@ It follows the same switch, opt-outs and trust rule as `harnesspm run`, and neve
 | One repository | `"telemetry": false` in `harnesspm.local.json`, which is never committed |
 | Every repository on the machine | `"telemetry": false` in `~/.harnesspm/config.json` |
 
-`npx harnesspm status` shows whether events are sent, held or off on this machine.
+`npx -y @harnesspm/cli status` shows whether events are sent, held or off on this machine.
 
 ## Let agents report harness problems
 
-Reporting is a rule of your own, not a harnesspm feature. Add one with `npx harnesspm new rule reporting-harness-problems` and say where agents should report:
+Reporting is a rule of your own, not a harnesspm feature. Add one with `npx -y @harnesspm/cli new rule reporting-harness-problems` and say where agents should report:
 
 ```markdown
 # Reporting harness problems
 
 - When a harness rule, doc, skill or tool is wrong, missing or fails, file a ticket in <your tracker>.
-- Say what you tried, what happened and what you expected. Add the output of `npx harnesspm why <ID>`.
+- Say what you tried, what happened and what you expected. Add the output of `npx -y @harnesspm/cli why <ID>`.
 - Then go on with the task. Do not change the unit unless the user asks.
 ```
 

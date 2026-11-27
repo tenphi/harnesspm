@@ -13,7 +13,7 @@
 | [`AGENTS.md`](https://github.com/tenphi/harnesspm/blob/main/AGENTS.md) | How to work on this repository, including how to save changes. The harnesspm block that `npm run sync` writes comes right after the title, where agents that read only the top of the file see it. |
 | [`CLAUDE.md`](https://github.com/tenphi/harnesspm/blob/main/CLAUDE.md) | Imports `AGENTS.md` for Claude Code. |
 | [`harnesspm.json`](https://github.com/tenphi/harnesspm/blob/main/harnesspm.json) | This repository's project configuration. |
-| [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness) | The harness that ships to everyone who installs `@tenphi/harnesspm`. Part of the project layer here, the dependency layer for users. |
+| [`harness/`](https://github.com/tenphi/harnesspm/tree/main/harness) | The harness that ships to everyone who installs `@harnesspm/cli`. Part of the project layer here, the dependency layer for users. |
 
 harnesspm runs on these files: `npm run sync` writes the block and `harnesspm.lock.json`, and `npm run check` validates them. A change to the format MUST keep them working, or change them and this chapter together.
 
@@ -34,7 +34,7 @@ It is also a small reference example for package authors.
 
 ```json
 {
-  "name": "@tenphi/harnesspm",
+  "name": "@harnesspm/cli",
   "files": ["dist", "schema", "harness", "docs/spec", "CHANGELOG.md"],
   "scripts": { "prepack": "npm run build && node dist/cli.js check" }
 }

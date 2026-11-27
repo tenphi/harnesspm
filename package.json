@@ -1,5 +1,5 @@
 {
-  "name": "@tenphi/harnesspm",
+  "name": "@harnesspm/cli",
   "version": "0.16.0",
   "description": "The harness package manager: share agent rules, docs, skills and tools through npm packages",
   "license": "MIT",

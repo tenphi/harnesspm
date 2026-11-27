@@ -4,11 +4,25 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /** The npm package of harnesspm. The command it installs is `harnesspm` (spec 10.1). */
-export const PACKAGE_NAME = '@tenphi/harnesspm';
-/** Runs harnesspm in a project that depends on it: npx finds the installed command. */
-export const NPX_LOCAL = 'npx harnesspm';
-/** Runs harnesspm anywhere: npx downloads the package by its full name when it is not installed. */
+export const PACKAGE_NAME = '@harnesspm/cli';
+/**
+ * Earlier names of the package. harnesspm still finds an installed copy under them and treats their commands as its own,
+ * until 1.0.0 (spec 10.1). Delete them then.
+ */
+export const OLD_PACKAGE_NAMES = ['@tenphi/harnesspm'];
+/** Every name of the package, the current one first. */
+export const PACKAGE_NAMES = [PACKAGE_NAME, ...OLD_PACKAGE_NAMES];
+/**
+ * How harnesspm runs, in every text, message and hook it writes (spec 10.1): npx runs the installed version in a project
+ * that depends on it, and downloads the package by its full name elsewhere. Never the bare `npx harnesspm`: outside such
+ * a project, npx would fetch whatever is published under the unscoped name, and a hook has nobody to ask.
+ */
 export const NPX_ANY = `npx -y ${PACKAGE_NAME}`;
+/**
+ * The bare form that earlier versions wrote and that some packages' text still types. harnesspm only matches it, in
+ * allow rules for a project's scripts, where npx finds the installed command (spec 5.4).
+ */
+export const NPX_BARE = 'npx harnesspm';
 
 /** A command prefix that starts harnesspm: as shell words, for hooks, and as an argument list, for MCP servers. */
 export interface Runner {
@@ -16,7 +30,7 @@ export interface Runner {
   argv: string[];
 }
 
-/** A runner through npx, such as `npx -y @tenphi/harnesspm`. */
+/** A runner through npx, such as `npx -y @harnesspm/cli`. */
 export const npxRunner = (prefix: string): Runner => ({ shell: prefix, argv: prefix.split(' ') });
 
 /** A word for sh: as it is when it is safe, else in single quotes. */
@@ -25,18 +39,22 @@ export function shellWord(word: string): string {
 }
 
 /**
- * The CLI file of the harnesspm that the project installed, by the `bin` field of its package.json. The path goes
- * through `node_modules/@tenphi/harnesspm`, not its real path, so it stays the same when pnpm moves the package.
+ * The CLI file of the harnesspm that the project installed, by the `bin` field of its package.json, under the current
+ * name first, then an earlier one. The path goes through `node_modules/@harnesspm/cli`, not its real path, so it stays
+ * the same when pnpm moves the package.
  */
 export function installedCli(projectDir: string): string | undefined {
-  const dir = path.join(projectDir, 'node_modules', ...PACKAGE_NAME.split('/'));
-  try {
-    const pkg = readJsonIfExists(path.join(dir, 'package.json'));
-    const bin = isRecord(pkg) ? (typeof pkg['bin'] === 'string' ? pkg['bin'] : isRecord(pkg['bin']) ? pkg['bin']['harnesspm'] : undefined) : undefined;
-    return typeof bin === 'string' && isFile(path.join(dir, bin)) ? path.join(dir, bin) : undefined;
-  } catch {
-    return undefined;
+  for (const name of PACKAGE_NAMES) {
+    const dir = path.join(projectDir, 'node_modules', ...name.split('/'));
+    try {
+      const pkg = readJsonIfExists(path.join(dir, 'package.json'));
+      const bin = isRecord(pkg) ? (typeof pkg['bin'] === 'string' ? pkg['bin'] : isRecord(pkg['bin']) ? pkg['bin']['harnesspm'] : undefined) : undefined;
+      if (typeof bin === 'string' && isFile(path.join(dir, bin))) return path.join(dir, bin);
+    } catch {
+      // Not installed under this name.
+    }
   }
+  return undefined;
 }
 
 /**

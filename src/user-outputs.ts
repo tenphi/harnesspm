@@ -7,13 +7,16 @@ import { agentsHome, claudeHome, claudeJsonFile, codexHome } from './homes.ts';
 import { pathTools } from './outputs.ts';
 import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from './render.ts';
 import { resolve, type Resolution } from './resolve.ts';
-import { NPX_ANY, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
+import { NPX_ANY, OLD_PACKAGE_NAMES, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
 /** The user-level `SessionStart` hook: it fetches the added harnesses and rewrites the outputs (spec 7.5). */
 export const HOOK_COMMAND = `${NPX_ANY} update`;
 
-/** The hook that harnesspm 0.14 and earlier installed. It synced without fetching. A sync replaces it (spec 7.5). */
-const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`];
+/**
+ * Hooks that earlier versions installed, which a sync replaces (spec 7.5, 10.1): 0.14 and earlier synced without fetching,
+ * and 0.16 and earlier named the package `@tenphi/harnesspm`.
+ */
+const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`, ...OLD_PACKAGE_NAMES.flatMap((name) => [`npx -y ${name} update`, `npx -y ${name} sync`])];
 
 const isHookCommand = (command: string | undefined): boolean => command === HOOK_COMMAND || OLD_HOOK_COMMANDS.includes(command ?? '');
 

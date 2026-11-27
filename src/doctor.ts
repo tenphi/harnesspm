@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { excludedBySync } from './outputs.ts';
-import { excludeEntry, exists, gitExclude, isDir } from './util.ts';
+import { NPX_ANY, excludeEntry, exists, gitExclude, isDir } from './util.ts';
 
 export type Level = 'ok' | 'info' | 'warn' | 'fail';
 
@@ -55,7 +55,7 @@ function deciding(projectDir: string, paths: string[]): Map<string, { source: st
  * `extra` adds project-relative files that harnesspm creates, such as a telemetry file. `sync` is the command that fixes them.
  * Undefined outside a git repository.
  */
-export function checkLocalFiles(projectDir: string, extra: string[] = [], sync = 'npx harnesspm sync'): { checked: number; problems: Finding[] } | undefined {
+export function checkLocalFiles(projectDir: string, extra: string[] = [], sync = `${NPX_ANY} sync`): { checked: number; problems: Finding[] } | undefined {
   const exclude = gitExclude(projectDir);
   if (exclude === undefined) return undefined;
   const listed = new Set(excludedBySync(projectDir).map(plain));

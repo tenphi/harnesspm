@@ -6,21 +6,23 @@ description: Every step of setting up harnesspm in a project - install, init, wh
 
 **In short**
 
-- Install `@tenphi/harnesspm` as a dev dependency and run `npx harnesspm init` once.
+- Install `@harnesspm/cli` as a dev dependency and run `npx -y @harnesspm/cli init` once.
 - Commit `AGENTS.md`, `CLAUDE.md`, `harnesspm.json`, `harnesspm.lock.json`, `package.json` and the package manager's lockfile.
-- Trust is the person's decision. An agent asks first. The person runs `npx harnesspm approve` in their own terminal for what an agent may not grant itself.
-- Add `npx harnesspm sync --check` to CI.
+- Trust is the person's decision. An agent asks first. The person runs `npx -y @harnesspm/cli approve` in their own terminal for what an agent may not grant itself.
+- Add `npx -y @harnesspm/cli sync --check` to CI.
 
 You need Node.js 20 or later, and npm, pnpm, Yarn 1 or Yarn 4 with the `node-modules` linker. harnesspm writes files for Claude Code and Codex.
 
 ## 1. Install
 
 ```shell
-npm i -D @tenphi/harnesspm      # or: pnpm add -D @tenphi/harnesspm
-                                # or: yarn add -D @tenphi/harnesspm
+npm i -D @harnesspm/cli      # or: pnpm add -D @harnesspm/cli
+                             # or: yarn add -D @harnesspm/cli
 ```
 
-The package is `@tenphi/harnesspm`. The command it installs is `harnesspm`, so `npx harnesspm …` works in the project from now on.
+The package is `@harnesspm/cli`. The command it installs is `harnesspm`, so `npx -y @harnesspm/cli …` works in the project from now on.
+
+Up to version 0.16 the package was `@tenphi/harnesspm`. To move a project, run `npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm`, then `npx -y @harnesspm/cli init`. `doctor` reminds you. If you added a harness of your own on a machine, also run `npx -y @harnesspm/cli update` there once. Until harnesspm 1.0 the earlier name keeps working, and nothing needs approving again. See [Moving from `@tenphi/harnesspm`](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#moving-from-tenphiharnesspm).
 
 Do not skip this step. `init` adds a script that calls the `harnesspm` command, so it stops when the project does not list the package as a dependency.
 
@@ -29,7 +31,7 @@ Do not skip this step. `init` adds a script that calls the `harnesspm` command, 
 The examples on this site use one app. It depends on `@acme/ui`, a design system that passes on the harness of `@acme/colors` and `@acme/styles`. The packages are made up, and the output is real:
 
 ```text
-$ npx harnesspm init
+$ npx -y @harnesspm/cli init
 Created harnesspm.json
 Added `harnesspm sync` to the "postinstall" script
 CLAUDE.md now imports AGENTS.md
@@ -50,7 +52,7 @@ Links and settings for this machine stay out of git: .git/info/exclude lists the
 
 The four packages are the three `@acme` packages and harnesspm itself. Its own harness teaches agents to use harnesspm, with the skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve`.
 
-The pending lines are normal. They name who turns the tools on: a person, never the agent. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx -y @tenphi/harnesspm run` refuses it until then.
+The pending lines are normal. They name who turns the tools on: a person, never the agent. Rules, docs and skills work at once. Scripts, hooks and MCP servers wait until you trust their package ([step 4](#4-turn-on-a-packages-tools)). A rule in the block may already name a script that is still off: `npx -y @harnesspm/cli run` refuses it until then.
 
 A pending line gives only a count. To learn what each tool does, read the package's manifest, `node_modules/.harnesspm/pkgs/<package>/harness/plugin.json`:
 
@@ -88,13 +90,13 @@ A package can ship scripts, hooks and MCP servers. They run only when your proje
 Trust is the person's decision, in two steps:
 
 1. The package goes into `trust` in `harnesspm.json`. The person edits the file, or tells an agent which packages to add. An agent never adds one by itself. From then on, the package's scripts run through `harnesspm run`, with the agent's usual permission prompt.
-2. The person runs `npx harnesspm approve` in their own terminal. It writes what an agent may not grant itself: the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
+2. The person runs `npx -y @harnesspm/cli approve` in their own terminal. It writes what an agent may not grant itself: the new hooks, MCP servers and allow rules. When an agent runs `sync`, these stay pending until the change is merged into the default branch, and `approve` refuses an agent.
 
 Step 1 looks like this:
 
 ```json
 {
-  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
+  "$schema": "https://unpkg.com/@harnesspm/cli/schema/harnesspm.schema.json",
   "trust": { "@acme/ui": true }
 }
 ```
@@ -105,41 +107,41 @@ After step 1 and a `sync`, the script of `@acme/ui` appears in the block as a to
 - Tool: `acme-ui:tokens` — Find a color token by a part of its name, with its light and dark values (acme-ui:scripts/tokens)
 ```
 
-`@acme/ui` asks for its script to run without a prompt, so step 2 also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx harnesspm approve`. See [Trust and safety](./trust.md).
+`@acme/ui` asks for its script to run without a prompt, so step 2 also writes an allow rule for it into `.claude/settings.local.json` and Codex's rules. `true` follows upgrades. Use `"pin"` for a package your team does not control: each new version then waits for `npx -y @harnesspm/cli approve`. See [Trust and safety](./trust.md).
 
 ## 5. Keep it current
 
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `sync` for you.
-- After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx harnesspm sync` yourself.
-- After you edit `harnesspm.json`, run `npx harnesspm sync`.
+- After `npm install <pkg>`, `npm uninstall <pkg>` or `pnpm add <pkg>`, no script runs. Run `npx -y @harnesspm/cli sync` yourself.
+- After you edit `harnesspm.json`, run `npx -y @harnesspm/cli sync`.
 - An install without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync, and the install goes on.
 
 The script that `init` adds checks first that harnesspm is installed:
 
 ```json
 "scripts": {
-  "postinstall": "node -e \"try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}\" || harnesspm sync"
+  "postinstall": "node -e \"try{require.resolve('@harnesspm/cli/package.json');process.exit(1)}catch{}\" || harnesspm sync"
 }
 ```
 
-Leave it as it is. A plain `harnesspm sync` fails every install without dev dependencies, because the `harnesspm` command is not installed then. A project that an older harnesspm set up has that plain form: run `npx harnesspm init` again to update it. `npx harnesspm doctor` warns until you do. The [install hook](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#the-install-hook) in the specification explains each part.
+Leave it as it is. A plain `harnesspm sync` fails every install without dev dependencies, because the `harnesspm` command is not installed then. A project that an older harnesspm set up has that plain form: run `npx -y @harnesspm/cli init` again to update it. `npx -y @harnesspm/cli doctor` warns until you do. The [install hook](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#the-install-hook) in the specification explains each part.
 
 Add a check to CI, so a missed sync fails the pull request:
 
 ```yaml
 - run: npm ci
-- run: npx harnesspm sync --check
+- run: npx -y @harnesspm/cli sync --check
 ```
 
-`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs copies, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx harnesspm sync --write` instead.
+`--check` writes nothing and ignores harnesses that people added on their machines. The `sync` that `npm ci` runs does not hide a missed sync: with `CI=true`, it writes only per-machine files, such as links and docs copies, and leaves the committed files for `--check` to compare. A job that commits the result runs `npx -y @harnesspm/cli sync --write` instead.
 
 When something is out of date, `--check` says what to do:
 
 ```text
-$ npx harnesspm sync --check
+$ npx -y @harnesspm/cli sync --check
 ❌ AGENTS.md: the harnesspm block is out of date
 ❌ harnesspm.lock.json is out of date
-Run `npx harnesspm sync` and commit the result.
+Run `npx -y @harnesspm/cli sync` and commit the result.
 ```
 
 ## 6. Check the setup
@@ -147,7 +149,7 @@ Run `npx harnesspm sync` and commit the result.
 `status` lists the layers, the packages and the always-on size for each agent:
 
 ```text
-$ npx harnesspm status
+$ npx -y @harnesspm/cli status
 📦 dependencies  @acme/ui 4.2.0 → @acme/colors 2.1.0, @acme/styles 3.4.1
 🏢 project       harnesspm.json: no changes
 ➕ added         none
@@ -159,12 +161,12 @@ $ npx harnesspm status
 `doctor` checks that per-machine files stay out of git and that the outputs are in place. Each problem names the command that fixes it:
 
 ```text
-$ npx harnesspm doctor
+$ npx -y @harnesspm/cli doctor
 🔒 Local files
   ✅ 15 per-machine files: ignored by git and not tracked
 ➕ Harnesses of your own
   ✅ .git/info/exclude can be written, so harnesspm keeps per-machine files out of git
-  ℹ️  No harness added yet. Add one with `npx -y @tenphi/harnesspm add <source>`.
+  ℹ️  No harness added yet. Add one with `npx -y @harnesspm/cli add <source>`.
 📦 Outputs
   ✅ Committed outputs are up to date
   ✅ 20 per-machine outputs in place
@@ -178,7 +180,7 @@ $ npx harnesspm doctor
 `why` names the source of any unit, every change made to it, and how to change it yourself:
 
 ```text
-$ npx harnesspm why acme-colors:rules/usage
+$ npx -y @harnesspm/cli why acme-colors:rules/usage
 owner       dependency @acme/colors 2.1.0 (via @acme/ui)
 source      node_modules/.harnesspm/pkgs/@acme/colors/harness/dev.harnesspm/rules/usage.md
 patch       node_modules/@acme/ui/harness/dev.harnesspm/patches/acme-colors-usage.patch.md (from @acme/ui)

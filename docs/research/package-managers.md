@@ -105,8 +105,9 @@ Yarn 4 writes the package's files with the tarball's modes on an upgrade in plac
 ## Package name
 
 - 🔍 npm refused the first publish of the bare name `harnesspm` with `E403 You do not have permission to publish "harnesspm"`, from an account that was logged in. The registry had no package by that name and none by `harness-pm`, `harness_pm` or `harness.pm` (all 404, Nov 2026), so npm most likely holds the name.
-- The package is `@tenphi/harnesspm`, in its owner's scope, so nobody else can take or block it. The command stays `harnesspm`, so `npx harnesspm …` works wherever it is installed.
-- Commands that may run where it is not installed name the scope: `npx -y @tenphi/harnesspm …`. A bare `npx -y harnesspm` would download whatever package someone else later publishes as `harnesspm`.
+- Up to 0.16 the package was `@tenphi/harnesspm`, in its owner's personal scope. From 0.17 it is `@harnesspm/cli`, in a scope of its own, so nobody else can take or block it and the name does not tie the project to one person. The command stays `harnesspm`, so `npx harnesspm …` works wherever it is installed.
+- Commands that may run where it is not installed name the scope: `npx -y @harnesspm/cli …`. A bare `npx -y harnesspm` would download whatever package someone later publishes as `harnesspm`. In November 2026 npm still refused a publish of `harnesspm` with the same E403, and the registry had no package by that name.
+- The move keeps the version line (0.16 → 0.17), so version checks such as the one for parent-folder hooks keep working. Until 1.0, harnesspm recognizes the earlier name in installed paths, hooks, allow rules and install scripts, so a project moves with one install and nobody has to approve its entries again ([spec 10.1](../spec/10-cli.md#moving-from-tenphiharnesspm)).
 
 ## What a package ships
 

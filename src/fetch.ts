@@ -8,7 +8,7 @@ import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
 import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, DOCS_PROBE, docsIgnoreAdvice, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
-import { HarnessError, ensureDir, gitKeepsOut, isInside, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, ensureDir, gitKeepsOut, isInside, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
 
 export interface FetchReport {
   fetched: string[];
@@ -75,7 +75,7 @@ export function locateLocked(projectDir: string): { located: Map<string, string>
 
 export function fetchLocked(projectDir: string): FetchReport {
   const lock = readLock(projectDir);
-  if (!lock) throw new HarnessError('No harnesspm.lock.json here. Run `npx harnesspm sync` where the dependencies are installed, and commit the lock.');
+  if (!lock) throw new HarnessError(`No harnesspm.lock.json here. Run \`${NPX_ANY} sync\` where the dependencies are installed, and commit the lock.`);
   const report: FetchReport = { fetched: [], reused: [], warnings: [] };
   const { located } = locateLocked(projectDir)!;
   report.reused.push(...located.keys());
@@ -98,7 +98,7 @@ export function fetchLocked(projectDir: string): FetchReport {
   report.warnings.push(...team.warnings);
   const plan = computePlan(team, team);
   const agents = readTextIfExists(path.join(projectDir, 'AGENTS.md'));
-  if (extractBlock(agents) !== extractBlock(plan.committed!.agentsMd)) report.warnings.push('AGENTS.md does not match the packages in the lock. Run `npx harnesspm sync` where the dependencies are installed.');
+  if (extractBlock(agents) !== extractBlock(plan.committed!.agentsMd)) report.warnings.push(`AGENTS.md does not match the packages in the lock. Run \`${NPX_ANY} sync\` where the dependencies are installed.`);
   // Only files under node_modules/.harnesspm, the docs copies in .harnesspm/docs, and the .rgignore that lets search
   // tools into them: a job without an install needs no agent settings.
   const state = path.join(projectDir, STATE_DIR);

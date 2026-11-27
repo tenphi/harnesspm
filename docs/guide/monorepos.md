@@ -6,7 +6,7 @@ description: How harnesspm resolves each workspace of a monorepo on its own depe
 
 **In short**
 
-- Nothing to configure. Run `npx harnesspm init` at the root, as in any project.
+- Nothing to configure. Run `npx -y @harnesspm/cli init` at the root, as in any project.
 - Each workspace gets the harness of its own dependencies. Backend workspaces do not get frontend rules.
 - Shared rules with the same text go into the root `AGENTS.md`. Workspace rules and overrides go in workspace blocks.
 

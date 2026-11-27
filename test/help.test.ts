@@ -37,14 +37,14 @@ test('the block summarizes an always-on rule by its sections; help <package> pri
   const help = run(dir, 'help', '@acme/kit');
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /### Kit \(kit:rules\/usage\)\n\nAlways on\.\n\n#### Components\n\nUse kit components\.\n\n##### Buttons\n\nOne primary button\.\n\n#### Colors\n\nUse tokens\.\n/);
-  assert.match(help.stdout, /## Tools\n\n⚠️ {2}Not trusted in this project, so they stay off and `run` refuses them\. A person turns them on with "@acme\/kit": true in "trust" in harnesspm\.json\.\n- `npx -y @tenphi\/harnesspm run kit:tokens <part of a name> \[--json\]` — Find a token \(kit:scripts\/tokens\)\n/);
+  assert.match(help.stdout, /## Tools\n\n⚠️ {2}Not trusted in this project, so they stay off and `run` refuses them\. A person turns them on with "@acme\/kit": true in "trust" in harnesspm\.json\.\n- `npx -y @harnesspm\/cli run kit:tokens <part of a name> \[--json\]` — Find a token \(kit:scripts\/tokens\)\n/);
   assert.doesNotMatch(help.stdout, /kit:fmt` —/, 'a script without a description is not a tool');
   assert.match(help.stdout, /## Hooks\n\n⚠️ {2}Not trusted[^\n]*\n- PostToolUse, Claude Code on `Edit\|Write` and Codex on `apply_patch`: runs `kit:fmt` \(kit:hooks\/fmt\)\n/);
   assert.match(help.stdout, /## Skills\n\n- kit-review: read node_modules\/\.harnesspm\/pkgs\/@acme\/kit\/harness\/skills\/kit-review\/SKILL\.md \(kit:skills\/kit-review\)/);
 
   const tool = run(dir, 'help', 'kit:tokens');
   assert.equal(tool.status, 0, tool.stderr);
-  assert.match(tool.stdout, /Usage: <part of a name> \[--json\]\nRun: {3}npx -y @tenphi\/harnesspm run kit:tokens \[args\]\n\n⚠️ {2}Not trusted/);
+  assert.match(tool.stdout, /Usage: <part of a name> \[--json\]\nRun: {3}npx -y @harnesspm\/cli run kit:tokens \[args\]\n\n⚠️ {2}Not trusted/);
   const hookScript = run(dir, 'help', 'kit:fmt').stdout;
   assert.match(hookScript, /No description: hooks and MCP servers use it, agents do not run it themselves\./);
 
@@ -115,8 +115,8 @@ test('a script declares its answers; check rejects bad ones; help <tool> prints 
   writeFiles(app, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true } }) });
   assert.equal(run(app, 'sync').status, 0);
   const tool = run(app, 'help', 'kit:lint').stdout;
-  assert.match(tool, /\nUsage: \[files…\]\nExit: {2}0 is ok\. 1 is an answer, such as "found problems", not a broken tool\. Any other code is a failure\.\nRun: {3}npx -y @tenphi\/harnesspm run kit:lint \[args\]\n$/);
-  assert.match(run(app, 'help', '@acme/kit').stdout, /\n- `npx -y @tenphi\/harnesspm run kit:lint \[files…\]` — Lint styles \(kit:scripts\/lint\)\n?$/);
+  assert.match(tool, /\nUsage: \[files…\]\nExit: {2}0 is ok\. 1 is an answer, such as "found problems", not a broken tool\. Any other code is a failure\.\nRun: {3}npx -y @harnesspm\/cli run kit:lint \[args\]\n$/);
+  assert.match(run(app, 'help', '@acme/kit').stdout, /\n- `npx -y @harnesspm\/cli run kit:lint \[files…\]` — Lint styles \(kit:scripts\/lint\)\n?$/);
   assert.match(read(app, 'AGENTS.md'), /^- Tool: `kit:lint` — Lint styles \(kit:scripts\/lint\)$/m);
   assert.doesNotMatch(read(app, 'AGENTS.md'), /answer/i);
 });

@@ -11,7 +11,7 @@ import { homeOf, installCli, installPackage, read, run, runInput, runWith, write
 const MODEL = { AI_AGENT: 'claude-code_2-1-323_agent', CLAUDECODE: '1' };
 const HOOK = { AI_AGENT: 'claude-code_2-1-323_harness', CLAUDECODE: '1' };
 const EVENTS = '.harnesspm/events.jsonl';
-const NPX = 'npx -y @tenphi/harnesspm';
+const NPX = 'npx -y @harnesspm/cli';
 
 function kit(dir: string): void {
   installPackage(dir, '@acme/kit', {
@@ -66,7 +66,7 @@ const events = (dir: string): Record<string, any>[] => (fs.existsSync(path.join(
 
 /** Sets the version of the harnesspm stand-in that `installCli` wrote. */
 function cliVersion(dir: string, version: string): void {
-  writeFiles(dir, { 'node_modules/@tenphi/harnesspm/package.json': JSON.stringify({ name: '@tenphi/harnesspm', version, bin: { harnesspm: 'dist/cli.js' } }) });
+  writeFiles(dir, { 'node_modules/@harnesspm/cli/package.json': JSON.stringify({ name: '@harnesspm/cli', version, bin: { harnesspm: 'dist/cli.js' } }) });
 }
 
 test('S20: sync in a folder above projects writes their hooks with -C, and a block that names each project', () => {
@@ -130,7 +130,7 @@ test('S20: the hook commands work through a shell, in a folder whose path has a 
   // The installed CLI runs this checkout's harnesspm, and says it runs parent hooks.
   installCli(app);
   cliVersion(app, '0.11.0');
-  writeFiles(app, { 'node_modules/@tenphi/harnesspm/dist/cli.js': `import(${JSON.stringify(pathToFileURL(fileURLToPath(new URL('../src/cli.ts', import.meta.url))).href)});\n` });
+  writeFiles(app, { 'node_modules/@harnesspm/cli/dist/cli.js': `import(${JSON.stringify(pathToFileURL(fileURLToPath(new URL('../src/cli.ts', import.meta.url))).href)});\n` });
   run(app, 'sync');
   assert.equal(run(root, 'sync').status, 0);
   const [command] = commands(root, 'PostToolUse');
@@ -152,7 +152,7 @@ test("S20: a project's own sync keeps its entries in a folder above it current, 
   run(root, 'sync');
   // After an upgrade to a harnesspm that runs parent hooks, the project's sync switches them to its installed CLI file.
   cliVersion(app, '0.11.0');
-  const cli = path.join(app, 'node_modules/@tenphi/harnesspm/dist/cli.js');
+  const cli = path.join(app, 'node_modules/@harnesspm/cli/dist/cli.js');
   assert.equal(run(app, 'sync').status, 0);
   assert.deepEqual(commands(root, 'SessionStart'), [`node ${cli} -C ${app} track --agent claude`]);
   assert.deepEqual(commands(root, 'PostToolUse'), [`node ${cli} -C ${app} run --agent claude kit:check-styles`, `node ${cli} -C ${app} track --agent claude`]);

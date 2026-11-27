@@ -27,7 +27,7 @@ The setup script does not start in the clone, so name the clone by its absolute 
 - When the environment also serves other repositories, start the script with `[ -d /home/user/<repo> ] || exit 0`.
 - When `package.json` pins the package manager in `packageManager`, run `corepack enable` first. Default network access does not reach corepack's host for Yarn, so put `COREPACK_NPM_REGISTRY=https://registry.npmjs.org` before the install.
 
-To check, start a new session and run `npx harnesspm status`: it shows no "held back" line. Hooks that the install writes work from that first session. Later sessions start from a saved snapshot, and the script runs again after you change it.
+To check, start a new session and run `npx -y @harnesspm/cli status`: it shows no "held back" line. Hooks that the install writes work from that first session. Later sessions start from a saved snapshot, and the script runs again after you change it.
 
 When the agent runs the install instead, new hooks, MCP servers and allow rules stay pending, because an agent cannot grant itself permissions. What the default branch records is the exception, but only when the clone has `origin/HEAD`, and cloud clones have none. So that the agent's later installs, such as after a pull, write what is merged, add `git -C /home/user/<repo> remote set-head origin main || true` to the setup script, with your default branch. Rules, docs and skills still work. In a cloud session, `sync`, `status` and `doctor` print the line for the setup script when they hold entries back.
 
@@ -36,7 +36,7 @@ When the agent runs the install instead, new hooks, MCP servers and allow rules 
 A session with more than one repository starts in `/home/user`, above the clones. Claude Code reads settings only from that folder, so no repository's hooks run there. After the installs, add one line to the setup script:
 
 ```bash
-cd /home/user && npx -y @tenphi/harnesspm sync || true
+cd /home/user && npx -y @harnesspm/cli sync || true
 ```
 
 It writes each repository's hooks into `/home/user/.claude/settings.local.json`, and a block in `/home/user/AGENTS.md` that names each repository, its `AGENTS.md` and its `help` command. Later installs of a repository keep its entries there current. A session with one repository starts in its clone and runs that clone's own hooks. It also sees the block, because Claude Code reads `CLAUDE.md` files above the folder a session starts in.
@@ -53,7 +53,7 @@ bash /home/user/<repo>/scripts/cloud-setup.sh
 ## Your own harness
 
 ```shell
-npx -y @tenphi/harnesspm add github:<owner>/<repo>
+npx -y @harnesspm/cli add github:<owner>/<repo>
 ```
 
 | Way | How it works |

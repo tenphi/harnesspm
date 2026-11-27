@@ -21,8 +21,8 @@ Paste this into Claude Code or Codex, in your project:
 
 ```text
 Set up harnesspm in this project:
-install @tenphi/harnesspm as a dev dependency
-and run `npx harnesspm init`.
+install @harnesspm/cli as a dev dependency
+and run `npx -y @harnesspm/cli init`.
 
 Then tell me what it wrote, which packages have
 tools that wait for my trust, and what each tool does.
@@ -36,9 +36,9 @@ Details: https://harnesspm.tenphi.me/guides/setup
 <CodeGroup
   label="Set up harnesspm in a project"
   items={[
-    { label: 'npm', language: 'shell', code: 'npm i -D @tenphi/harnesspm\nnpx harnesspm init' },
-    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @tenphi/harnesspm\npnpm exec harnesspm init' },
-    { label: 'yarn', language: 'shell', code: 'yarn add -D @tenphi/harnesspm\nyarn harnesspm init' },
+    { label: 'npm', language: 'shell', code: 'npm i -D @harnesspm/cli\nnpx -y @harnesspm/cli init' },
+    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @harnesspm/cli\npnpm exec harnesspm init' },
+    { label: 'yarn', language: 'shell', code: 'yarn add -D @harnesspm/cli\nyarn harnesspm init' },
   ]}
 />
 
@@ -66,11 +66,11 @@ With pnpm or Yarn, add their lockfile instead of `package-lock.json`. Everything
 Rules, docs and skills work at once. Scripts, hooks and MCP servers are code, so a package's tools stay off until you trust the package.
 
 1. Ask what is waiting: "Which harnesspm tools are pending, and what does each one do?"
-2. Say which packages you trust: "Trust `@acme/ui` in harnesspm." Your agent adds the package to `trust` in `harnesspm.json` and runs `npx harnesspm sync`. The package's scripts then work, with your agent's usual permission prompt.
+2. Say which packages you trust: "Trust `@acme/ui` in harnesspm." Your agent adds the package to `trust` in `harnesspm.json` and runs `npx -y @harnesspm/cli sync`. The package's scripts then work, with your agent's usual permission prompt.
 3. Turn on the rest in your own terminal:
 
 ```shell
-npx harnesspm approve
+npx -y @harnesspm/cli approve
 ```
 
 `approve` writes what an agent may not grant itself: the package's hooks and MCP servers, and the allow rules that skip your agent's prompt. Your agent cannot do step 3. harnesspm never lets an agent give itself permissions. [Trust and safety](./trust.md) says what trust covers, and when to use `"pin"`.
@@ -78,8 +78,8 @@ npx harnesspm approve
 ## 4. Keep it current
 
 - A full install, such as `npm install`, `npm ci` or `pnpm install`, runs `harnesspm sync` for you.
-- After `npm install <pkg>` or `pnpm add <pkg>`, no script runs. harnesspm's own rule tells your agent to run `npx harnesspm sync`. When you install by hand, run it yourself.
-- A check in CI catches a missed sync. Ask for it: "Add `npx harnesspm sync --check` to our CI, after the install."
+- After `npm install <pkg>` or `pnpm add <pkg>`, no script runs. harnesspm's own rule tells your agent to run `npx -y @harnesspm/cli sync`. When you install by hand, run it yourself.
+- A check in CI catches a missed sync. Ask for it: "Add `npx -y @harnesspm/cli sync --check` to our CI, after the install."
 - A deploy that installs without dev dependencies, such as `npm ci --omit=dev` in a Docker build, skips the sync and goes on.
 
 Upgrades then show up in pull requests, as changes to the lock and, when a rule's sections change, to the block in `AGENTS.md`.

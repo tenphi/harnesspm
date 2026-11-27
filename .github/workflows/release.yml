@@ -77,11 +77,11 @@ jobs:
             await setMessage({
               header: '## 📦 Snapshot release',
               body: [
-                `Published [\`${version}\`](https://www.npmjs.com/package/@tenphi/harnesspm/v/${version}).`,
+                `Published [\`${version}\`](https://www.npmjs.com/package/@harnesspm/cli/v/${version}).`,
                 '',
                 '```',
-                `npx @tenphi/harnesspm@${version} --help`,
-                `npm install -D @tenphi/harnesspm@${version}`,
+                `npx @harnesspm/cli@${version} --help`,
+                `npm install -D @harnesspm/cli@${version}`,
                 '```',
               ].join('\n'),
               github,

@@ -20,7 +20,7 @@ Start a harness of my own with harnesspm
 in ~/dev/my-harness. It holds how I work,
 for every repository.
 
-1. Run harnesspm as `npx -y @tenphi/harnesspm`.
+1. Run harnesspm as `npx -y @harnesspm/cli`.
    Do not install it anywhere.
 2. Follow "Start one" in
    https://harnesspm.tenphi.me/guides/add-your-own.
@@ -42,14 +42,14 @@ To use the harness on other machines and in cloud sessions, push it to a reposit
 ## 2. Add it in your own terminal
 
 ```shell
-npx -y @tenphi/harnesspm add ~/dev/my-harness
+npx -y @harnesspm/cli add ~/dev/my-harness
 ```
 
 After a push, add it from there instead, for example `github:<owner>/<repo>`.
 
 - **You** run it, once per machine. It applies in every repository on this machine, also in ones that do not use harnesspm. A hook keeps it current when a session starts.
 - Adding a harness is your trust decision: its scripts, hooks and MCP servers run as you, in every repository. When an agent runs `add`, the rules and skills apply, and the tools wait for you.
-- Nothing from it is ever committed to a project. `npx -y @tenphi/harnesspm doctor` checks that its files stay out of git.
+- Nothing from it is ever committed to a project. `npx -y @harnesspm/cli doctor` checks that its files stay out of git.
 - With `--local`, it applies in one repository only.
 
 Your team has a harness too? Add the team's first and your own after it. The later one wins when both ship a skill with the same name.
@@ -73,7 +73,7 @@ I review pull requests with the checklist in my notes.
 ```
 
 - **Your agent** writes a rule or a note into your harness, and saves the change the way your harness asks, such as a commit. Without the word harnesspm, an agent may keep the note in its own memory, on one machine and for one agent.
-- **You** run `npx -y @tenphi/harnesspm update` on your other machines to get the change.
+- **You** run `npx -y @harnesspm/cli update` on your other machines to get the change.
 
 ## 5. In cloud sessions
 

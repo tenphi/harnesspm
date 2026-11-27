@@ -6,9 +6,9 @@ description: Add your team's or your own rules, notes, skills and tools on top o
 
 **In short**
 
-- `npx -y @tenphi/harnesspm add <source>` adds a harness on top of the repository's, on your machine only. It is never committed.
+- `npx -y @harnesspm/cli add <source>` adds a harness on top of the repository's, on your machine only. It is never committed.
 - With user scope, it applies in every repository on the machine. With `--local`, in one repository.
-- `npx harnesspm doctor` checks that your per-machine files stay out of git.
+- `npx -y @harnesspm/cli doctor` checks that your per-machine files stay out of git.
 
 An **added harness** is an ordinary harness, with a `plugin.json` and units, in a git repository, a folder or an npm package. A team's harness and a person's own harness work the same way. Only their owners differ.
 
@@ -30,18 +30,18 @@ A harness of your own starts as a folder with git. `new` writes its manifest and
 
 ```shell
 mkdir -p ~/dev/my-harness && cd ~/dev/my-harness && git init
-npx -y @tenphi/harnesspm new rule workflow
+npx -y @harnesspm/cli new rule workflow
 ```
 
 - `new` creates `harness/plugin.json`, with the folder's name as the plugin name, and `harness/dev.harnesspm/rules/workflow.md`, an always-on rule. Ignore the `init` it suggests: your harness is not a project.
-- Write the rule, then run `npx -y @tenphi/harnesspm check`, and commit.
+- Write the rule, then run `npx -y @harnesspm/cli check`, and commit.
 - A folder works on this machine. To use the harness on other machines and in cloud sessions, push it to a repository of yours and add it from there.
 - The person adds it, as below. An agent that starts a harness for someone stops before `add`.
 
 ## Add one
 
 ```shell
-npx -y @tenphi/harnesspm add github:<owner>/<repo>
+npx -y @harnesspm/cli add github:<owner>/<repo>
 ```
 
 | Source | Example | Where it lives |
@@ -53,7 +53,7 @@ npx -y @tenphi/harnesspm add github:<owner>/<repo>
 `add` prints the added always-on rules, so an agent that runs it follows them at once:
 
 ```text
-$ npx -y @tenphi/harnesspm add ~/dev/alex-harness
+$ npx -y @harnesspm/cli add ~/dev/alex-harness
 Added alex (/home/alex/dev/alex-harness) with user scope
 
 Rules from /home/alex/dev/alex-harness, to follow from now on in this session:
@@ -64,7 +64,7 @@ Rules from /home/alex/dev/alex-harness, to follow from now on in this session:
 - Run the tests before you open a pull request.
 ```
 
-`add` also installs a `SessionStart` hook for each agent. It runs `npx -y @tenphi/harnesspm update` when a session starts, so your harness's newest commits apply in every repository, also in ones that do not use harnesspm. A working copy with your unsaved or unpushed work is left as it is, and a fetch that fails only warns. Pass `--no-hook` to skip it.
+`add` also installs a `SessionStart` hook for each agent. It runs `npx -y @harnesspm/cli update` when a session starts, so your harness's newest commits apply in every repository, also in ones that do not use harnesspm. A working copy with your unsaved or unpushed work is left as it is, and a fetch that fails only warns. Pass `--no-hook` to skip it.
 
 ## Scopes and order
 
@@ -94,19 +94,19 @@ An added harness can hold units for one repository. `projects` in its `plugin.js
 }
 ```
 
-The entry applies wherever the repository's `origin` remote matches, also in a fresh clone in a cloud session. To write a new unit into it, run `npx harnesspm new rule <name> --to alex --entry`.
+The entry applies wherever the repository's `origin` remote matches, also in a fresh clone in a cloud session. To write a new unit into it, run `npx -y @harnesspm/cli new rule <name> --to alex --entry`.
 
 ## Keep the project clean
 
 - Units of an added harness never go into a tracked file. They go into `CLAUDE.local.md`, `.claude/settings.local.json`, `.codex/` and your user-level agent folders.
 - harnesspm lists per-machine files in `.git/info/exclude`, which belongs to your clone and is never committed. It never edits `.gitignore`.
 - CI and `sync --check` ignore added harnesses.
-- `npx harnesspm status` lists every change an added harness makes to the repository's units.
+- `npx -y @harnesspm/cli status` lists every change an added harness makes to the repository's units.
 
 `doctor` checks that a repository is ready for a harness of your own, and that no per-machine file can reach a commit:
 
 ```text
-$ npx harnesspm doctor
+$ npx -y @harnesspm/cli doctor
 🔒 Local files
   ✅ 12 per-machine files: ignored by git and not tracked
 ➕ Harnesses of your own
@@ -123,9 +123,9 @@ When a file is tracked or not ignored, `doctor` fails and names the fix, such as
 
 ## Change it later
 
-- Ask your agent to "remember" something, and it can write a rule into your harness with `npx harnesspm new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent).
-- `npx harnesspm update` fetches new versions of your added harnesses. It skips a working copy with uncommitted changes or unpushed commits, and says so.
-- `npx harnesspm remove <source>` removes a harness and its outputs.
+- Ask your agent to "remember" something, and it can write a rule into your harness with `npx -y @harnesspm/cli new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent).
+- `npx -y @harnesspm/cli update` fetches new versions of your added harnesses. It skips a working copy with uncommitted changes or unpushed commits, and says so.
+- `npx -y @harnesspm/cli remove <source>` removes a harness and its outputs.
 
 ## More
 

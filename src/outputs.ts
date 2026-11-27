@@ -30,7 +30,7 @@ import { headings } from './sections.ts';
 import { AGENT_EVENTS, INDEX_FILE, describeSend, sameSend, telemetryState, type EventType, type Send, type TelemetryIndex } from './telemetry.ts';
 import {
   NPX_ANY,
-  NPX_LOCAL,
+  NPX_BARE,
   excludeEntry,
   exists,
   gitExclude,
@@ -554,10 +554,10 @@ export function computePlan(team: Resolution | undefined, full: Resolution, opti
 
   const agentDirs ={ claudeAgents: path.join(projectDir, '.claude', 'agents'), codexAgents: path.join(projectDir, '.codex', 'agents') };
   // Hooks and MCP servers start the project's installed CLI file with node when it has one (spec 5.2).
-  const teamRunner = runner(projectDir, NPX_LOCAL);
+  const teamRunner = runner(projectDir, NPX_ANY);
   const addedRunner = runner(projectDir, NPX_ANY);
-  // Allow rules match the tool lines, `npx -y @tenphi/harnesspm run <unit>`, and for now the earlier `npx harnesspm run <unit>` too (spec 5.4).
-  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => [NPX_ANY, NPX_LOCAL], runner: () => teamRunner }) : undefined;
+  // Allow rules match the tool lines, `npx -y @harnesspm/cli run <unit>`, and until 1.0 the bare `npx harnesspm run <unit>` that some packages' text still types (spec 5.4).
+  const teamExec = team ? desiredEntries(full, new Set(full.packages.filter((p) => p.layer !== 'added')), trust, { ...agentDirs, npx: () => [NPX_ANY, NPX_BARE], runner: () => teamRunner }) : undefined;
   const addedExec = desiredEntries(full, new Set(full.packages.filter(isRepoAdded)), trust, { ...agentDirs, npx: () => [NPX_ANY], runner: () => addedRunner });
   warnings.push(...(teamExec?.warnings ?? []), ...addedExec.warnings);
 
@@ -924,7 +924,7 @@ export function checkPlan(projectDir: string, plan: Plan): string[] {
   const lock = JSON.parse(plan.committed.lock) as { packages: Record<string, { version?: string; approved?: string }> };
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (entry.approved !== undefined && entry.approved !== entry.version) {
-      problems.push(`${name} ${entry.version} is pinned and not approved (approved: ${entry.approved}). Run \`npx harnesspm approve ${name}\`.`);
+      problems.push(`${name} ${entry.version} is pinned and not approved (approved: ${entry.approved}). Run \`${NPX_ANY} approve ${name}\`.`);
     }
   }
   return problems;

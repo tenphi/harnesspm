@@ -15,7 +15,7 @@ test('S1: new creates a harness with one rule, and every template is valid', () 
   // Every file it wrote, the manifest too, and a next step that works in a library that does not use harnesspm.
   assert.equal(
     first.stdout,
-    "Wrote in the project's own harness (harness/):\n  harness/plugin.json\n  harness/dev.harnesspm/rules/usage.md\nNext: edit it, then run `npx -y @tenphi/harnesspm check`. To see the harness in this repository's AGENTS.md too, run `npx -y @tenphi/harnesspm init`.\n",
+    "Wrote in the project's own harness (harness/):\n  harness/plugin.json\n  harness/dev.harnesspm/rules/usage.md\nNext: edit it, then run `npx -y @harnesspm/cli check`. To see the harness in this repository's AGENTS.md too, run `npx -y @harnesspm/cli init`.\n",
   );
   assert.deepEqual(JSON.parse(read(dir, 'harness/plugin.json')), { $schema: PLUGIN_SCHEMA, name: 'widgets' });
   assert.match(read(dir, 'harness/dev.harnesspm/rules/usage.md'), /^# Usage\n/);
@@ -75,10 +75,10 @@ test('S4: new patch copies the sections and registers the patch in harnesspm.jso
 });
 
 test('new in a project that uses harnesspm names sync and check, with the installed command', () => {
-  const dir = project({ '@tenphi/harnesspm': '1' }, { name: 'app' });
+  const dir = project({ '@harnesspm/cli': '1' }, { name: 'app' });
   const result = run(dir, 'new', 'rule', 'usage');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\nNext: edit it, then run `npx harnesspm sync` and `npx harnesspm check`\.\n$/);
+  assert.match(result.stdout, /\nNext: edit it, then run `npx -y @harnesspm\/cli sync` and `npx -y @harnesspm\/cli check`\.\n$/);
 });
 
 test("new patch goes into harness/plugin.json when the rule comes through the project's own extends", () => {
@@ -101,7 +101,7 @@ test('new --to writes into an added harness, and --entry into its entry for this
   run(dir, 'add', mine);
   const rule = run(dir, 'new', 'rule', 'workflow', '--to', 'andrew');
   assert.equal(rule.status, 0, rule.stderr);
-  assert.match(rule.stdout, /\nNext: edit it, run `npx -y @tenphi\/harnesspm sync`, then save the change the way that harness's own AGENTS\.md or CONTRIBUTING\.md says\.\n$/);
+  assert.match(rule.stdout, /\nNext: edit it, run `npx -y @harnesspm\/cli sync`, then save the change the way that harness's own AGENTS\.md or CONTRIBUTING\.md says\.\n$/);
   assert.ok(fs.existsSync(path.join(mine, 'harness/dev.harnesspm/rules/workflow.md')));
   const entry = run(dir, 'new', 'rule', 'local-setup', '--to', 'andrew', '--entry');
   assert.equal(entry.status, 0, entry.stderr);

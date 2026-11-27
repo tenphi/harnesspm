@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnesspmHome } from './homes.ts';
-import { HarnessError, addExclude, agentOf, caller, insideDir, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
+import { HarnessError, NPX_ANY, addExclude, agentOf, caller, insideDir, isFile, isRecord, readTextIfExists, remoteKey, toPosix } from './util.ts';
 
 export const EVENT_TYPES = ['run', 'mcp', 'sync', 'why', 'help', 'read', 'skill', 'session'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -82,7 +82,7 @@ export function telemetryState(projectDir: string, config: TelemetryConfig | und
   const opted = optOut(projectDir);
   if (opted !== undefined) return { config, events: new Set(), off: `off on this machine: ${opted}` };
   if (!sameSend(config.send, recorded)) {
-    return { config, events: new Set(), off: `held: the handler in harnesspm.json is not the one a person's sync recorded in harnesspm.lock.json. A person runs \`npx harnesspm sync\`.` };
+    return { config, events: new Set(), off: `held: the handler in harnesspm.json is not the one a person's sync recorded in harnesspm.lock.json. A person runs \`${NPX_ANY} sync\`.` };
   }
   return { config, send: config.send, events: new Set(config.events) };
 }

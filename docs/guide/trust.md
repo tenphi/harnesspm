@@ -9,7 +9,7 @@ description: What needs trust, how a project trusts a package, why an agent cann
 - Rules, docs, skills and sub-agents are text and need no trust. Scripts, hooks, MCP servers and allow rules do, and so do the keys in skills and sub-agents that run code or skip a prompt.
 - A project trusts a package in `harnesspm.json`. Trust never passes through `extends`.
 - An agent cannot grant itself permissions through harnesspm. New tools from a run the agent started wait for a person, unless a person already reviewed and merged them.
-- `harnesspm.lock.json` and `npx harnesspm sync --check` in CI make every change reviewable.
+- `harnesspm.lock.json` and `npx -y @harnesspm/cli sync --check` in CI make every change reviewable.
 
 ## What needs trust
 
@@ -42,17 +42,17 @@ Until you trust a package, its executable units are **pending**. `sync` lists th
 | Value | Meaning | For |
 | --- | --- | --- |
 | `true` | Active, also after upgrades. The lock diff shows changes. | Your team's own packages |
-| `"pin"` | Active only in the version approved in the lock. A new version stays off until `npx harnesspm approve`. | Packages your team does not control |
+| `"pin"` | Active only in the version approved in the lock. A new version stays off until `npx -y @harnesspm/cli approve`. | Packages your team does not control |
 | missing | Off. The units stay pending. | Everything else |
 
-Then run `npx harnesspm sync`. Trust never passes through `extends`: trusting `@acme/ui` does not trust `@acme/colors`, even when `@acme/ui` passes its harness on. Adding a harness with `npx harnesspm add` is your trust decision for that harness, so added harnesses need no entry.
+Then run `npx -y @harnesspm/cli sync`. Trust never passes through `extends`: trusting `@acme/ui` does not trust `@acme/colors`, even when `@acme/ui` passes its harness on. Adding a harness with `npx -y @harnesspm/cli add` is your trust decision for that harness, so added harnesses need no entry.
 
 ## What harnesspm allows
 
 A dependency cannot grant itself broad rights. harnesspm writes allow rules only for units from the project, an added harness or a trusted package, and only for three things:
 
 - each skill, as `Skill(<name>)`, so an unattended Claude Code session can run it;
-- each script with `"allow": true`, as `Bash(npx -y @tenphi/harnesspm run <plugin>:<script> *)` for Claude Code, and for now also the earlier `Bash(npx harnesspm run <plugin>:<script> *)`, and a `prefix_rule` for Codex;
+- each script with `"allow": true`, as `Bash(npx -y @harnesspm/cli run <plugin>:<script> *)` for Claude Code, and until harnesspm 1.0 also the bare `Bash(npx harnesspm run <plugin>:<script> *)` that some packages' text still types, and a `prefix_rule` for Codex;
 - each MCP server's tools, for Claude Code.
 
 Deny and ask rules from any package pass through, because they only restrict. Every script runs through `harnesspm run`, which refuses a script when its package is not trusted, or when the installed version differs from the lock.
@@ -63,7 +63,7 @@ When the agent's model runs harnesspm, for example through an install the model 
 
 ```text
 ⏳ held back: 3 entries that an agent cannot grant (allow Skill(harnesspm-export); allow Skill(harnesspm-import); allow Skill(harnesspm-improve)), because harnesspm.json differs from origin/main.
-   Ask the person to run `npx -y @tenphi/harnesspm sync` or `npx -y @tenphi/harnesspm approve` in their own terminal.
+   Ask the person to run `npx -y @harnesspm/cli sync` or `npx -y @harnesspm/cli approve` in their own terminal.
 ```
 
 This example is from a repository where the agent has just set up harnesspm, and whose own harness has three skills. A run with nothing new to add prints no such line. `status` and `doctor` list the same entries. In a Claude Code cloud session, the second line names the environment's setup script instead, with the line to put there, such as `cd /home/user/app && npm ci`, because nobody has a terminal there.
@@ -78,7 +78,7 @@ The agents keep their own gates too. Codex loads project `.codex/` files only in
 
 `harnesspm.lock.json` is committed. It records every harness package with its version and integrity, and every unit with its hash. A pull request that changes a script, a skill or a hook changes the lock, even when the block stays the same.
 
-In CI, `npx harnesspm sync --check` fails when the block or the lock is out of date, or when a `"pin"` package has a version nobody approved. It ignores harnesses that people added on their machines. The `sync` that the install runs in CI leaves the committed files as they are, so the check still sees a missed sync.
+In CI, `npx -y @harnesspm/cli sync --check` fails when the block or the lock is out of date, or when a `"pin"` package has a version nobody approved. It ignores harnesses that people added on their machines. The `sync` that the install runs in CI leaves the committed files as they are, so the check still sees a missed sync.
 
 ## What this does not cover
 
