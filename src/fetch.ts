@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { LOCK_FILE, packageManagerLock, readLock } from './lock.ts';
-import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, DOCS_PROBE, docsIgnoreAdvice, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
+import { addExcludes, computePlan, DOCS_DIR, DOCS_EXCLUDE, DOCS_PROBE, docsIgnoreAdvice, prunePackageLinks, RGIGNORE_EXCLUDE, STATE_DIR, writeRgignore } from './outputs.ts';
 import { extractBlock } from './render.ts';
 import { resolve, resolvePackageDir } from './resolve.ts';
 import { HarnessError, NPX_ANY, ensureDir, gitKeepsOut, isInside, isRecord, linkIfChanged, readJsonIfExists, readTextIfExists, writeIfChanged } from './util.ts';
@@ -124,6 +124,7 @@ export function fetchLocked(projectDir: string): FetchReport {
   for (const root of plan.generatedRoots) if (ours(root)) fs.rmSync(root, { recursive: true, force: true });
   for (const [file, content] of plan.generated) if (ours(file)) writeIfChanged(file, content);
   for (const [link, target] of plan.links) if (isInside(path.join(state, 'pkgs'), link)) linkIfChanged(link, target);
+  prunePackageLinks(projectDir, plan.links);
   if (copies && (typeof plan.rgignore !== 'string' || excluded([RGIGNORE_EXCLUDE]))) {
     try {
       writeRgignore(projectDir, plan);

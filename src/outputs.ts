@@ -723,6 +723,33 @@ function unlinkAndPrune(target: string, stopAt: string): void {
 }
 
 /**
+ * Removes the links in node_modules/.harnesspm/pkgs that `links` no longer names, such as a dependency the project
+ * dropped or a package's earlier name (spec 4.2), and returns them. Anything there that is not a link stays.
+ */
+export function prunePackageLinks(projectDir: string, links: Map<string, string>): string[] {
+  const root = path.join(projectDir, STATE_DIR, 'pkgs');
+  const removed: string[] = [];
+  const visit = (dir: string, scope: boolean): void => {
+    let names: string[];
+    try {
+      names = fs.readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const entry = path.join(dir, name);
+      if (isSymlink(entry)) {
+        if (links.has(entry)) continue;
+        unlinkAndPrune(entry, root);
+        removed.push(entry);
+      } else if (scope && name.startsWith('@')) visit(entry, false);
+    }
+  };
+  visit(root, true);
+  return removed;
+}
+
+/**
  * The per-machine record of the entries harnesspm wrote for this project (spec 4.7): in the clone's git folder, or,
  * in a folder that is not a git repository, in ~/.harnesspm/state/, so sync never creates a `.git` folder there.
  * A project below the git root has its own, such as `harnesspm/docs-site/state.json`, so that two projects in one
@@ -801,6 +828,8 @@ export function applyPlan(projectDir: string, plan: Plan, options: { committed?:
   const copies = [...plan.generated].filter(([file]) => isInside(docsRoot, file));
   for (const [file, content] of plan.generated) if (!isInside(docsRoot, file)) writeIfChanged(file, content);
   for (const [linkPath, target] of plan.links) note(linkPath, linkIfChanged(linkPath, target));
+  // Without the repository's layers, the plan names no package links, so it cannot tell which are stale.
+  if (plan.teamExcludes) for (const link of prunePackageLinks(projectDir, plan.links)) note(link, true);
 
   // Executable entries in shared files, before the excludes so that every written file is listed.
   const person = caller() !== 'model';

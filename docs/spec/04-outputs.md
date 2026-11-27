@@ -27,6 +27,8 @@ Package managers place packages at paths that differ between machines. harnesspm
 node_modules/.harnesspm/pkgs/@tenphi/tasty  →  <real location of the package>
 ```
 
+`sync` and `fetch` remove a link there that they no longer write, such as one for a dependency the project dropped or for a package's earlier name. Anything there that is not a link stays.
+
 A job that does not install dependencies, such as a review bot, runs `npx -y @harnesspm/cli fetch`. It downloads only the harness packages in the lock with `npm pack`, checks each tarball against the lock's integrity, and fills these paths, the generated files and the docs copies, so pointers in the committed block work there too. It writes the docs copies only where git ignores them, and the `.rgignore` that lets search tools into them only once `.git/info/exclude` lists it: a sandbox may keep `.git` read-only ([4.3](#43-project-outputs), note 8). It reuses installed copies and writes no agent settings. `fetch` itself never runs package code: `run` stays the separate, explicit step that does, and it can run a script from a fetched package ([5.1](05-executables.md#the-runner)). `help` fetches by itself when a project has neither an install nor fetched packages ([10.1](10-cli.md#101-projects)). When the lock has no integrity for a package, `fetch` looks in the package manager's lockfile. When neither has one, it still downloads the package and warns, naming it.
 
 ## 4.3 Project outputs
