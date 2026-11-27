@@ -113,19 +113,25 @@ npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm
 npx -y @harnesspm/cli init
 ```
 
+A machine with an added harness ([07-added.md](07-added.md)) runs one command once, because its user-level hook still runs the earlier package:
+
+```shell
+npx -y @harnesspm/cli update
+```
+
 `init` updates the install hook; the next `sync` rewrites the rest. Until then, and until harnesspm 1.0, harnesspm treats the earlier name as its own:
 
 | Where the earlier name is | What harnesspm does |
 |---|---|
 | The installed CLI file, `node_modules/@tenphi/harnesspm/dist/cli.js` | Hooks and MCP servers start it when `@harnesspm/cli` is not installed ([5.2](05-executables.md#52-hooks)). |
 | Hook commands and allow rules with `npx -y @tenphi/harnesspm` or that file | They grant the same as the current form. So `sync` replaces them even in a run of the agent's model, and nothing is held back ([6.2](06-trust.md#62-trusting-a-package), rule 4). |
-| The user-level `SessionStart` hook, `npx -y @tenphi/harnesspm update` or `sync` | A sync by a person, a setup script or a hook replaces it with `npx -y @harnesspm/cli update` ([7.5](07-added.md#75-applying-in-every-repository)). |
+| The user-level `SessionStart` hook, `npx -y @tenphi/harnesspm update` or `sync` | It runs the earlier package, whose versions cannot rewrite it. A person runs `npx -y @harnesspm/cli update` once on each machine with an added harness; that run replaces it with `npx -y @harnesspm/cli update` ([7.5](07-added.md#75-applying-in-every-repository)). A later sync of the new version by a person, a setup script or a hook does the same. |
 | The project's `package.json` | `init` and the `harnesspm` command accept either name. `doctor` warns that the package moved and names the two commands above. |
 | The install hook | See [the install hook](#the-install-hook), point 6. |
 | Both packages installed | They ship the same harness, so `@harnesspm/cli` gives it and the other is left out, with no plugin name clash. |
 | `$schema` in `harnesspm.json` | The earlier URL keeps working, because the registry keeps the earlier package. `doctor` names the current one. |
 
-`@tenphi/harnesspm` is deprecated on npm, with a message that names the new package. Its versions stay installable. harnesspm 1.0 drops the earlier name: the list `OLD_PACKAGE_NAMES` in `src/util.ts` holds it.
+`@tenphi/harnesspm` is deprecated on npm, with a message that names the new package and both commands above. No release of the new code goes out under the earlier name. Its versions stay installable. harnesspm 1.0 drops the earlier name: the list `OLD_PACKAGE_NAMES` in `src/util.ts` holds it.
 
 ## 10.2 Authors
 

@@ -22,7 +22,7 @@ npm i -D @harnesspm/cli      # or: pnpm add -D @harnesspm/cli
 
 The package is `@harnesspm/cli`. The command it installs is `harnesspm`, so `npx -y @harnesspm/cli …` works in the project from now on.
 
-Up to version 0.16 the package was `@tenphi/harnesspm`. To move a project, run `npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm`, then `npx -y @harnesspm/cli init`. `doctor` reminds you. Until harnesspm 1.0 the earlier name keeps working, and nothing needs approving again. See [Moving from `@tenphi/harnesspm`](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#moving-from-tenphiharnesspm).
+Up to version 0.16 the package was `@tenphi/harnesspm`. To move a project, run `npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm`, then `npx -y @harnesspm/cli init`. `doctor` reminds you. If you added a harness of your own on a machine, also run `npx -y @harnesspm/cli update` there once. Until harnesspm 1.0 the earlier name keeps working, and nothing needs approving again. See [Moving from `@tenphi/harnesspm`](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md#moving-from-tenphiharnesspm).
 
 Do not skip this step. `init` adds a script that calls the `harnesspm` command, so it stops when the project does not list the package as a dependency.
 

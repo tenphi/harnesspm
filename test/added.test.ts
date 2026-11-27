@@ -330,8 +330,8 @@ test('the hook of an older harnesspm, which only synced, becomes the fetching ho
   assert.equal(groups[0].hooks[0].timeout, 120);
 });
 
-test('the hook under the earlier package name, @tenphi/harnesspm, becomes the current one at the next sync by a person', () => {
-  const { dir, hook } = appWithGitHarness();
+test('the hook under the earlier package name, @tenphi/harnesspm, becomes the current one when a person runs update', () => {
+  const { dir } = appWithGitHarness();
   const files = [home(dir, '.claude/settings.json'), home(dir, '.codex/hooks.json')];
   const commandIn = (file: string): string => JSON.parse(fs.readFileSync(file, 'utf8')).hooks.SessionStart[0].hooks[0].command;
   for (const [i, file] of files.entries()) {
@@ -341,7 +341,9 @@ test('the hook under the earlier package name, @tenphi/harnesspm, becomes the cu
   assert.equal(runWith(dir, { AI_AGENT: 'claude-code_2-1-0_agent' }, 'sync').status, 0);
   assert.equal(commandIn(files[0]!), 'npx -y @tenphi/harnesspm update', 'the model leaves it');
 
-  assert.equal(hook('sync').status, 0);
+  // The old hook runs the old package, which cannot rewrite itself: a person runs the new `update` once (spec 10.1).
+  const update = runWith(dir, {}, 'update');
+  assert.equal(update.status, 0, update.stderr);
   for (const file of files) assert.equal(commandIn(file), 'npx -y @harnesspm/cli update');
   assert.equal(JSON.parse(fs.readFileSync(files[0]!, 'utf8')).hooks.SessionStart.length, 1, 'replaced in place, not added');
 });
