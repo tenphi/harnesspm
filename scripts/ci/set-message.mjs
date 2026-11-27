@@ -1,7 +1,7 @@
 /**
  * Creates or updates one sticky comment on a pull request: the comment that
  * starts with `header`. The release workflow uses it to post the snapshot
- * version of @tenphi/harnesspm.
+ * version of @harnesspm/cli.
  */
 export default async function setMessage({
   header,

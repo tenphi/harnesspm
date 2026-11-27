@@ -10,8 +10,8 @@ import { homeOf, installPackage, PLUGIN_SCHEMA, read, run, runWith, skill, write
 const MODEL = { AI_AGENT: 'claude-code_2-1-323_agent', CLAUDECODE: '1' };
 const EVENTS = '.harnesspm/events.jsonl';
 const COMMANDS = [
-  '- Every package of this harness: `npx -y @tenphi/harnesspm help`. A package\'s rules and tools in full: `npx -y @tenphi/harnesspm help <package>`.',
-  '- Run a tool: `npx -y @tenphi/harnesspm run <tool> [args]`. Its options: `npx -y @tenphi/harnesspm help <tool>`.',
+  '- Every package of this harness: `npx -y @harnesspm/cli help`. A package\'s rules and tools in full: `npx -y @harnesspm/cli help <package>`.',
+  '- Run a tool: `npx -y @harnesspm/cli run <tool> [args]`. Its options: `npx -y @harnesspm/cli help <tool>`.',
   '- From outside this folder, add `-C <path to this folder>` before `help` or `run`.',
 ].join('\n');
 
@@ -67,8 +67,8 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.match(help.stdout, /^harnesspm — the harness package manager/);
   assert.match(help.stdout, /\nThis project: app \(work\/app\)\n/);
   // One line per package, with what it covers and the command that prints the rest.
-  assert.match(help.stdout, /\n- @acme\/kit — Usage\. 2 rules, docs, 2 tools, 1 MCP server, 1 skill: `npx -y @tenphi\/harnesspm -C work\/app help @acme\/kit`\n/);
-  assert.match(help.stdout, /A tool's options: `npx -y @tenphi\/harnesspm -C work\/app help <tool>`\. Run a tool: `npx -y @tenphi\/harnesspm -C work\/app run <tool> \[args\]`\./);
+  assert.match(help.stdout, /\n- @acme\/kit — Usage\. 2 rules, docs, 2 tools, 1 MCP server, 1 skill: `npx -y @harnesspm\/cli -C work\/app help @acme\/kit`\n/);
+  assert.match(help.stdout, /A tool's options: `npx -y @harnesspm\/cli -C work\/app help <tool>`\. Run a tool: `npx -y @harnesspm\/cli -C work\/app run <tool> \[args\]`\./);
 
   // `help <package>`: everything the package contributes, with commands and paths from the caller's folder.
   const pkg = run(root, '-C', 'work/app', 'help', '@acme/kit');
@@ -78,8 +78,8 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.match(pkg.stdout, /\n### Usage \(kit:rules\/usage\)\n\nAlways on\.\n\nUse the kit\.\n/);
   assert.match(pkg.stdout, /\n### Forms \(kit:rules\/forms\)\n\nWhen editing `\*\*\/\*\.tsx` — Forms\. File: work\/app\/\S+forms\.md\n\nUse Form\.\n/);
   assert.match(pkg.stdout, /## Docs\n\n- work\/app\/\.harnesspm\/docs\/kit\/llms\.txt \(kit:docs\)/);
-  assert.match(pkg.stdout, /## Tools\n\n- `npx -y @tenphi\/harnesspm -C work\/app run kit:where \[args\]` — Print where it runs \(kit:scripts\/where\)/);
-  assert.match(pkg.stdout, /## MCP servers\n\n- `npx -y @tenphi\/harnesspm -C work\/app mcp kit:docs` \(kit:mcp\/docs\)/);
+  assert.match(pkg.stdout, /## Tools\n\n- `npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]` — Print where it runs \(kit:scripts\/where\)/);
+  assert.match(pkg.stdout, /## MCP servers\n\n- `npx -y @harnesspm\/cli -C work\/app mcp kit:docs` \(kit:mcp\/docs\)/);
   assert.match(pkg.stdout, /## Skills\n\n- kit-review: read work\/app\/\S+\/skills\/kit-review\/SKILL\.md \(kit:skills\/kit-review\)\n {2}Does kit-review\. Use when testing\./);
   // Paths start at the caller's folder, so the agent can read them from there.
   for (const [, file] of pkg.stdout.matchAll(/(?:read|File:|-) (work\/app\/[^\s)]+)/g)) assert.ok(fs.existsSync(path.join(root, file!)), `${file} exists`);
@@ -89,7 +89,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   const rule = run(root, '-C', 'work/app', 'help', 'kit:rules/forms').stdout;
   assert.match(rule, /\n# Forms \(kit:rules\/forms\)\n\nWhen editing `\*\*\/\*\.tsx` — Forms\. File: work\/app\/\S+forms\.md\n\nUse Form\.\n$/);
   const tool = run(root, '-C', 'work/app', 'help', 'kit:where').stdout;
-  assert.match(tool, /\nkit:where \(kit:scripts\/where\), from @acme\/kit\n\nPrint where it runs\n\nUsage: <file>\n {7}Prints the folder it runs in, the project and its arguments\.\nRun: {3}npx -y @tenphi\/harnesspm -C work\/app run kit:where \[args\]\n$/);
+  assert.match(tool, /\nkit:where \(kit:scripts\/where\), from @acme\/kit\n\nPrint where it runs\n\nUsage: <file>\n {7}Prints the folder it runs in, the project and its arguments\.\nRun: {3}npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]\n$/);
   assert.equal(run(root, '-C', 'work/app', 'help', 'kit:scripts/where').stdout, tool, 'the tool ID works too');
   assert.match(run(root, '-C', 'work/app', 'help', 'kit:needs').stdout, /Usage: none declared\./);
   // `help` with a target is a telemetry event of the named project (spec 14.2).
@@ -105,15 +105,15 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.ok(helps.every((e) => e['workspace'] === '.' && e['caller'] === 'person' && e['outside'] === true), 'help from outside the project says so');
   const nope = run(root, '-C', 'work/app', 'help', 'kit:nope');
   assert.equal(nope.status, 1);
-  assert.match(nope.stderr, /No command, package, rule or tool "kit:nope"\. Packages: @acme\/kit\. `npx -y @tenphi\/harnesspm -C work\/app help` lists them\./);
+  assert.match(nope.stderr, /No command, package, rule or tool "kit:nope"\. Packages: @acme\/kit\. `npx -y @harnesspm\/cli -C work\/app help` lists them\./);
 
   // Inside the project, the same commands without -C.
   const inside = run(app, 'help').stdout;
   assert.match(inside, /\nThis project: app\n/);
-  assert.match(inside, /: `npx -y @tenphi\/harnesspm help @acme\/kit`/);
+  assert.match(inside, /: `npx -y @harnesspm\/cli help @acme\/kit`/);
   const insidePkg = run(app, 'help', '@acme/kit').stdout;
   assert.equal(events(app).filter((e) => e.type === 'help').at(-1)!['outside'], undefined, 'help inside the project has no outside field');
-  assert.match(insidePkg, /- `npx -y @tenphi\/harnesspm run kit:where \[args\]`/);
+  assert.match(insidePkg, /- `npx -y @harnesspm\/cli run kit:where \[args\]`/);
   assert.match(insidePkg, /File: node_modules\/\.harnesspm\/\S+forms\.md/);
 
   // The script runs in the caller's folder, so file arguments stay valid. HARNESSPM_PROJECT_DIR is the named project.
@@ -127,7 +127,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.ok(!fs.existsSync(path.join(root, EVENTS)));
 
   // Other commands take -C too.
-  assert.match(run(root, '-C', 'work/app', 'why', 'kit:scripts/where').stdout, /run +npx -y @tenphi\/harnesspm -C work\/app run kit:where/);
+  assert.match(run(root, '-C', 'work/app', 'why', 'kit:scripts/where').stdout, /run +npx -y @harnesspm\/cli -C work\/app run kit:where/);
   assert.deepEqual([events(app).at(-1)!.type, events(app).at(-1)!['outside']], ['why', true]);
   run(app, 'why', 'kit:scripts/where');
   run(app, 'run', 'kit:where');
@@ -154,10 +154,10 @@ test('S18: without an install, run says what is missing, and runs scripts from t
     const ran = run(root, '-C', 'work/app', 'run', ref);
     assert.equal(ran.status, 1);
     assert.doesNotMatch(ran.stderr, /No script/);
-    assert.match(ran.stderr, /work\/app has no install and no fetched harness packages, so its scripts are not available yet\. Run `npx -y @tenphi\/harnesspm -C work\/app fetch` to use the scripts that need nothing else, or install the project with `cd work\/app && npm ci`\./);
+    assert.match(ran.stderr, /work\/app has no install and no fetched harness packages, so its scripts are not available yet\. Run `npx -y @harnesspm\/cli -C work\/app fetch` to use the scripts that need nothing else, or install the project with `cd work\/app && npm ci`\./);
   }
   const inside = run(app, 'run', 'kit:where');
-  assert.match(inside.stderr, /has no install and no fetched harness packages[^\n]*`npx -y @tenphi\/harnesspm fetch`[^\n]*`npm ci`\./);
+  assert.match(inside.stderr, /has no install and no fetched harness packages[^\n]*`npx -y @harnesspm\/cli fetch`[^\n]*`npm ci`\./);
   assert.doesNotMatch(inside.stderr, /No script/);
 
   // What `fetch` leaves: the package in the locked version, without its dependencies.
@@ -178,10 +178,10 @@ test('S18: without an install, run says what is missing, and runs scripts from t
   const help = run(root, '-C', 'work/app', 'help');
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /No install: tools run from the fetched harness packages\./);
-  assert.match(help.stdout, /- @acme\/kit — Usage\. 2 rules, docs, 2 tools, 1 MCP server, 1 skill: `npx -y @tenphi\/harnesspm -C work\/app help @acme\/kit`/);
+  assert.match(help.stdout, /- @acme\/kit — Usage\. 2 rules, docs, 2 tools, 1 MCP server, 1 skill: `npx -y @harnesspm\/cli -C work\/app help @acme\/kit`/);
   const pkg = run(root, '-C', 'work/app', 'help', '@acme/kit').stdout;
   assert.match(pkg, /No install: tools run from the fetched harness packages\./);
-  assert.match(pkg, /- `npx -y @tenphi\/harnesspm -C work\/app run kit:where \[args\]`/);
+  assert.match(pkg, /- `npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]`/);
   assert.match(pkg, /Use the kit\./);
   assert.match(pkg, /read work\/app\/node_modules\/\.harnesspm\/fetched\/@acme\/kit\/harness\/skills\/kit-review\/SKILL\.md/);
   assert.match(run(root, '-C', 'work/app', 'help', 'kit:where').stdout, /Usage: <file>/, 'help <tool> never runs the script, so it needs no install');
@@ -214,7 +214,7 @@ test('S18: help fetches the harness packages first when the project has no insta
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stderr, /work\/app has no install, so harnesspm fetches its harness packages first\. Fetching runs no package code\./);
   assert.match(help.stderr, /fetched 1 package \(@acme\/kit 2\.1\.0\)/);
-  assert.match(help.stdout, /: `npx -y @tenphi\/harnesspm -C work\/app help @acme\/kit`/);
+  assert.match(help.stdout, /: `npx -y @harnesspm\/cli -C work\/app help @acme\/kit`/);
   assert.ok(fs.existsSync(path.join(app, 'node_modules/.harnesspm/fetched/@acme/kit/package.json')));
   const ran = run(root, '-C', 'work/app', 'run', 'kit:where');
   assert.equal(ran.status, 0, ran.stderr);
@@ -244,21 +244,21 @@ test('a model run keeps allow rules in the new command form where the earlier fo
   installPackage(app, '@acme/kit', kitFiles());
   assert.equal(run(app, 'sync').status, 0);
   // What an earlier harnesspm wrote: only `npx harnesspm run`.
-  const earlier = (text: string): string => text.split('\n').filter((line) => !line.includes('@tenphi/harnesspm","run"') && !line.includes('npx -y @tenphi/harnesspm run')).join('\n');
+  const earlier = (text: string): string => text.split('\n').filter((line) => !line.includes('@harnesspm/cli","run"') && !line.includes('npx -y @harnesspm/cli run')).join('\n');
   const stateFile = path.join(app, '.git/harnesspm/state.json');
   const state = JSON.parse(read(app, '.git/harnesspm/state.json'));
-  state.exec.team.claude.allow = state.exec.team.claude.allow.filter((rule: string) => !rule.includes('@tenphi/harnesspm'));
-  state.exec.team.codex.rules = state.exec.team.codex.rules.filter((rule: string) => !rule.includes('@tenphi/harnesspm'));
+  state.exec.team.claude.allow = state.exec.team.claude.allow.filter((rule: string) => !rule.includes('@harnesspm/cli'));
+  state.exec.team.codex.rules = state.exec.team.codex.rules.filter((rule: string) => !rule.includes('@harnesspm/cli'));
   fs.writeFileSync(stateFile, JSON.stringify(state));
   const settings = JSON.parse(read(app, '.claude/settings.local.json'));
-  settings.permissions.allow = settings.permissions.allow.filter((rule: string) => !rule.includes('@tenphi/harnesspm'));
+  settings.permissions.allow = settings.permissions.allow.filter((rule: string) => !rule.includes('@harnesspm/cli'));
   writeFiles(app, { '.claude/settings.local.json': JSON.stringify(settings), '.codex/rules/harnesspm.rules': earlier(read(app, '.codex/rules/harnesspm.rules')) });
 
   const model = runWith(app, MODEL, 'sync');
   assert.equal(model.status, 0, model.stderr);
   assert.doesNotMatch(model.stdout, /held back/);
   const allow: string[] = JSON.parse(read(app, '.claude/settings.local.json')).permissions.allow;
-  assert.ok(allow.includes('Bash(npx -y @tenphi/harnesspm run kit:where *)'));
+  assert.ok(allow.includes('Bash(npx -y @harnesspm/cli run kit:where *)'));
   assert.ok(allow.includes('Bash(npx harnesspm run kit:where *)'));
-  assert.match(read(app, '.codex/rules/harnesspm.rules'), /\["npx","-y","@tenphi\/harnesspm","run","kit:where"\]/);
+  assert.match(read(app, '.codex/rules/harnesspm.rules'), /\["npx","-y","@harnesspm\/cli","run","kit:where"\]/);
 });

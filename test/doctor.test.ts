@@ -152,8 +152,8 @@ test('status and doctor name each managed block that Codex never reaches, along 
 
   const status = run(dir, 'status');
   assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in AGENTS\\.md: it starts at ${(before / 1024).toFixed(1)} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, move the block to the top of its file, where sync keeps it, or move details into on-demand rules or docs\\.`));
-  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\. Agents can still get what it holds with \`npx -y @tenphi/harnesspm help <package>\`\\.`));
-  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\. Agents can still get what it holds with `npx -y @tenphi\/harnesspm help <package>`\./);
+  assert.match(status.stderr, new RegExp(`⚠️ {2}Codex never reads the harness block in packages/web/AGENTS\\.md: it starts at ${webBlock} KiB of the AGENTS\\.md files that Codex joins there, past its 32 KiB limit\\. To fix it, shorten the AGENTS\\.md files above it, or move details into on-demand rules or docs\\. Agents can still get what it holds with \`npx -y @harnesspm/cli help <package>\`\\.`));
+  assert.match(status.stderr, /⚠️ {2}Codex never reads the harness block in packages\/api\/AGENTS\.md: it reads packages\/api\/AGENTS\.override\.md there instead\. Agents can still get what it holds with `npx -y @harnesspm\/cli help <package>`\./);
   const doctor = run(dir, 'doctor');
   assert.equal(doctor.status, 0, 'warnings, not failures');
   assert.match(doctor.stdout, /📦 Outputs\n[^]*  ⚠️  Codex never reads the harness block in packages\/web\/AGENTS\.md/);
@@ -199,7 +199,7 @@ test('doctor: an install hook in the old form is a warning that names init', () 
   const old = run(dir, 'doctor');
   assert.equal(old.status, 0, 'a warning does not fail');
   assert.match(old.stdout, warning);
-  const hook = `node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}" || harnesspm sync`;
+  const hook = `node -e "try{require.resolve('@harnesspm/cli/package.json');process.exit(1)}catch{}" || harnesspm sync`;
   writeFiles(dir, { 'package.json': JSON.stringify({ ...pkg, scripts: { postinstall: hook } }) });
   assert.doesNotMatch(run(dir, 'doctor').stdout, /also when harnesspm is not installed/);
 });

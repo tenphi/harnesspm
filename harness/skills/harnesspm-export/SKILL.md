@@ -7,7 +7,7 @@ description: Share agent rules, docs, skills or tools from a package through har
 
 ## 1. Start small
 
-Install harnesspm as a dev dependency of the package: `npm i -D @tenphi/harnesspm`. The package needs no `npx harnesspm init` to share a harness.
+Install harnesspm as a dev dependency of the package: `npm i -D @harnesspm/cli`. The package needs no `npx harnesspm init` to share a harness.
 
 If the package has no `harness/` folder, run `npx harnesspm new rule <name>`. It creates `harness/plugin.json` and one rule. That is a complete harness.
 
@@ -27,7 +27,7 @@ Share what the package's **users** need. Keep contributor-only instructions (rel
 
 Write each skill's `description` as what it does, then "Use when …" with the situations and words people use. Agents pick skills by that text, but not every time: when a skill must run in a situation, also add an always-on rule that names it.
 
-Keep always-on rules short. One topic per file, split into small `##` sections, so users can patch one section, replace one file or drop it. The `AGENTS.md` block shows an always-on rule as one line, its title and its `##` and `###` headings, and agents read the text with `npx -y @tenphi/harnesspm help <package>`. So name each section by what it asks, such as "Never edit outputs".
+Keep always-on rules short. One topic per file, split into small `##` sections, so users can patch one section, replace one file or drop it. The `AGENTS.md` block shows an always-on rule as one line, its title and its `##` and `###` headings, and agents read the text with `npx -y @harnesspm/cli help <package>`. So name each section by what it asks, such as "Never edit outputs".
 
 ## 3. Pass on upstream harness
 
@@ -39,5 +39,5 @@ Keep always-on rules short. One topic per file, split into small `##` sections, 
 1. If `package.json` has a `files` field, make sure it lists `harness` and the docs folder, if used.
 2. Run `npx harnesspm check`. Fix every problem.
 3. Add `"prepack": "harnesspm check"` to the `package.json` scripts.
-4. Add a short note to the README: the package ships a harness for coding agents, and a project gets it with `npm i -D @tenphi/harnesspm` and `npx harnesspm init`. A project that does not use harnesspm gets nothing by itself.
+4. Add a short note to the README: the package ships a harness for coding agents, and a project gets it with `npm i -D @harnesspm/cli` and `npx harnesspm init`. A project that does not use harnesspm gets nothing by itself.
 5. To see the harness as users' agents will, run `npx harnesspm init` in this repository. Its own harness then shows in its `AGENTS.md` block.

@@ -406,7 +406,7 @@ test("an agent's sync event names what it held back and why; events from a linke
   assert.equal(session('vendor/lib'), undefined, 'a submodule');
 });
 
-test("a project's own tool reports its runs through @tenphi/harnesspm/telemetry, with the same switch and opt-outs", () => {
+test("a project's own tool reports its runs through @harnesspm/cli/telemetry, with the same switch and opt-outs", () => {
   const dir = app({ events: ['run'], send: { file: EVENTS } });
   assert.equal(run(dir, 'sync').status, 0);
   const api = pathToFileURL(path.join(import.meta.dirname, '..', 'src', 'telemetry-api.ts')).href;

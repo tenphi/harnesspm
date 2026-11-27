@@ -16,14 +16,14 @@ A project that uses harnesspm already gives you this:
 
 | Where | What |
 | --- | --- |
-| The managed block in `AGENTS.md` | The commands that reach the harness, then one line for each rule, docs index and tool of each package. Every line ends with a unit ID. `npx -y @tenphi/harnesspm help <package>` prints a package's rules in full, and `help <tool>` a tool's usage. |
+| The managed block in `AGENTS.md` | The commands that reach the harness, then one line for each rule, docs index and tool of each package. Every line ends with a unit ID. `npx -y @harnesspm/cli help <package>` prints a package's rules in full, and `help <tool>` a tool's usage. |
 | The skills `harnesspm-import`, `harnesspm-export` and `harnesspm-improve` | The steps for using, sharing and improving a harness. |
 | `.harnesspm/docs/harnesspm/llms.txt` | The specification, at the installed version. |
 
 No block in `AGENTS.md` means the project does not use harnesspm yet:
 
 - To use the harness of its dependencies, start with [Set up a project](./setup.md).
-- To share a harness from a library, start with [Share a harness from your library](./share.md). It needs only the dev dependency. The skills are then files in `node_modules/@tenphi/harnesspm/harness/skills/`.
+- To share a harness from a library, start with [Share a harness from your library](./share.md). It needs only the dev dependency. The skills are then files in `node_modules/@harnesspm/cli/harness/skills/`.
 
 ## Rules that always apply
 

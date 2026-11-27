@@ -14,7 +14,7 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 
 ```json
 {
-  "$schema": "https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json",
+  "$schema": "https://unpkg.com/@harnesspm/cli/schema/harnesspm.schema.json",
   "exclude": ["acme-colors:skills/acme-colors-theme", "acme-styles:hooks/check-edit"],
   "replace": { "acme-styles:rules/usage": "./harnesspm/styles-usage.md" },
   "patch": { "acme-colors:rules/usage": "./harnesspm/patches/acme-colors-usage.patch.md" },
@@ -32,7 +32,7 @@ description: Every field of harnesspm.json, and the per-machine files harnesspm.
 | `trust` | object | `{}` | Package name → `true` (follows upgrades) or `"pin"` (each new version needs `harnesspm approve`). Lets the package's scripts, hooks, MCP servers and allow rules run. |
 | `telemetry` | object | off | Events and the handler that gets them. |
 
-Paths are relative to the project root. Unknown fields give a warning. The schema ships with the package, at [`schema/harnesspm.schema.json`](https://unpkg.com/@tenphi/harnesspm/schema/harnesspm.schema.json).
+Paths are relative to the project root. Unknown fields give a warning. The schema ships with the package, at [`schema/harnesspm.schema.json`](https://unpkg.com/@harnesspm/cli/schema/harnesspm.schema.json).
 
 ### `telemetry`
 

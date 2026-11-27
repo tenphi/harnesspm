@@ -23,13 +23,13 @@ import whyColorsUsage from './examples/why-colors-usage.txt?raw';
 <CodeGroup
   label="Set up harnesspm in a project"
   items={[
-    { label: 'npm', language: 'shell', code: 'npm i -D @tenphi/harnesspm\nnpx harnesspm init' },
-    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @tenphi/harnesspm\npnpm exec harnesspm init' },
-    { label: 'yarn', language: 'shell', code: 'yarn add -D @tenphi/harnesspm\nyarn harnesspm init' },
+    { label: 'npm', language: 'shell', code: 'npm i -D @harnesspm/cli\nnpx harnesspm init' },
+    { label: 'pnpm', language: 'shell', code: 'pnpm add -D @harnesspm/cli\npnpm exec harnesspm init' },
+    { label: 'yarn', language: 'shell', code: 'yarn add -D @harnesspm/cli\nyarn harnesspm init' },
     {
       label: 'Ask your agent',
       language: 'text',
-      code: 'Set up harnesspm in this project:\ninstall @tenphi/harnesspm as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
+      code: 'Set up harnesspm in this project:\ninstall @harnesspm/cli as a dev dependency\nand run `npx harnesspm init`.\n\nThen tell me what it wrote, which packages have\ntools that wait for my trust, and what each tool does.\nDo not change "trust" yourself.\n\nDetails: https://harnesspm.tenphi.me/guides/setup',
     },
   ]}
 />
@@ -144,7 +144,7 @@ Agents run the same command. The `harnesspm-improve` skill takes them from `why`
 Your team's and your own way of working can follow you into every repository, without a commit. `add` puts a harness on top of the repository's, on your machine:
 
 ```shell
-npx -y @tenphi/harnesspm add \
+npx -y @harnesspm/cli add \
   github:<owner>/<repo>
 ```
 

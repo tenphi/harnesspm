@@ -8,8 +8,9 @@
 - Authors use `check` and `new`.
 - People use `add`, `remove` and `update` for harnesses on top of the repository's.
 - Saving changes to a harness is not a harnesspm command. The owner's rules decide it ([08-improving.md](08-improving.md)).
+- The npm package is `@harnesspm/cli`. Up to 0.15 it was `@tenphi/harnesspm`, which harnesspm still recognizes until 1.0 ([below](#moving-from-tenphiharnesspm)).
 
-The npm package is `@tenphi/harnesspm`, and the command it installs is `harnesspm`. `npx -y @tenphi/harnesspm …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Tool lines in the managed block use this form ([4.6](04-outputs.md#46-managed-blocks)). `npx harnesspm …` works only in a project that depends on harnesspm, and messages there may use it. An allow rule always has the prefix of the command it allows.
+The npm package is `@harnesspm/cli`, and the command it installs is `harnesspm`. `npx -y @harnesspm/cli …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Tool lines in the managed block use this form ([4.6](04-outputs.md#46-managed-blocks)). `npx harnesspm …` works only in a project that depends on harnesspm, and messages there may use it. An allow rule always has the prefix of the command it allows.
 
 `harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's packages ([below](#the-project-in-help)), and `help <package | rule ID | tool>` prints one of them in full ([below](#help-for-a-package-a-rule-or-a-tool)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
 
@@ -17,7 +18,7 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync` and names the committed files ([1.7](01-overview.md#17-what-is-committed)) that git sees as new or changed. It MUST stop before it changes anything when the project's `package.json` does not list `@tenphi/harnesspm` in `dependencies`, `devDependencies` or `optionalDependencies`: the script it adds calls the `harnesspm` command, so the next install would fail. |
+| `harnesspm init` | Creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync` and names the committed files ([1.7](01-overview.md#17-what-is-committed)) that git sees as new or changed. It MUST stop before it changes anything when the project's `package.json` does not list `@harnesspm/cli` in `dependencies`, `devDependencies` or `optionalDependencies`: the script it adds calls the `harnesspm` command, so the next install would fail. |
 | `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending outside the reviewed state, and the held-back line says what differs ([06-trust.md](06-trust.md#62-trusting-a-package)). With `CI=true`, it writes only the per-machine outputs and leaves the committed ones to `sync --check` ([06-trust.md](06-trust.md#64-ci)). In a parent folder, which is not in a git repository and has projects right below it, it writes their hooks and a pointer block for sessions that start there, and a project's sync keeps its entries there current. With added harnesses, it also writes their per-machine outputs in each git repository right below the folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --write` | Writes the committed outputs with `CI=true` too, for a job that commits them. `init`, `approve` and `new` always write them. |
@@ -35,8 +36,8 @@ The npm package is `@tenphi/harnesspm`, and the command it installs is `harnessp
 `-C <dir>` goes before the command, as in `git -C`: harnesspm acts as if it started in `<dir>`. It works with every command, such as `help`, `fetch`, `run`, `mcp`, `why`, `status` and `doctor`.
 
 ```bash
-npx -y @tenphi/harnesspm -C work/app help
-npx -y @tenphi/harnesspm -C work/app run uikit:colors surface
+npx -y @harnesspm/cli -C work/app help
+npx -y @harnesspm/cli -C work/app run uikit:colors surface
 ```
 
 - `run` keeps the caller's folder for the script, so file arguments stay valid. `HARNESSPM_PROJECT_DIR` is the named project. A hook (`run --agent`) from outside the project runs in the project, and not for a file outside it ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)).
@@ -52,7 +53,7 @@ Inside a project, or with `-C`, `help` ends with a "This project" section. It gi
 This project: app (work/app)
 Paths start at the current folder. The tools run here too, with -C.
 
-- @acme/ui — Acme UI. 1 rule, docs, 1 tool, 1 skill: `npx -y @tenphi/harnesspm -C work/app help @acme/ui`
+- @acme/ui — Acme UI. 1 rule, docs, 1 tool, 1 skill: `npx -y @harnesspm/cli -C work/app help @acme/ui`
 ```
 
 ### Help for a package, a rule or a tool
@@ -79,7 +80,7 @@ Package managers run these scripts on a full install, but not on `npm install <p
 `init` adds this command, after any script that is already there:
 
 ```shell
-node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}catch{}" || harnesspm sync
+node -e "try{require.resolve('@harnesspm/cli/package.json');process.exit(1)}catch{}" || harnesspm sync
 ```
 
 1. harnesspm is a dev dependency. An install without dev dependencies, such as `npm ci --omit=dev`, `pnpm install --prod` or `yarn install --production`, still runs the project's own scripts, but has no `harnesspm` command. The `node -e` part ends with success exactly then, so `||` skips the sync and the install goes on.
@@ -87,8 +88,9 @@ node -e "try{require.resolve('@tenphi/harnesspm/package.json');process.exit(1)}c
 3. After an existing script, the hook goes in parentheses: `patch-package && (… || harnesspm sync)`. Without them, a failure of `patch-package` would run the sync, and the sync's success would hide it.
 4. `node -e`, `||` and parentheses work in sh, Windows cmd and Yarn's own shell. `|| true` would not: cmd has no `true` command.
 5. Older versions of `init` wrote the hook as plain `harnesspm sync`, which fails such an install. `init` replaces that form, alone or after ` && `, and `doctor` warns about it. A script that runs `harnesspm sync` in any other form stays as it is.
+6. The `node -e` part names the package that the project lists. A project that still lists `@tenphi/harnesspm` gets a hook for that name. A hook for a name the project no longer lists would skip every sync, so `init` replaces it with the hook for the listed name, and `doctor` warns about it.
 
-The `node -e` part resolves `@tenphi/harnesspm/package.json` from the project folder. So the package's `exports` field MUST export `./package.json`. It does, next to `./telemetry` ([14.9](14-telemetry.md#149-events-from-a-projects-own-tools)).
+The `node -e` part resolves `@harnesspm/cli/package.json` from the project folder. So the package's `exports` field MUST export `./package.json`. It does, next to `./telemetry` ([14.9](14-telemetry.md#149-events-from-a-projects-own-tools)).
 
 `harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. `harnesspm track --agent <agent>` is the command of harnesspm's own telemetry hooks ([14.4](14-telemetry.md#144-agent-events)). People do not need either.
 
@@ -101,6 +103,29 @@ $ npx harnesspm status
 📏 always-on     Codex 18.4 KiB of 32 KiB · Claude Code 212 lines
 📡 telemetry     run, mcp, sync, why, read, skill, session → file .harnesspm/events.jsonl
 ```
+
+### Moving from `@tenphi/harnesspm`
+
+Up to version 0.15, the package was `@tenphi/harnesspm`. From 0.16 it is `@harnesspm/cli`, with the same command, `harnesspm`, and the same versions, so a project moves with one install:
+
+```shell
+npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm
+npx harnesspm init
+```
+
+`init` updates the install hook; the next `sync` rewrites the rest. Until then, and until harnesspm 1.0, harnesspm treats the earlier name as its own:
+
+| Where the earlier name is | What harnesspm does |
+|---|---|
+| The installed CLI file, `node_modules/@tenphi/harnesspm/dist/cli.js` | Hooks and MCP servers start it when `@harnesspm/cli` is not installed ([5.2](05-executables.md#52-hooks)). |
+| Hook commands and allow rules with `npx -y @tenphi/harnesspm` or that file | They grant the same as the current form. So `sync` replaces them even in a run of the agent's model, and nothing is held back ([6.2](06-trust.md#62-trusting-a-package), rule 4). |
+| The user-level `SessionStart` hook, `npx -y @tenphi/harnesspm update` or `sync` | A sync by a person, a setup script or a hook replaces it with `npx -y @harnesspm/cli update` ([7.5](07-added.md#75-applying-in-every-repository)). |
+| The project's `package.json` | `init` and the `harnesspm` command accept either name. `doctor` warns that the package moved and names the two commands above. |
+| The install hook | See [the install hook](#the-install-hook), point 6. |
+| Both packages installed | They ship the same harness, so `@harnesspm/cli` gives it and the other is left out, with no plugin name clash. |
+| `$schema` in `harnesspm.json` | The earlier URL keeps working, because the registry keeps the earlier package. `doctor` names the current one. |
+
+`@tenphi/harnesspm` is deprecated on npm, with a message that names the new package. Its versions stay installable. harnesspm 1.0 drops the earlier name: the list `OLD_PACKAGE_NAMES` in `src/util.ts` holds it.
 
 ## 10.2 Authors
 

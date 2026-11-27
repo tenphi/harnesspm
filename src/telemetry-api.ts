@@ -1,4 +1,4 @@
-// The public telemetry entry, `@tenphi/harnesspm/telemetry` (spec 14.9): a project's own tools report their runs
+// The public telemetry entry, `@harnesspm/cli/telemetry` (spec 14.9): a project's own tools report their runs
 // through the same handler, switch, opt-outs and trust rule as `harnesspm run`. Like `harnesspm track`, it loads
 // only Node.js built-ins and light modules, so a tool can call it on every run.
 import * as path from 'node:path';

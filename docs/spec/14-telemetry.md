@@ -4,7 +4,7 @@
 
 - Telemetry is off. A team turns it on in `harnesspm.json` with `telemetry`: which events to send, and a handler that gets them, either a command or a file. harnesspm has no vendor code.
 - harnesspm sends what it sees: script runs, MCP server starts, `sync`, `why` and `help <target>`. With agent events on, its own hooks also report when Claude Code reads a harness file, loads a workspace's rules or a skill, and when a session starts.
-- A project's own tools send `run` events through the same handler with `reportRun` from `@tenphi/harnesspm/telemetry` ([14.9](#149-events-from-a-projects-own-tools)).
+- A project's own tools send `run` events through the same handler with `reportRun` from `@harnesspm/cli/telemetry` ([14.9](#149-events-from-a-projects-own-tools)).
 - A `run` event's `outcome` tells a tool's answer, such as a lint's "found problems", from a failure. Events from a folder outside the project, such as with `-C`, carry `outside: true`.
 - Events never hold arguments, file contents or prompts. Sending never slows down or fails a command.
 - A handler gets events only as a person's `sync` recorded it in the lock. A person opts out with `DO_NOT_TRACK=1` or `"telemetry": false` in `harnesspm.local.json`.
@@ -99,7 +99,7 @@ Codex reads files and skills through shell commands. harnesspm cannot map a shel
 
 A hook MUST never make the agent wait. The hooks are asynchronous, and the command is fast:
 
-1. It is `node <project>/node_modules/@tenphi/harnesspm/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
+1. It is `node <project>/node_modules/@harnesspm/cli/dist/cli.js track --agent <agent>`, an absolute path in a per-machine file, with the prefix of package hooks ([5.2](05-executables.md#52-hooks)). npx costs about 0.4 seconds per call. Without an installed harnesspm, or on Windows, harnesspm writes `npx harnesspm track …`.
 2. `track` reads the hook's JSON from stdin. It maps the file path, or the skill name, to units with an index that `sync` writes to `node_modules/.harnesspm/telemetry.json`. The index lists the rule files, generated rules and docs indexes, and the skill and docs folders, of each package, with its [docs copy](04-outputs.md#43-project-outputs), so a read of a copied page counts for the package's docs; each workspace's `AGENTS.md`, with the always-on rules its managed block names; and the repository, so a hook never asks git.
 3. It hands the events off as in [14.3](#143-sending), and exits `0` at once without printing.
 
@@ -180,7 +180,7 @@ In a headless Claude Code run, such a rule led the agent to report a failing har
 A project often tells agents to use tools that are not harnesspm scripts, such as a `yarn probe` script or a file in `scripts/`. Moving each into the project's harness would change the command that every doc and agent uses. So the tool reports its runs itself:
 
 ```js
-import { reportRun } from '@tenphi/harnesspm/telemetry';
+import { reportRun } from '@harnesspm/cli/telemetry';
 
 reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 1, answers: [1] });
 ```

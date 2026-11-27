@@ -95,7 +95,7 @@ harness/
 | MCP server | `mcp.json`, by server name | `acme-ui:mcp/<name>` |
 | Permissions | `dev.harnesspm/permissions.json` | `acme-ui:permissions` |
 
-Commands name scripts and MCP servers as `<plugin>:<name>`: `npx -y @tenphi/harnesspm run acme-ui:tokens`. Agents see an MCP server as `<plugin>-<server>`, such as `acme-ui-docs`.
+Commands name scripts and MCP servers as `<plugin>:<name>`: `npx -y @harnesspm/cli run acme-ui:tokens`. Agents see an MCP server as `<plugin>-<server>`, such as `acme-ui-docs`.
 
 ## Rules
 

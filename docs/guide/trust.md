@@ -52,7 +52,7 @@ Then run `npx harnesspm sync`. Trust never passes through `extends`: trusting `@
 A dependency cannot grant itself broad rights. harnesspm writes allow rules only for units from the project, an added harness or a trusted package, and only for three things:
 
 - each skill, as `Skill(<name>)`, so an unattended Claude Code session can run it;
-- each script with `"allow": true`, as `Bash(npx -y @tenphi/harnesspm run <plugin>:<script> *)` for Claude Code, and for now also the earlier `Bash(npx harnesspm run <plugin>:<script> *)`, and a `prefix_rule` for Codex;
+- each script with `"allow": true`, as `Bash(npx -y @harnesspm/cli run <plugin>:<script> *)` for Claude Code, and for now also the earlier `Bash(npx harnesspm run <plugin>:<script> *)`, and a `prefix_rule` for Codex;
 - each MCP server's tools, for Claude Code.
 
 Deny and ask rules from any package pass through, because they only restrict. Every script runs through `harnesspm run`, which refuses a script when its package is not trusted, or when the installed version differs from the lock.
@@ -63,7 +63,7 @@ When the agent's model runs harnesspm, for example through an install the model 
 
 ```text
 ⏳ held back: 3 entries that an agent cannot grant (allow Skill(harnesspm-export); allow Skill(harnesspm-import); allow Skill(harnesspm-improve)), because harnesspm.json differs from origin/main.
-   Ask the person to run `npx -y @tenphi/harnesspm sync` or `npx -y @tenphi/harnesspm approve` in their own terminal.
+   Ask the person to run `npx -y @harnesspm/cli sync` or `npx -y @harnesspm/cli approve` in their own terminal.
 ```
 
 This example is from a repository where the agent has just set up harnesspm, and whose own harness has three skills. A run with nothing new to add prints no such line. `status` and `doctor` list the same entries. In a Claude Code cloud session, the second line names the environment's setup script instead, with the line to put there, such as `cd /home/user/app && npm ci`, because nobody has a terminal there.

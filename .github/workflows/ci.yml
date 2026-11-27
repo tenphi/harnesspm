@@ -85,4 +85,4 @@ jobs:
       # The public entry that a project's own tools import (spec 14.9), resolved through "exports".
       - name: Load the public telemetry entry
         run: |
-          node --input-type=module -e "import { reportRun } from '@tenphi/harnesspm/telemetry'; reportRun({ unit: 'ci:scripts/check' }); console.log(typeof reportRun)"
+          node --input-type=module -e "import { reportRun } from '@harnesspm/cli/telemetry'; reportRun({ unit: 'ci:scripts/check' }); console.log(typeof reportRun)"

@@ -11,7 +11,7 @@ A **harness** is everything a coding agent needs to use a library well: rules, d
 | Flow | Who | What they do |
 | --- | --- | --- |
 | 📤 **Share** | A library | Adds a `harness/` folder to its npm package. It can pass on the harness of the libraries it builds on (`extends`). |
-| 📥 **Use** | A project | `npm i -D @tenphi/harnesspm` and `npx harnesspm init`. After every install, Claude Code and Codex see the harness of the installed versions. |
+| 📥 **Use** | A project | `npm i -D @harnesspm/cli` and `npx harnesspm init`. After every install, Claude Code and Codex see the harness of the installed versions. |
 | ➕ **Add on top** | A person | `npx harnesspm add github:me/harness`. A team's or their own workflow, context and tools apply on top, without changing the project's repository. |
 | 🛠️ **Improve** | An agent | `npx harnesspm why <unit>` finds the source. The agent edits it and saves the change the way the owner's rules say, by default with a pull request. |
 
@@ -28,7 +28,7 @@ added        (harnesses you add: your team's, your own)       → per-machine fi
 In a project:
 
 ```bash
-npm i -D @tenphi/harnesspm
+npm i -D @harnesspm/cli
 npx harnesspm init
 ```
 
@@ -37,7 +37,7 @@ npx harnesspm init
 In a library, to share its harness:
 
 ```bash
-npm i -D @tenphi/harnesspm
+npm i -D @harnesspm/cli
 npx harnesspm new rule usage
 npx harnesspm check
 ```
@@ -67,4 +67,4 @@ To see how agents use the harness, a team can turn on telemetry in `harnesspm.js
 
 ## Name
 
-**harnesspm** stands for *harness package manager*, in the line of npm and pnpm. It is written in lowercase. The npm package is `@tenphi/harnesspm`, and the command is `harnesspm`. The extension namespace is `dev.harnesspm`.
+**harnesspm** stands for *harness package manager*, in the line of npm and pnpm. It is written in lowercase. The npm package is `@harnesspm/cli` (`@tenphi/harnesspm` up to 0.15), and the command is `harnesspm`. The extension namespace is `dev.harnesspm`.

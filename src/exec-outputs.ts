@@ -6,7 +6,7 @@ import { AGENTS, WIDENING_AGENT_KEYS, type Agent } from './exec-units.ts';
 import type { Lock } from './lock.ts';
 import { tomlString } from './render.ts';
 import { skillAuthor, type Resolution, type ResolvedPackage } from './resolve.ts';
-import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged, type Runner } from './util.ts';
+import { PACKAGE_NAMES, ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged, type Runner } from './util.ts';
 
 export type Group = 'team' | 'added';
 
@@ -83,7 +83,7 @@ const bashRule = (words: string[]): string => `Bash(${words.join(' ')} *)`;
 const codexRule = (words: string[], decision: string): string => `prefix_rule(pattern = ${JSON.stringify(words)}, decision = "${decision}")`;
 
 /**
- * The entries that `packages` ask for. `npx` lists the prefixes that the agent types: `npx -y @tenphi/harnesspm`, and
+ * The entries that `packages` ask for. `npx` lists the prefixes that the agent types: `npx -y @harnesspm/cli`, and
  * also the earlier `npx harnesspm` where the project depends on harnesspm. Allow rules use them, so they match the
  * command. `runner`
  * starts hooks and MCP servers, which nobody types, so it can start the installed CLI file, which is faster (spec 5.2).
@@ -230,14 +230,17 @@ function writeOwned(stateFile: string, state: StateFile): void {
 
 const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${h.command}`;
 
+/** The package names as one regular expression group, such as `(?:@harnesspm\/cli|@tenphi\/harnesspm)`. */
+const NAMES = `(?:${PACKAGE_NAMES.map((n) => n.replaceAll('/', String.raw`\/`)).join('|')})`;
+
 /**
  * What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`.
  * The prefix is one of the forms that `runner` writes, matched as whole shell words: `npx harnesspm`,
- * `npx -y @tenphi/harnesspm`, `node` with the installed CLI file, or the project's `.bin/harnesspm` that 0.5.0 wrote.
- * A path is quoted when it needs it.
+ * `npx -y @harnesspm/cli`, `node` with the installed CLI file, or the project's `.bin/harnesspm` that 0.5.0 wrote. The
+ * earlier package name, `@tenphi/harnesspm`, counts too (spec 10.1). A path is quoted when it needs it.
  */
-const LOCAL_CLI = String.raw`\/node_modules\/(?:\.bin\/harnesspm|@tenphi\/harnesspm\/[\w./-]+\.js)`;
-const RUNNER_PREFIX = new RegExp(String.raw`^(?:npx harnesspm|npx -y @tenphi\/harnesspm|(?:node )?(?:[\w@%+=:,./-]*${LOCAL_CLI}|'(?:[^']|'\\'')*${LOCAL_CLI}')) `);
+const LOCAL_CLI = String.raw`\/node_modules\/(?:\.bin\/harnesspm|${NAMES}\/[\w./-]+\.js)`;
+const RUNNER_PREFIX = new RegExp(String.raw`^(?:npx harnesspm|npx -y ${NAMES}|(?:node )?(?:[\w@%+=:,./-]*${LOCAL_CLI}|'(?:[^']|'\\'')*${LOCAL_CLI}')) `);
 const hookTask = (command: string): string => command.replace(RUNNER_PREFIX, 'harnesspm ');
 
 /** What a hook grants. A new runner prefix, such as the installed CLI file in place of npx, grants nothing new. */
@@ -253,10 +256,13 @@ function limit<T>(wanted: T[], had: T[], key: (t: T) => string, widen: boolean):
 const isAllowRule = (rule: string): boolean => rule.includes('decision = "allow"');
 
 /**
- * What an allow rule grants. The two npx prefixes run the same unit, so the form that tool lines use now,
- * `npx -y @tenphi/harnesspm run`, grants nothing new where `npx harnesspm run` was allowed (spec 5.4).
+ * What an allow rule grants. The npx prefixes run the same unit, so the form that tool lines use now,
+ * `npx -y @harnesspm/cli run`, grants nothing new where `npx harnesspm run` or the earlier
+ * `npx -y @tenphi/harnesspm run` was allowed (spec 5.4, 10.1).
  */
-const allowKey = (rule: string): string => rule.replace(/npx -y @tenphi\/harnesspm run /, 'npx harnesspm run ').replace('["npx","-y","@tenphi/harnesspm","run",', '["npx","harnesspm","run",');
+const ALLOW_NPX = new RegExp(String.raw`npx -y ${NAMES} run `);
+const ALLOW_WORDS = new RegExp(String.raw`\["npx","-y","${NAMES}","run",`);
+const allowKey = (rule: string): string => rule.replace(ALLOW_NPX, 'npx harnesspm run ').replace(ALLOW_WORDS, '["npx","harnesspm","run",');
 
 /** A Codex rule as the words it matches, such as `npx harnesspm run kit:probe`. */
 function ruleWords(rule: string): string {

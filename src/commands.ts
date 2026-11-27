@@ -34,7 +34,7 @@ import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { migrateSessionHook, userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, NPX_LOCAL, PACKAGE_NAME, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, NPX_LOCAL, OLD_PACKAGE_NAMES, PACKAGE_NAME, PACKAGE_NAMES, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -56,7 +56,7 @@ const cloudStep = (what: string, them: string): string => `In a Claude Code clou
 function grantStep(projectDir: string, inTerminal: string): string {
   if (!inCloudSession()) return inTerminal;
   const line = setupLine(projectDir);
-  return cloudStep(`${line !== undefined ? `\`${line}\`` : 'the install'}, or their own \`npx -y @tenphi/harnesspm add <source>\`,`, 'these entries');
+  return cloudStep(`${line !== undefined ? `\`${line}\`` : 'the install'}, or their own \`${NPX_ANY} add <source>\`,`, 'these entries');
 }
 
 const firstThree = (items: string[]): string => `${items.slice(0, 3).join('; ')}${items.length > 3 ? '; …' : ''}`;
@@ -264,28 +264,41 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
  * exactly then, and `||` skips the sync. When harnesspm is installed, it fails, so the sync runs and a failing
  * sync still fails the install. `node -e` and `||` work in sh, Windows cmd and Yarn's shell; `|| true` does not.
  */
-const INSTALL_HOOK = `node -e "try{require.resolve('${PACKAGE_NAME}/package.json');process.exit(1)}catch{}" || harnesspm sync`;
+const installHook = (name: string): string => `node -e "try{require.resolve('${name}/package.json');process.exit(1)}catch{}" || harnesspm sync`;
 const HOOK_SCRIPTS = ['prepare', 'postinstall'] as const;
 const OLD_HOOK = 'harnesspm sync';
 
-/** The script with the guarded hook in place of the form that `init` wrote before, or undefined when it has none. */
-function upgradedHook(script: unknown): string | undefined {
+/**
+ * The script with the guarded hook for `name`, the package the project depends on, in place of a form that `init`
+ * wrote before: the unguarded hook, or a guard for another name of the package, which would skip every sync once
+ * that name is gone (spec 10.1). Undefined when there is nothing to change.
+ */
+function upgradedHook(script: unknown, name: string): string | undefined {
   if (typeof script !== 'string') return undefined;
-  if (script === OLD_HOOK) return INSTALL_HOOK;
+  if (script === OLD_HOOK) return installHook(name);
   // The parentheses keep a failure of the existing script visible: `a && b || c` runs c when a fails.
-  if (script.endsWith(` && ${OLD_HOOK}`)) return `${script.slice(0, -OLD_HOOK.length)}(${INSTALL_HOOK})`;
-  return undefined;
+  if (script.endsWith(` && ${OLD_HOOK}`)) return `${script.slice(0, -OLD_HOOK.length)}(${installHook(name)})`;
+  const other = PACKAGE_NAMES.find((n) => n !== name && script.includes(installHook(n)));
+  return other !== undefined ? script.replace(installHook(other), installHook(name)) : undefined;
 }
 
-/** Whether a package.json lists harnesspm, so the project has the `harnesspm` command. Its own repository is the package. */
-function dependsOnHarnesspm(pkg: unknown): boolean {
-  if (!isRecord(pkg)) return false;
-  if (pkg['name'] === PACKAGE_NAME) return true;
-  return ['dependencies', 'devDependencies', 'optionalDependencies'].some((field) => {
-    const dependencies = pkg[field];
-    return isRecord(dependencies) && PACKAGE_NAME in dependencies;
-  });
+/**
+ * The name under which a package.json lists harnesspm, so the project has the `harnesspm` command: the current name
+ * first, then an earlier one (spec 10.1). Its own repository is the package. Undefined when it does not list it.
+ */
+function harnesspmDependency(pkg: unknown): string | undefined {
+  if (!isRecord(pkg)) return undefined;
+  return PACKAGE_NAMES.find(
+    (name) =>
+      pkg['name'] === name ||
+      ['dependencies', 'devDependencies', 'optionalDependencies'].some((field) => {
+        const dependencies = pkg[field];
+        return isRecord(dependencies) && name in dependencies;
+      }),
+  );
 }
+
+const dependsOnHarnesspm = (pkg: unknown): boolean => harnesspmDependency(pkg) !== undefined;
 
 /** Lockfiles that an install changes, with the install that each one asks for. */
 const INSTALLS: Record<string, string> = {
@@ -337,7 +350,8 @@ export function init(projectDir: string, out: Output): number {
   if (!isRecord(pkg)) throw new HarnessError('package.json must be a JSON object');
   // The script that `init` adds calls the `harnesspm` command. Without the dependency, the next install fails with
   // "harnesspm: not found" (research/package-managers.md). So stop before anything changes.
-  if (!dependsOnHarnesspm(pkg)) {
+  const dependency = harnesspmDependency(pkg);
+  if (dependency === undefined) {
     throw new HarnessError(`${PACKAGE_NAME} is not a dependency of this project, so the install script that \`init\` adds would fail. Run \`npm i -D ${PACKAGE_NAME}\` first, then \`${NPX_LOCAL} init\`.`);
   }
   const configFile = path.join(projectDir, CONFIG_FILE);
@@ -353,16 +367,17 @@ export function init(projectDir: string, out: Output): number {
   let changed = false;
   if (!HOOK_SCRIPTS.some(has)) {
     const current = typeof scripts[hookName] === 'string' ? (scripts[hookName] as string) : undefined;
-    scripts[hookName] = current === undefined ? INSTALL_HOOK : `${current} && (${INSTALL_HOOK})`;
+    scripts[hookName] = current === undefined ? installHook(dependency) : `${current} && (${installHook(dependency)})`;
     changed = true;
     out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
   } else {
     for (const name of HOOK_SCRIPTS) {
-      const next = upgradedHook(scripts[name]);
+      const before = scripts[name] as string;
+      const next = upgradedHook(before, dependency);
       if (next === undefined) continue;
       scripts[name] = next;
       changed = true;
-      out.log(`Updated the "${name}" script: it now skips \`harnesspm sync\` when harnesspm is not installed, as in \`npm ci --omit=dev\``);
+      out.log(before.endsWith(OLD_HOOK) ? `Updated the "${name}" script: it now skips \`harnesspm sync\` when harnesspm is not installed, as in \`npm ci --omit=dev\`` : `Updated the "${name}" script: it now checks for ${dependency}`);
     }
   }
   if (changed) {
@@ -709,10 +724,15 @@ export function doctor(cwd: string, out: Output): number {
     else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
     if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
     const pkgJson = readJsonIfExists(path.join(projectDir, 'package.json'));
+    const dependency = harnesspmDependency(pkgJson) ?? PACKAGE_NAME;
     for (const name of HOOK_SCRIPTS) {
       const script = isRecord(pkgJson) && isRecord(pkgJson['scripts']) ? pkgJson['scripts'][name] : undefined;
-      if (upgradedHook(script) !== undefined) outputs.push({ level: 'warn', text: `The "${name}" script runs \`harnesspm sync\` also when harnesspm is not installed, so an install without dev dependencies, such as \`npm ci --omit=dev\`, fails. Run \`${NPX_LOCAL} init\` to update it.` });
+      if (typeof script !== 'string' || upgradedHook(script, dependency) === undefined) continue;
+      outputs.push({ level: 'warn', text: script.endsWith(OLD_HOOK) ? `The "${name}" script runs \`harnesspm sync\` also when harnesspm is not installed, so an install without dev dependencies, such as \`npm ci --omit=dev\`, fails. Run \`${NPX_LOCAL} init\` to update it.` : `The "${name}" script checks for another name of harnesspm than ${dependency}, so it skips \`harnesspm sync\`. Run \`${NPX_LOCAL} init\` to update it.` });
     }
+    if (OLD_PACKAGE_NAMES.includes(dependency)) outputs.push({ level: 'warn', text: `harnesspm moved from ${dependency} to ${PACKAGE_NAME}. Run \`npm i -D ${PACKAGE_NAME} && npm rm ${dependency}\`, then \`${NPX_LOCAL} init\`.` });
+    const schema = (readJsonIfExists(path.join(projectDir, CONFIG_FILE)) as Record<string, unknown> | undefined)?.['$schema'];
+    if (typeof schema === 'string' && OLD_PACKAGE_NAMES.some((n) => schema.includes(`/${n}/`))) outputs.push({ level: 'info', text: `The $schema in ${CONFIG_FILE} names the earlier package. It still works. The current one is ${CONFIG_SCHEMA}.` });
     const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
     if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${kib(bytes)}, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
     for (const miss of [...lateBlocks(projectDir, plan), ...codexMisses(projectDir, plan)]) outputs.push({ level: 'warn', text: miss });

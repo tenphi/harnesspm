@@ -2,7 +2,7 @@
 
 **In short**
 
-- A package declares **scripts**. Agents run them through one command: `npx -y @tenphi/harnesspm run <plugin>:<script>`, with `-C <dir>` from outside the project. Hooks use the same `run`. MCP servers start through `harnesspm mcp <plugin>:<server>`.
+- A package declares **scripts**. Agents run them through one command: `npx -y @harnesspm/cli run <plugin>:<script>`, with `-C <dir>` from outside the project. Hooks use the same `run`. MCP servers start through `harnesspm mcp <plugin>:<server>`.
 - Hooks and MCP servers are written once and translated for each agent.
 - A package can allow only its own scripts. It can always restrict (deny, ask).
 - Nothing executable runs unless the project trusts the package ([06-trust.md](06-trust.md)).
@@ -35,8 +35,8 @@ A script is a file a package ships for agents, hooks or MCP servers to run.
 Every script runs through one command:
 
 ```bash
-npx -y @tenphi/harnesspm run uikit:probe -- --story Button
-npx -y @tenphi/harnesspm -C work/app run uikit:probe -- --story Button   # from outside the project
+npx -y @harnesspm/cli run uikit:probe -- --story Button
+npx -y @harnesspm/cli -C work/app run uikit:probe -- --story Button   # from outside the project
 ```
 
 The runner:
@@ -90,7 +90,7 @@ Claude Code and Codex use nearly the same hook model: event → matcher → comm
 | `matcher` | no | A string for both agents, or an object with a `claude` key, a `codex` key or both. With an object, the hook is written only for the agents it names. Tool names differ between agents (for example, file edits), so an object is common. Without a matcher, the hook matches every tool in both agents. |
 | `timeout` | no | Seconds. |
 
-harnesspm writes each hook as `<prefix> run --agent <agent> <plugin name>:<script>`. In a project, the prefix is `node` with the CLI file that the project installed, `<project>/node_modules/@tenphi/harnesspm/dist/cli.js` (the `bin` of its package.json), as an absolute path, when it exists. `node` runs the file whatever its mode: Yarn 4 drops the executable bit on an upgrade in place ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#the-cli-files-mode)). npx costs about 0.4 seconds per call, and an agent waits for a hook on file edits at every edit ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#settings-hooks-permissions)). Hooks are in per-machine files, so an absolute path is fine there. Without that file, and on Windows, the prefix is `npx harnesspm`, or `npx -y @tenphi/harnesspm` where the project does not depend on harnesspm. User-level files serve every repository, so they always use `npx -y @tenphi/harnesspm`. The same prefix starts stdio MCP servers ([5.3](#53-mcp-servers)) and harnesspm's telemetry hooks ([14.4](14-telemetry.md#144-agent-events)).
+harnesspm writes each hook as `<prefix> run --agent <agent> <plugin name>:<script>`. In a project, the prefix is `node` with the CLI file that the project installed, `<project>/node_modules/@harnesspm/cli/dist/cli.js` (the `bin` of its package.json), as an absolute path, when it exists. Until harnesspm 1.0, the same file under the earlier name, `@tenphi/harnesspm`, counts too ([10.1](10-cli.md#moving-from-tenphiharnesspm)). `node` runs the file whatever its mode: Yarn 4 drops the executable bit on an upgrade in place ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md#the-cli-files-mode)). npx costs about 0.4 seconds per call, and an agent waits for a hook on file edits at every edit ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#settings-hooks-permissions)). Hooks are in per-machine files, so an absolute path is fine there. Without that file, and on Windows, the prefix is `npx harnesspm`, or `npx -y @harnesspm/cli` where the project does not depend on harnesspm. User-level files serve every repository, so they always use `npx -y @harnesspm/cli`. The same prefix starts stdio MCP servers ([5.3](#53-mcp-servers)) and harnesspm's telemetry hooks ([14.4](14-telemetry.md#144-agent-events)).
 
 ### Events
 
@@ -140,10 +140,10 @@ A dependency MUST NOT be able to grant itself broad rights. harnesspm writes all
 
 | Agent | Rule |
 | --- | --- |
-| Claude Code | `Bash(npx -y @tenphi/harnesspm run uikit:probe *)` in `permissions.allow` |
-| Codex | `prefix_rule(pattern=["npx", "-y", "@tenphi/harnesspm", "run", "uikit:probe"], decision="allow")` |
+| Claude Code | `Bash(npx -y @harnesspm/cli run uikit:probe *)` in `permissions.allow` |
+| Codex | `prefix_rule(pattern=["npx", "-y", "@harnesspm/cli", "run", "uikit:probe"], decision="allow")` |
 
-An allow rule keeps the npx form of the tool line ([4.6](04-outputs.md#46-managed-blocks)), also where hooks start the installed CLI file, because it must match the command the agent types. For a project's own and its dependencies' scripts, harnesspm also writes the rule for the earlier form, `npx harnesspm run uikit:probe`, while agents and skills still type it. The two forms run the same unit, so a model run that had one may write the other ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). From outside the project, with `-C`, no allow rule applies: the session's own settings decide.
+An allow rule keeps the npx form of the tool line ([4.6](04-outputs.md#46-managed-blocks)), also where hooks start the installed CLI file, because it must match the command the agent types. For a project's own and its dependencies' scripts, harnesspm also writes the rule for the earlier form, `npx harnesspm run uikit:probe`, while agents and skills still type it. The forms run the same unit, and so does `npx -y @tenphi/harnesspm run uikit:probe` under the earlier package name ([10.1](10-cli.md#moving-from-tenphiharnesspm)). So a model run that had one may write another ([06-trust.md](06-trust.md#62-trusting-a-package), rule 4). From outside the project, with `-C`, no allow rule applies: the session's own settings decide.
 
 **Deny and ask rules** only restrict. They are written as command prefixes:
 

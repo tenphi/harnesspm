@@ -128,7 +128,7 @@ test('S8 trusted: hooks, MCP servers, permissions and sub-agents for both agents
 
   const settings = json(path.join(dir, '.claude/settings.local.json'));
   // The allow rule matches the tool line, and for now the earlier form too.
-  assert.deepEqual(settings.permissions.allow, ['Bash(ls)', 'Skill(kit-review)', 'Bash(npx -y @tenphi/harnesspm run kit:probe *)', 'Bash(npx harnesspm run kit:probe *)', 'mcp__kit-docs', 'mcp__kit-figma']);
+  assert.deepEqual(settings.permissions.allow, ['Bash(ls)', 'Skill(kit-review)', 'Bash(npx -y @harnesspm/cli run kit:probe *)', 'Bash(npx harnesspm run kit:probe *)', 'mcp__kit-docs', 'mcp__kit-figma']);
   assert.deepEqual(settings.permissions.deny, ['Bash(git push --force *)']);
   assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx harnesspm run --agent claude kit:check-styles', timeout: 30 }] }]);
   assert.equal(settings.hooks.Notification[0].hooks[0].command, 'npx harnesspm run --agent claude kit:check-styles');
@@ -300,12 +300,41 @@ test('hooks and MCP servers start the installed CLI file with node; allow rules 
   const settings = json(settingsFile);
   assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: 'Edit|Write', hooks: [{ type: 'command', command: `node ${cli} run --agent claude kit:check-styles`, timeout: 30 }] }]);
   assert.equal(settings.hooks.Notification[0].hooks[0].command, `node ${cli} run --agent claude kit:check-styles`);
-  assert.ok(settings.permissions.allow.includes('Bash(npx -y @tenphi/harnesspm run kit:probe *)'), 'an allow rule matches what the agent types');
+  assert.ok(settings.permissions.allow.includes('Bash(npx -y @harnesspm/cli run kit:probe *)'), 'an allow rule matches what the agent types');
   assert.deepEqual(claudeJson(dir).projects[root].mcpServers['kit-docs'], { type: 'stdio', command: 'node', args: [cli, 'mcp', '--agent', 'claude', 'kit:docs'] });
   assert.equal(json(codexHooks).hooks.PostToolUse[0].hooks[0].command, `node ${cli} run --agent codex kit:check-styles`);
-  assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["npx","-y","@tenphi\/harnesspm","run","kit:probe"\], decision = "allow"\)/);
+  assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["npx","-y","@harnesspm\/cli","run","kit:probe"\], decision = "allow"\)/);
   assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["npx","harnesspm","run","kit:probe"\], decision = "allow"\)/);
   assert.match(read(dir, '.codex/config.toml'), new RegExp(`command = "node"\nargs = \\["${cli.replaceAll('/', '\\/')}", "mcp", "--agent", "codex", "kit:docs"\\]`));
+});
+
+test('a project moves from @tenphi/harnesspm to @harnesspm/cli: its hooks and allow rules carry over, even in a model run', () => {
+  const dir = app(true);
+  const root = fs.realpathSync(dir);
+  const settingsFile = path.join(dir, '.claude/settings.local.json');
+  const rulesFile = path.join(dir, '.codex/rules/harnesspm.rules');
+  // Under the earlier name, the installed CLI file still starts hooks and MCP servers.
+  const old = installCli(dir, '@tenphi/harnesspm');
+  assert.equal(run(dir, 'sync').status, 0);
+  assert.equal(json(settingsFile).hooks.PostToolUse[0].hooks[0].command, `node ${old} run --agent claude kit:check-styles`);
+  // What harnesspm 0.15 wrote: allow rules with the earlier name.
+  for (const file of [settingsFile, rulesFile, path.join(root, '.git/harnesspm/state.json')]) {
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('@harnesspm/cli', '@tenphi/harnesspm'));
+  }
+  assert.ok(json(settingsFile).permissions.allow.includes('Bash(npx -y @tenphi/harnesspm run kit:probe *)'));
+
+  // The project switches packages. The agent's sync grants nothing new, so nothing is held back.
+  fs.rmSync(path.join(dir, 'node_modules/@tenphi/harnesspm'), { recursive: true });
+  const cli = installCli(dir);
+  const model = runWith(dir, MODEL, 'sync');
+  assert.equal(model.status, 0, model.stderr);
+  assert.doesNotMatch(model.stdout, /held back/);
+  const settings = json(settingsFile);
+  assert.equal(settings.hooks.PostToolUse[0].hooks[0].command, `node ${cli} run --agent claude kit:check-styles`);
+  assert.ok(settings.permissions.allow.includes('Bash(npx -y @harnesspm/cli run kit:probe *)'));
+  assert.ok(!settings.permissions.allow.some((rule: string) => rule.includes('@tenphi/harnesspm')), 'the earlier rules are replaced');
+  assert.match(read(dir, '.codex/rules/harnesspm.rules'), /prefix_rule\(pattern = \["npx","-y","@harnesspm\/cli","run","kit:probe"\], decision = "allow"\)/);
+  assert.doesNotMatch(read(dir, '.codex/rules/harnesspm.rules'), /@tenphi/);
 });
 
 test('sync, status and doctor count the same held-back entries, Codex rules and the telemetry handler too', () => {
@@ -317,7 +346,7 @@ test('sync, status and doctor count the same held-back entries, Codex rules and 
   // A script has an allow rule for each of the two command forms.
   assert.equal(heldCount(model.stdout), 15, model.stdout);
   assert.match(model.stdout, /held back: 15 entries that an agent cannot grant \(telemetry handler: file \.harnesspm\/events\.jsonl; allow Skill\(kit-review\); /);
-  assert.match(model.stdout, /Ask the person to run `npx -y @tenphi\/harnesspm sync` or `npx -y @tenphi\/harnesspm approve` in their own terminal\./);
+  assert.match(model.stdout, /Ask the person to run `npx -y @harnesspm\/cli sync` or `npx -y @harnesspm\/cli approve` in their own terminal\./);
   for (const env of [{}, MODEL]) {
     assert.equal(heldCount(runWith(dir, env, 'status').stdout), 15, 'status counts what sync held');
     const doctor = runWith(dir, env, 'doctor').stdout;
@@ -334,7 +363,7 @@ test('sync, status and doctor count the same held-back entries, Codex rules and 
 test('in a Claude Code cloud session, held-back entries point to the setup script, with the install by absolute path', () => {
   const dir = app(true);
   const cloud = { ...MODEL, CLAUDE_CODE_REMOTE: 'true' };
-  const setup = (install: string): string => `In a Claude Code cloud session, ask the person to run ${install}, or their own \`npx -y @tenphi/harnesspm add <source>\`, in the environment's setup script. New sessions then start with these entries.`;
+  const setup = (install: string): string => `In a Claude Code cloud session, ask the person to run ${install}, or their own \`npx -y @harnesspm/cli add <source>\`, in the environment's setup script. New sessions then start with these entries.`;
   // Without a lockfile, the install is not known.
   const sync = runWith(dir, cloud, 'sync');
   assert.match(sync.stdout, /held back: 14 entries/);
@@ -521,15 +550,15 @@ test('added harnesses: executables at user level, and the runner finds their scr
   assert.equal(added.status, 0, added.stderr);
   const home = homeOf(dir);
   const settings = json(path.join(home, '.claude/settings.json'));
-  assert.equal(settings.hooks.Stop[0].hooks[0].command, 'npx -y @tenphi/harnesspm run --agent claude me:probe');
+  assert.equal(settings.hooks.Stop[0].hooks[0].command, 'npx -y @harnesspm/cli run --agent claude me:probe');
   // The allow rule has the same prefix as the command the block names.
-  assert.ok(settings.permissions.allow.includes('Bash(npx -y @tenphi/harnesspm run me:probe *)'));
+  assert.ok(settings.permissions.allow.includes('Bash(npx -y @harnesspm/cli run me:probe *)'));
   assert.ok(settings.permissions.allow.includes('mcp__me-notes'));
-  assert.deepEqual(json(path.join(home, '.claude.json')).mcpServers['me-notes'], { type: 'stdio', command: 'npx', args: ['-y', '@tenphi/harnesspm', 'mcp', '--agent', 'claude', 'me:notes'] });
+  assert.deepEqual(json(path.join(home, '.claude.json')).mcpServers['me-notes'], { type: 'stdio', command: 'npx', args: ['-y', '@harnesspm/cli', 'mcp', '--agent', 'claude', 'me:notes'] });
   const codexConfig = fs.readFileSync(path.join(home, '.codex/config.toml'), 'utf8');
   assert.ok(codexConfig.startsWith('model = "gpt-5"\n\n# BEGIN harnesspm'));
   tomlOk(path.join(home, '.codex/config.toml'));
-  assert.match(fs.readFileSync(path.join(home, '.claude/CLAUDE.md'), 'utf8'), /- Script: `npx -y @tenphi\/harnesspm run me:probe` — Mine \(me:scripts\/probe\)/);
+  assert.match(fs.readFileSync(path.join(home, '.claude/CLAUDE.md'), 'utf8'), /- Script: `npx -y @harnesspm\/cli run me:probe` — Mine \(me:scripts\/probe\)/);
 
   const ran = run(dir, 'run', 'me:probe', '--', 'x');
   assert.equal(ran.status, 0, ran.stderr);
@@ -569,7 +598,7 @@ test('why explains scripts, hooks, MCP servers, sub-agents and permissions, with
   const script = why('kit:scripts/probe');
   assert.match(script, /owner +dependency @acme\/kit 1\.0\.0/);
   assert.match(script, /source +node_modules\/\.harnesspm\/pkgs\/@acme\/kit\/harness\/dev\.harnesspm\/scripts\/probe\.mjs/);
-  assert.match(script, /run +npx -y @tenphi\/harnesspm run kit:probe/);
+  assert.match(script, /run +npx -y @harnesspm\/cli run kit:probe/);
   assert.match(script, /trust +no: it stays off\. A person turns it on with "@acme\/kit": true in "trust" in harnesspm\.json\./);
   assert.match(why('kit:hooks/check-styles'), /source +.*\/harness\/dev\.harnesspm\/hooks\.json/);
   assert.match(why('kit:mcp/docs'), /source +.*\/harness\/mcp\.json/);

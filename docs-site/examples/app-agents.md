@@ -1,5 +1,5 @@
-- Every package of this harness: `npx -y @tenphi/harnesspm help`. A package's rules and tools in full: `npx -y @tenphi/harnesspm help <package>`.
-- Run a tool: `npx -y @tenphi/harnesspm run <tool> [args]`. Its options: `npx -y @tenphi/harnesspm help <tool>`.
+- Every package of this harness: `npx -y @harnesspm/cli help`. A package's rules and tools in full: `npx -y @harnesspm/cli help <package>`.
+- Run a tool: `npx -y @harnesspm/cli run <tool> [args]`. Its options: `npx -y @harnesspm/cli help <tool>`.
 - From outside this folder, add `-C <path to this folder>` before `help` or `run`.
 
 ## @acme/colors (via @acme/ui)

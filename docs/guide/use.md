@@ -22,13 +22,13 @@ harnesspm only reads files. It never runs code from a package to find its harnes
 
 | Unit | How the agent gets it |
 | --- | --- |
-| Always-on rule | One line in the managed block in `AGENTS.md`: its title and section headings. The agent reads the text with `npx -y @tenphi/harnesspm help <package>`. |
+| Always-on rule | One line in the managed block in `AGENTS.md`: its title and section headings. The agent reads the text with `npx -y @harnesspm/cli help <package>`. |
 | File-scoped rule | A pointer line in the block. Claude Code also loads it by itself when it works on a matching file. |
 | On-demand rule | A pointer line with a description. The agent reads it when it is relevant. |
 | Docs | One pointer line to an index of the package's docs, at the installed version. |
 | Skill | A link in `.claude/skills/` and `.agents/skills/`. The agent loads it when it fits the task. |
 | Sub-agent | A file in `.claude/agents/` and `.codex/agents/`. |
-| Script | A tool line in the block, once the package is trusted. `npx -y @tenphi/harnesspm help <tool>` prints its usage and command. |
+| Script | A tool line in the block, once the package is trusted. `npx -y @harnesspm/cli help <tool>` prints its usage and command. |
 | Hook, MCP server, permission | Entries in each agent's settings, once the package is trusted. |
 
 The block starts with the commands that reach the rest: `help` lists the packages, `help <package>` prints a package's rules, docs, tools, MCP servers, skills and hooks, with your patches applied, and `help <tool>` prints a tool's usage. Every line in the block ends with the unit's ID, such as `acme-colors:rules/usage`. `npx harnesspm why <ID>` finds its source. The [package format](https://github.com/tenphi/harnesspm/blob/main/docs/spec/02-package-format.md#24-unit-kinds) lists every kind.
@@ -37,17 +37,17 @@ The block starts with the commands that reach the rest: `help` lists the package
 
 Package managers put packages in different places. harnesspm links each harness package to one stable path in `node_modules/.harnesspm/pkgs/`, and the block uses only these paths. So the same block works on every machine and with every package manager.
 
-A job that does not install dependencies, such as a review bot, runs `npx -y @tenphi/harnesspm fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths. It runs no package code. The lock takes each package's integrity from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. With Yarn 4, `fetch` downloads without that check and says so for each package.
+A job that does not install dependencies, such as a review bot, runs `npx -y @harnesspm/cli fetch`. It downloads only the harness packages in the lock, checks their integrity, and fills the same paths. It runs no package code. The lock takes each package's integrity from `package-lock.json`, `pnpm-lock.yaml` or Yarn 1's `yarn.lock`. With Yarn 4, `fetch` downloads without that check and says so for each package.
 
 ## From another folder
 
 An agent often works in a clone below its session's folder, such as `work/app`, when the repository it starts in tells it to clone what a task needs. The cloning repository needs nothing from harnesspm. The commands at the top of the clone's managed block tell the agent what to do:
 
 ```bash
-npx -y @tenphi/harnesspm -C work/app help                          # the clone's packages, one line each
-npx -y @tenphi/harnesspm -C work/app help @acme/ui                 # one package's rules, docs, tools and skills
-npx -y @tenphi/harnesspm -C work/app help acme-ui:tokens           # a tool's usage, without running it
-npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run it, from the session's folder
+npx -y @harnesspm/cli -C work/app help                          # the clone's packages, one line each
+npx -y @harnesspm/cli -C work/app help @acme/ui                 # one package's rules, docs, tools and skills
+npx -y @harnesspm/cli -C work/app help acme-ui:tokens           # a tool's usage, without running it
+npx -y @harnesspm/cli -C work/app run acme-ui:tokens surface    # run it, from the session's folder
 ```
 
 - `-C <dir>` goes before the command, as in `git -C`. Every command takes it.
@@ -60,7 +60,7 @@ npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface    # run it, fro
 When you start sessions in a folder that holds several clones, such as `~/work` with `app` and `ui-kit` in it, run this once there, after the clones are installed:
 
 ```bash
-cd ~/work && npx -y @tenphi/harnesspm sync
+cd ~/work && npx -y @harnesspm/cli sync
 ```
 
 - Each repository's hooks then run in sessions that start in `~/work`, with `-C <repository>`, so edit checks and telemetry work there too.

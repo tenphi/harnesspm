@@ -62,7 +62,7 @@ For many events, prefer a file and ship it on a schedule. An OpenTelemetry Colle
 A tool of your project that is not a harnesspm script, such as `yarn probe`, can send its runs to the same handler:
 
 ```js
-import { reportRun } from '@tenphi/harnesspm/telemetry';
+import { reportRun } from '@harnesspm/cli/telemetry';
 
 reportRun({ unit: 'app:scripts/probe', fields: { mode: 'fast' }, duration: 812, exit: 0 });
 

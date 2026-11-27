@@ -15,7 +15,7 @@ import {
 import { discoverExecUnits, type AgentUnit, type HookUnit, type McpUnit, type PermissionsUnit, type ScriptUnit } from './exec-units.ts';
 import { applyPatch, type TouchedSection } from './sections.ts';
 import { findWorkspaces } from './workspaces.ts';
-import { HarnessError, compareVersions, gitIgnoresDir, insideDir, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
+import { HarnessError, OLD_PACKAGE_NAMES, PACKAGE_NAME, compareVersions, gitIgnoresDir, insideDir, isFile, isRecord, readJsonIfExists, readText, realpath, relPosix } from './util.ts';
 
 export interface ResolvedPackage extends HarnessPackage {
   /** The package whose `extends` brought this one in, when it is not a direct dependency. */
@@ -392,6 +392,12 @@ export function resolve(projectDirInput: string, options: ResolveOptions = {}): 
   for (const added of options.added ?? []) {
     packages.push({ ...added.pkg, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, members: everywhere });
     if (added.entry) packages.push({ ...added.entry, layer: 'added', direct: true, closure: new Set(), scope: added.scope, added, entry: true, members: everywhere });
+  }
+
+  // While a project moves from an earlier name of harnesspm, both copies may be installed. They ship the same harness, so
+  // the current one wins (spec 10.1).
+  if (packages.some((p) => p.name === PACKAGE_NAME)) {
+    for (let i = packages.length - 1; i >= 0; i--) if (OLD_PACKAGE_NAMES.includes(packages[i]!.name) && packages[i]!.layer !== 'added') packages.splice(i, 1);
   }
 
   // Plugin names must be unique (spec 2.9). An entry shares its harness's name.

@@ -150,7 +150,7 @@ export function createUnit(target: Target, kind: Kind, name: string): string[] {
       add(path.join(target.dir, NS, 'agents', `${name}.md`), `---\nname: ${name}\ndescription: What the sub-agent does. Use when ….\n---\n\nInstructions for the sub-agent.\n`);
       break;
     case 'script':
-      add(scriptFile(name), `// Run it with \`npx -y @tenphi/harnesspm run ${target.plugin}:${name} -- <args>\`. \`help ${target.plugin}:${name}\` prints its "usage".\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
+      add(scriptFile(name), `// Run it with \`npx -y @harnesspm/cli run ${target.plugin}:${name} -- <args>\`. \`help ${target.plugin}:${name}\` prints its "usage".\n// PLUGIN_ROOT, PLUGIN_DATA, HARNESSPM_PROJECT_DIR and HARNESSPM_AGENT are set by the runner.\nconsole.log('${name}', process.argv.slice(2).join(' '));\n`);
       // `usage` is what `help <tool>` prints (spec 5.1). This template echoes its arguments.
       declareScript(name, `What ${name} does`, '[<words>...]');
       break;

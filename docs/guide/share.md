@@ -6,7 +6,7 @@ description: Ship rules, docs, skills and tools for agents in your library's npm
 
 **In short**
 
-- Install `@tenphi/harnesspm` as a dev dependency. Then add a `harness/` folder with a `plugin.json` and one Markdown rule.
+- Install `@harnesspm/cli` as a dev dependency. Then add a `harness/` folder with a `plugin.json` and one Markdown rule.
 - List `harness` in the `files` field of `package.json`, and run `harnesspm check` at `prepack`.
 - Use `extends` to pass on the harness of the libraries you build on, and `patch` to adapt their rules for your users.
 - Say in the README that the package ships a harness. Users' agents get it on the next install, once their project uses harnesspm.
@@ -14,12 +14,12 @@ description: Ship rules, docs, skills and tools for agents in your library's npm
 ## Install harnesspm
 
 ```shell
-npm i -D @tenphi/harnesspm
+npm i -D @harnesspm/cli
 ```
 
 Your library needs harnesspm only to write and check its harness, so it is a dev dependency. Your users install harnesspm in their own project.
 
-The steps also ship in the package, as the `harnesspm-export` skill: `node_modules/@tenphi/harnesspm/harness/skills/harnesspm-export/SKILL.md`.
+The steps also ship in the package, as the `harnesspm-export` skill: `node_modules/@harnesspm/cli/harness/skills/harnesspm-export/SKILL.md`.
 
 ## The smallest harness
 
@@ -71,7 +71,7 @@ A project that uses harnesspm gets your harness on its next install. Other proje
 This package ships a harness for coding agents: rules, docs and tools that match the version you install. To give it to Claude Code and Codex, set up [harnesspm](https://harnesspm.tenphi.me) in your project:
 
 ```shell
-npm i -D @tenphi/harnesspm
+npm i -D @harnesspm/cli
 npx harnesspm init
 ```
 ````
@@ -97,7 +97,7 @@ A rule is one Markdown file about one topic, in `harness/dev.harnesspm/rules/`. 
 | `description` only | On demand. The block lists it with its description. |
 
 - Keep always-on rules short. They cost context in every session. Move details into on-demand rules, docs or skills.
-- Name each `##` section by what it asks, such as "Never edit outputs". The `AGENTS.md` block shows an always-on rule as its title and these headings, and agents read the text with `npx -y @tenphi/harnesspm help <package>`.
+- Name each `##` section by what it asks, such as "Never edit outputs". The `AGENTS.md` block shows an always-on rule as its title and these headings, and agents read the text with `npx -y @harnesspm/cli help <package>`.
 - When a rule has more than a few lines, split it into small sections with `##` headings. A user can then patch one section and keep the rest.
 - When a skill must run in a situation, also name it in an always-on rule: "To check a theme, use the `my-lib-theme` skill."
 
@@ -142,7 +142,7 @@ A script is registered in `plugin.json`:
 }
 ```
 
-- Agents run it as `npx -y @tenphi/harnesspm run my-lib:probe -- <args>`, with `-C <dir>` from outside the project. The runner always runs the installed version. In a project without an install, it runs the script from the fetched package, which has none of your dependencies: a script that imports only Node.js's own modules works there too.
+- Agents run it as `npx -y @harnesspm/cli run my-lib:probe -- <args>`, with `-C <dir>` from outside the project. The runner always runs the installed version. In a project without an install, it runs the script from the fetched package, which has none of your dependencies: a script that imports only Node.js's own modules works there too.
 - `description` shows the script to agents. Without it, only your hooks and MCP servers use it.
 - `allow: true` asks that agents may run it without a prompt. It takes effect only in projects that trust your package.
 

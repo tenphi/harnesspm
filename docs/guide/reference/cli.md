@@ -8,16 +8,16 @@ description: Every harnesspm command and option, with exit codes.
 
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs without an install use `fetch`.
 - Authors use `check` and `new`. People use `add`, `remove` and `update` for harnesses on top of the repository's.
-- `npx -y @tenphi/harnesspm …` works everywhere: in a project that depends on harnesspm, npx runs the installed version. `npx harnesspm …` works only there.
+- `npx -y @harnesspm/cli …` works everywhere: in a project that depends on harnesspm, npx runs the installed version. `npx harnesspm …` works only there.
 - From another folder, such as a session above a clone, add `-C <dir>` before the command.
 
-The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's packages, and `help <package>`, `help <rule ID>` or `help <tool>` prints one in full. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
+The npm package is `@harnesspm/cli`. The command it installs is `harnesspm`. `npx harnesspm help` lists every command, and `npx harnesspm <command> --help` shows one, with its options. Inside a project, or with `-C`, `help` also lists the project's packages, and `help <package>`, `help <rule ID>` or `help <tool>` prints one in full. The specification's [CLI chapter](https://github.com/tenphi/harnesspm/blob/main/docs/spec/10-cli.md), on GitHub, says exactly what each one does.
 
 ## Projects
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to `postinstall` in a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `sync`. The script skips the sync when harnesspm is not installed, as in `npm ci --omit=dev`. Run again, `init` updates a script from an older version. Stops and changes nothing when `@tenphi/harnesspm` is not a dependency of the project. Ends with the files to commit. |
+| `harnesspm init` | Creates `harnesspm.json`, adds `harnesspm sync` to `postinstall` in a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `sync`. The script skips the sync when harnesspm is not installed, as in `npm ci --omit=dev`. Run again, `init` updates a script from an older version. Stops and changes nothing when `@harnesspm/cli` is not a dependency of the project. Ends with the files to commit. |
 | `harnesspm sync` | Resolves the layers and writes every output. Every full install runs it. In a repository without `harnesspm.json`, or without installed dependencies, it writes only the per-machine outputs of added harnesses. With `CI=true`, it writes only per-machine outputs and leaves the committed files to `sync --check`. |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses. Fails when the block or the lock is out of date, or when a `"pin"` package has an unapproved version. For CI. |
 | `harnesspm sync --write` | Writes the committed files with `CI=true` too, for a job that commits them. |
@@ -32,7 +32,7 @@ The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. 
 
 ### `-C <dir>`
 
-`harnesspm -C <dir> <command>` acts on the project in `<dir>`, as `git -C` does, such as `npx -y @tenphi/harnesspm -C work/app run acme-ui:tokens surface`. Every command takes it. `run` keeps the current folder for the script, so file arguments stay valid, and `HARNESSPM_PROJECT_DIR` is the named project.
+`harnesspm -C <dir> <command>` acts on the project in `<dir>`, as `git -C` does, such as `npx -y @harnesspm/cli -C work/app run acme-ui:tokens surface`. Every command takes it. `run` keeps the current folder for the script, so file arguments stay valid, and `HARNESSPM_PROJECT_DIR` is the named project.
 
 Package managers run `postinstall` and `prepare` on a full install, but not on `npm install <pkg>`, `npm uninstall` or `pnpm add`. Run `npx harnesspm sync` after those.
 

@@ -36,7 +36,7 @@ When the agent runs the install instead, new hooks, MCP servers and allow rules 
 A session with more than one repository starts in `/home/user`, above the clones. Claude Code reads settings only from that folder, so no repository's hooks run there. After the installs, add one line to the setup script:
 
 ```bash
-cd /home/user && npx -y @tenphi/harnesspm sync || true
+cd /home/user && npx -y @harnesspm/cli sync || true
 ```
 
 It writes each repository's hooks into `/home/user/.claude/settings.local.json`, and a block in `/home/user/AGENTS.md` that names each repository, its `AGENTS.md` and its `help` command. Later installs of a repository keep its entries there current. A session with one repository starts in its clone and runs that clone's own hooks. It also sees the block, because Claude Code reads `CLAUDE.md` files above the folder a session starts in.
@@ -53,7 +53,7 @@ bash /home/user/<repo>/scripts/cloud-setup.sh
 ## Your own harness
 
 ```shell
-npx -y @tenphi/harnesspm add github:<owner>/<repo>
+npx -y @harnesspm/cli add github:<owner>/<repo>
 ```
 
 | Way | How it works |
