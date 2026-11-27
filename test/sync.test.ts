@@ -780,6 +780,10 @@ test('init lists the tools that wait for a person, with what each does, whether 
   assert.match(result.stdout, /\nAgent: report this to the person and wait for their trust decision\.\n$/);
   // A person's sync lists the same package in one line, with the step that turns it on.
   assert.match(run(dir, 'sync').stdout, /^⏳ Waiting for a person\n  - @acme\/kit: 2 scripts, 1 hook \(not trusted\)\. A person adds "@acme\/kit": true to "trust" in harnesspm\.json, then runs `npx -y @harnesspm\/cli approve`\.\n/);
+  // In a cloud session the person has no terminal: the setup script's install is the step, and an added harness is not.
+  const cloud = runWith(dir, { CLAUDE_CODE_REMOTE: 'true' }, 'init').stdout;
+  assert.match(cloud, /To turn one on, a person adds its package to "trust" in harnesspm\.json and commits it\. A Claude Code cloud session gives the person no terminal, so the environment's setup script grants this before each new session: ask them to add (`[^`]+`|the project's install) to it\. An agent never changes "trust" itself\./);
+  assert.doesNotMatch(cloud, /own terminal|add <source>/);
 });
 
 test('init uses postinstall in a private package, and keeps an existing script', () => {

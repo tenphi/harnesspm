@@ -53,11 +53,13 @@ const plural = (count: number, word: string, many = `${word}s`): string => `${co
  * Where a person grants what an agent could not. A Claude Code cloud session has no terminal of the person's, and its
  * container goes away, so there the setup script runs the command, before each new session starts (spec 9).
  */
-const cloudStep = (what: string, them: string): string => `In a Claude Code cloud session, ask the person to run ${what} in the environment's setup script. New sessions then start with ${them}.`;
-function grantStep(projectDir: string, inTerminal: string): string {
+const cloudStep = (what: string): string => `A Claude Code cloud session gives the person no terminal, so the environment's setup script grants this before each new session: ask them to add ${what} to it.`;
+/** `withAdd` also names a person's own `add`, which grants entries of added harnesses; trusting a package needs only the install. */
+function grantStep(projectDir: string, inTerminal: string, withAdd = true): string {
   if (!inCloudSession()) return inTerminal;
   const line = setupLine(projectDir);
-  return cloudStep(`${line !== undefined ? `\`${line}\`` : 'the install'}, or their own \`${NPX_ANY} add <source>\`,`, 'these entries');
+  const install = line !== undefined ? `\`${line}\`` : "the project's install";
+  return cloudStep(withAdd ? `${install}, or their own \`${NPX_ANY} add <source>\`,` : install);
 }
 
 const firstThree = (items: string[]): string => `${items.slice(0, 3).join('; ')}${items.length > 3 ? '; …' : ''}`;
@@ -541,7 +543,7 @@ export function init(projectDir: string, out: Output): number {
     out.log(`${WAITING}${tools.lines.length > 0 ? ': these tools stay off until a person trusts their package.' : ''}`);
     for (const line of tools.lines) out.log(line);
     if (tools.lines.length > 0) {
-      const step = inCloudSession() ? `. ${grantStep(projectDir, APPROVE)}` : `, then runs \`${NPX_ANY} approve\` in their own terminal.`;
+      const step = inCloudSession() ? ` and commits it. ${grantStep(projectDir, APPROVE, false)}` : `, then runs \`${NPX_ANY} approve\` in their own terminal.`;
       out.log(`  To turn one on, a person adds its package to "trust" in ${CONFIG_FILE}${step} An agent never changes "trust" itself.`);
     }
     for (const line of others) out.log(`  - ${line}`);
@@ -565,7 +567,7 @@ function writableDirs(): string[] {
 function settingsAfterChange(out: Output, hook: boolean): void {
   if (caller() === 'model') {
     out.log('⏳ The SessionStart hook and write access to the harness folder are pending: an agent cannot grant them.');
-    out.log(`   ${inCloudSession() ? cloudStep('the same command', 'them') : 'Ask the person to run the same command in their own terminal.'}`);
+    out.log(`   ${inCloudSession() ? cloudStep('the same command') : 'Ask the person to run the same command in their own terminal.'}`);
     return;
   }
   const anyUser = readList(configFileFor('user', '')).length > 0;
