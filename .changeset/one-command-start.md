@@ -1,5 +1,0 @@
----
-"@harnesspm/cli": minor
----
-
-Every task starts with one command. `npx -y @harnesspm/cli` in a folder that does not use harnesspm says what the folder is and names the command for each task; in a project it prints the project's report, which `status` and `doctor` now share (`doctor` still exits 1 when a check fails). `init` installs `@harnesspm/cli` as a dev dependency with the project's package manager (it stops on Yarn Plug'n'Play), adds `/.harnesspm/` to `.gitignore` once, and ends with a report: the tools that wait for the person's trust, with what each does and whether it runs without a prompt, the files to commit and the check for CI. Every step for a person is now `approve`, listed under one "Waiting for a person" heading in `sync`, `init` and the report. `help` in a project leads with its packages and marks tools that run without a prompt, `--help` lists every command, and `new` names the next step for the folder: publishing a library's harness, or adding a harness of your own.
