@@ -23,7 +23,7 @@ The npm package is `@tenphi/harnesspm`. The command it installs is `harnesspm`. 
 | `harnesspm sync --write` | Writes the committed files with `CI=true` too, for a job that commits them. |
 | `harnesspm status` | Layers, packages, versions, pending trust, entries an agent could not grant, changes from added harnesses, always-on size per agent, harnesspm blocks that Codex does not reach, and whether telemetry is on. |
 | `harnesspm doctor` | Checks that per-machine files stay out of git and that the outputs are in place. Changes nothing. Each problem names its fix. |
-| `harnesspm why <ID>` | A unit's owner, source, repository and whether it is editable. For a script, also its command and trust. |
+| `harnesspm why <ID>` | A unit's owner, source, repository and whether it is editable. For a script, also its command and trust. It also finds a unit of your project entries from any folder. |
 | `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and approves a `"pin"` package's new version. A person runs it. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script of a trusted package, at the version in the lock, in the current folder. Without an install, it runs the script from the fetched packages, and says what is missing when there are none. |
 | `harnesspm fetch` | Downloads only the harness packages in the lock and checks their integrity. Runs no package code. For jobs that do not install dependencies. |
