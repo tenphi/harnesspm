@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.2
+
+### Patch Changes
+
+- [#97](https://github.com/tenphi/harnesspm/pull/97) [`ba479c9`](https://github.com/tenphi/harnesspm/commit/ba479c95c126c8e822c6a50980b660e31051efd9) Thanks [@tenphi](https://github.com/tenphi)! - `init` adds no install hook when a Yarn plugin in `.yarnrc.yml` already runs harnesspm, so each install syncs once, not twice. `sync` and `fetch` now remove the links in `node_modules/.harnesspm/pkgs/` that they no longer write, such as the one a move from `@tenphi/harnesspm` left behind.
+
 ## 0.18.1
 
 ### Patch Changes
