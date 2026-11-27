@@ -21,7 +21,7 @@ function parseRef(ref: string): { plugin: string; name: string } {
 function checkPackage(pkg: ResolvedPackage, res: Resolution, what: string): void {
   const lock = readLock(res.projectDir);
   const trust = trustOf(pkg, res, lock);
-  if (!trust.trusted) throw new Refused(`${what} of ${pkg.name} is refused: ${trust.reason}`);
+  if (!trust.trusted) throw new Refused(`${what} of ${pkg.name} is refused: ${trust.reason}. ${trust.action}`);
   if (pkg.layer === 'dependencies') {
     const locked = lock?.packages[pkg.name]?.version;
     // Either side can be stale. A cached environment's install can be older than the lock, and a sync there would

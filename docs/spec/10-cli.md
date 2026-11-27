@@ -2,6 +2,7 @@
 
 **In short**
 
+- Every task starts with one command, `npx -y @harnesspm/cli`. In a project it prints the project's report; elsewhere, what the folder is and the task for it, each with the one command that starts it. Every command's output names the next step ([below](#where-every-task-starts)).
 - Projects use `init`, `sync`, `status`, `doctor`, `why`, `approve` and `run`. Jobs that do not install dependencies use `fetch`.
 - From outside a project, such as a repository that cloned it, add `-C <dir>` before the command. `help` lists the project's packages, and `help <package>` prints one in full.
 - `help <tool>` prints a tool's usage, its answer exit codes and its run command, without running it.
@@ -12,23 +13,52 @@
 
 The npm package is `@harnesspm/cli`, and the command it installs is `harnesspm`. `npx -y @harnesspm/cli …` works everywhere: in a project that depends on it, npx runs the installed version, and elsewhere it downloads the package by its full name. Every text, message, block and hook that harnesspm writes uses this one form ([4.6](04-outputs.md#46-managed-blocks)). It never writes the bare `npx harnesspm …`: that works only in a project that depends on harnesspm, and elsewhere npx would fetch whatever is published under the unscoped name, without asking in a hook. An allow rule always has the prefix of the command it allows.
 
-`harnesspm help` lists every command, and `harnesspm <command> --help` shows one. Inside a project, or with `-C`, `help` also lists the project's packages ([below](#the-project-in-help)), and `help <package | rule ID | tool>` prints one of them in full ([below](#help-for-a-package-a-rule-or-a-tool)). A message that names a step for a person, such as trusting a package or approving a version, says that a person takes it. An agent reads every message too, and must not take that step as its own.
+`npx -y @harnesspm/cli --help` lists every command, and `<command> --help` shows one. Inside a project, or with `-C`, `help` lists the project's packages ([below](#the-project-in-help)) and points at `--help`; elsewhere it lists every command. `help <package | rule ID | tool>` prints one of them in full ([below](#help-for-a-package-a-rule-or-a-tool)). A message that names a step for a person, such as trusting a package or approving what an agent could not grant, says that a person takes it, and names `approve` for every step that a person's run of harnesspm takes. An agent reads every message too, and must not take that step as its own.
+
+### Where every task starts
+
+`npx -y @harnesspm/cli`, without a command, is where every task starts. The site shows this command, and the CLI, versioned with the package, holds the steps. In a project that uses harnesspm (a `harnesspm.json` in the folder or above it), it prints the project's report ([10.5](#105-the-report)). Elsewhere it writes nothing and prints at most 12 lines: harnesspm's version, what the folder is, its tasks with the likeliest first, each with the one command that starts it, who decides what runs, and where every command and the docs are.
+
+| The folder | What it says | Its tasks, in order |
+| --- | --- | --- |
+| A package that does not use harnesspm | Which dependencies ship a harness | `init`, `new rule usage`, `add <source>`, a harness of your own (`new rule workflow`) |
+| A package with `harness/` | It shares a harness | `check`, `init` to see the harness as its users' agents will, `new <kind> <name>`, `add <source>` |
+| A parent folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)) | The projects right below it | `sync`, `-C <project> help`, `add <source>` |
+| A folder with `harness/` and no `package.json` | It is a harness, not a project | `check`, `new <kind> <name>`, `add <the folder>`, which a person runs |
+| Any other folder | It is not a project | `new rule workflow`, `add <source>`, then `init` and `new rule usage` in a project or package |
+
+```text
+$ npx -y @harnesspm/cli
+harnesspm 0.17.0: rules, docs, skills and tools from npm packages, for Claude Code and Codex.
+This folder (app) does not use harnesspm. 3 dependencies ship a harness: @acme/ui, @acme/colors, @acme/styles.
+
+Pick the task, run its command, and follow what it prints:
+  Give this project's agents its dependencies' harness   npx -y @harnesspm/cli init
+  Share a harness from this package                      npx -y @harnesspm/cli new rule usage
+  Add your own or your team's harness, on every repo     npx -y @harnesspm/cli add <github:owner/repo | folder>
+  Start a harness of your own, in an empty folder        npx -y @harnesspm/cli new rule workflow
+
+A person decides what runs: they add a harness and trust a package. An agent asks first.
+Every command: npx -y @harnesspm/cli --help · Docs: https://harnesspm.tenphi.me
+```
+
+The command that a task starts with prints the next step in turn: `init` its report, `new` the steps for the folder (10.2), and an error the command that fixes it. One module, `src/start.ts`, holds these texts.
 
 ## 10.1 Projects
 
 | Command | What it does |
 | --- | --- |
-| `harnesspm init` | Creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, then runs `harnesspm sync` and names the committed files ([1.7](01-overview.md#17-what-is-committed)) that git sees as new or changed. It MUST stop before it changes anything when the project's `package.json` does not list `@harnesspm/cli` in `dependencies`, `devDependencies` or `optionalDependencies`: the script it adds calls the `harnesspm` command, so the next install would fail. |
-| `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending outside the reviewed state, and the held-back line says what differs ([06-trust.md](06-trust.md#62-trusting-a-package)). With `CI=true`, it writes only the per-machine outputs and leaves the committed ones to `sync --check` ([06-trust.md](06-trust.md#64-ci)). In a parent folder, which is not in a git repository and has projects right below it, it writes their hooks and a pointer block for sessions that start there, and a project's sync keeps its entries there current. With added harnesses, it also writes their per-machine outputs in each git repository right below the folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). |
+| `harnesspm init` | Sets up the project, in this order. (1) When its `package.json` does not list `@harnesspm/cli` in `dependencies`, `devDependencies` or `optionalDependencies`, it installs the package as a dev dependency, at its own version or a later compatible one, with the project's package manager: the one of its lockfile, else of its `packageManager` field, else npm (`npm i -D`, `pnpm add -D`, `yarn add -D`, `bun add -d`; `-w` at a pnpm workspace root, `-W` at a Yarn 1 one). The script that `init` adds calls the `harnesspm` command, so the next install would fail without the package. (2) It creates `harnesspm.json`, adds the [install hook](#the-install-hook) to the `postinstall` script of a private package or to `prepare` otherwise, makes `CLAUDE.md` import `AGENTS.md`, and adds `/.harnesspm/` to the `.gitignore` of the project folder when no `.gitignore` ignores that folder ([4.3](04-outputs.md#43-project-outputs), note 8). (3) It runs `harnesspm sync`. (4) It reports what it wrote, the tools of each package that is not trusted, with what each does and whether it runs without a prompt, the committed files ([1.7](01-overview.md#17-what-is-committed)) that git sees as new or changed, the check for CI, and what the agent does next. It MUST stop before it changes anything when the install fails, and when the project uses Yarn Plug'n'Play, which writes no `node_modules`. An agent's run installs too: the person asked for the setup. Trust and the entries that only a person grants stay with the person ([06-trust.md](06-trust.md#62-trusting-a-package)). |
+| `harnesspm sync` | Resolves the layers and writes all outputs. Runs on every install. In a repository that does not use harnesspm (it has no `harnesspm.json`), or whose dependencies are not installed, it writes only the per-machine outputs of added harnesses, so it never wipes the committed block. When an agent runs it, new allow rules, hooks and MCP servers stay pending outside the reviewed state, and the line under "Waiting for a person" says what differs and names `approve` ([06-trust.md](06-trust.md#62-trusting-a-package)). With `CI=true`, it writes only the per-machine outputs and leaves the committed ones to `sync --check` ([06-trust.md](06-trust.md#64-ci)). In a parent folder, which is not in a git repository and has projects right below it, it writes their hooks and a pointer block for sessions that start there, and a project's sync keeps its entries there current. With added harnesses, it also writes their per-machine outputs in each git repository right below the folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). |
 | `harnesspm sync --check` | Writes nothing and ignores added harnesses, as every run with `CI=true` does. Fails when a committed output or the lock is out of date. For CI. |
 | `harnesspm sync --write` | Writes the committed outputs with `CI=true` too, for a job that commits them. `init`, `approve` and `new` always write them. |
-| `harnesspm status` | Layers, packages, versions, pending trust, entries an agent's sync would hold back (the list `sync` prints), changes that added harnesses make to the repository's units, always-on size per agent, managed blocks that Codex does not reach ([4.9](04-outputs.md#49-size-limits)), and whether telemetry is on, held or off on this machine. Points to `doctor` when a per-machine file has a problem. |
-| `harnesspm doctor` | Checks that the repository is ready for harnesses, its own and a person's. It changes nothing. Each problem names the command that fixes it. Exits `1` when a check fails; warnings, such as pending trust, do not fail. See [10.5](#105-doctor). |
+| `harnesspm status` | The project's report ([10.5](#105-the-report)): layers, packages and versions, changes that added harnesses make, always-on size per agent, telemetry, the checks that the repository is ready for harnesses, its own and a person's, and everything that waits for a person. The bare command prints it in a project. Exits `0`. |
+| `harnesspm doctor` | The same report. Exits `1` when a check fails; what waits for a person does not fail. |
 | `harnesspm why <ID>` | Owner, source, repository and whether the unit is editable ([08-improving.md](08-improving.md#81-find-the-source)). Works for every unit ID ([2.8](02-package-format.md#28-unit-ids)), also for a unit of a project entry that does not apply here ([8.1](08-improving.md#81-find-the-source)). For a script, also the command that runs it; for a script, hook, MCP server or sub-agent of a dependency, whether its package is trusted. |
-| `harnesspm approve [<package>]` | Writes the entries that a model run left pending, and records a `"pin"` package's new version as approved in the lock. A person runs it, not an agent. |
+| `harnesspm approve [<package>]` | The person's step. Writes the entries that a model run held back, and the tools of a package that a person just added to `trust`, then records a `"pin"` package's new version as approved in the lock. It syncs as a person's `sync` does. A person runs it, not an agent. |
 | `harnesspm run [--agent <agent>] <plugin>:<script> [-- args]` | Runs a script ([05-executables.md](05-executables.md#51-scripts)) in the caller's folder. Hooks pass `--agent`, which sets `HARNESSPM_AGENT`. Without an install, it runs the script from the [fetched packages](01-overview.md#15-terms). When there are none, it says so and names `fetch` and the install, not `No script`. |
 | `harnesspm fetch` | Downloads only the harness packages in the lock, without a full install, and checks their integrity ([04-outputs.md](04-outputs.md#42-stable-package-paths)). Writes their docs copies, which search tools find ([4.3](04-outputs.md#43-project-outputs), note 8). For review bots and CI jobs that do not install dependencies, and for a clone that an agent uses without installing it. |
-| `harnesspm help` | Every command. Inside a project, or with `-C`, also the project's packages, one line each ([below](#the-project-in-help)). |
+| `harnesspm help` | Inside a project, or with `-C`, the project's packages, one line each ([below](#the-project-in-help)), and a pointer to `--help`. Elsewhere, every command, as `--help` prints. |
 | `harnesspm help <package \| rule ID \| tool>` | A package's rules, docs, tools, MCP servers, skills and hooks in full, one rule, or a tool's usage and run command ([below](#help-for-a-package-a-rule-or-a-tool)). Needs no install. |
 
 ### `-C <dir>`
@@ -47,13 +77,16 @@ npx -y @harnesspm/cli -C work/app run uikit:colors surface
 
 ### The project in `help`
 
-Inside a project, or with `-C`, `help` ends with a "This project" section. It gives each package of the dependency and project layers one line, across all workspaces: what it covers (its `description` in `plugin.json`, else the titles of its always-on rules), how many rules, tools, MCP servers, skills and hooks it has, and the `help <package>` command that prints the rest.
+Inside a project, or with `-C`, `help` prints a "This project" section. It gives each package of the dependency and project layers one line, across all workspaces: what it covers (its `description` in `plugin.json`, else the titles of its always-on rules), how many rules, tools, MCP servers, skills and hooks it has, and the `help <package>` command that prints the rest.
 
 ```text
 This project: app (work/app)
 Paths start at the current folder. The tools run here too, with -C.
 
 - @acme/ui — Acme UI. 1 rule, docs, 1 tool, 1 skill: `npx -y @harnesspm/cli -C work/app help @acme/ui`
+
+A tool's options: `npx -y @harnesspm/cli -C work/app help <tool>`. Run a tool: `npx -y @harnesspm/cli -C work/app run <tool> [args]`.
+Every command: `npx -y @harnesspm/cli --help`.
 ```
 
 ### Help for a package, a rule or a tool
@@ -62,9 +95,9 @@ Paths start at the current folder. The tools run here too, with -C.
 
 | Target | What `help` prints |
 | --- | --- |
-| A package, by its npm name or plugin name | Everything it contributes, with the project's `patch`, `replace` and `exclude` applied, and nothing left out: each rule in full, with how it becomes active and who changed it; its docs index; its tools, each with its description, its `usage` and the exact `run` command; its MCP servers; its skills, with the path of each `SKILL.md`; the hooks it registers. When the package is not trusted, the tools, MCP servers and hooks carry a line that says so. |
+| A package, by its npm name or plugin name | Everything it contributes, with the project's `patch`, `replace` and `exclude` applied, and nothing left out: each rule in full, with how it becomes active and who changed it; its docs index; its tools, each with its description, its `usage`, the exact `run` command and `no prompt` when it asks to run without one (`allow`, [5.4](05-executables.md#54-permissions)); its MCP servers; its skills, with the path of each `SKILL.md`; the hooks it registers. When the package is not trusted, the tools, MCP servers and hooks carry a line that says so. |
 | A rule ID, such as `acme-ui:rules/usage` | That rule in full. |
-| A tool, as `<plugin>:<script>` or by its ID | Its description, its `usage` ([5.1](05-executables.md#51-scripts)), its `answers` and the exact `run` command. Without a `usage`, it says that none is declared. With `answers`, an `Exit:` line says that those codes are answers, such as "found problems", not a broken tool. The tool line in `help <package>` and the managed block stays one line and leaves them out. It never runs the script, so it works without an install. |
+| A tool, as `<plugin>:<script>` or by its ID | Its description, its `usage` ([5.1](05-executables.md#51-scripts)), whether it runs without a prompt, its `answers` and the exact `run` command. Without a `usage`, it says that none is declared. With `answers`, an `Exit:` line says that those codes are answers, such as "found problems", not a broken tool. The tool line in `help <package>` and the managed block stays one line and leaves them out. It never runs the script, so it works without an install. |
 
 For every target:
 
@@ -93,16 +126,6 @@ node -e "try{require.resolve('@harnesspm/cli/package.json');process.exit(1)}catc
 The `node -e` part resolves `@harnesspm/cli/package.json` from the project folder. So the package's `exports` field MUST export `./package.json`. It does, next to `./telemetry` ([14.9](14-telemetry.md#149-events-from-a-projects-own-tools)).
 
 `harnesspm mcp [--agent <agent>] <plugin>:<server>` also exists. Agents call it to start stdio MCP servers. `harnesspm track --agent <agent>` is the command of harnesspm's own telemetry hooks ([14.4](14-telemetry.md#144-agent-events)). People do not need either.
-
-```text
-$ npx -y @harnesspm/cli status
-📦 dependencies  @cube-dev/ui-kit 0.206.1 → @tenphi/tasty 3.17.1, @tenphi/glaze 2.0.0
-🏢 project       harnesspm.json: 1 replace · 1 patch
-➕ added         github:cube-js/frontend-harness (user) · github:alex/harness (user), project entry cube-ui-kit
-⏳ pending       some-third-party: 1 hook (not trusted)
-📏 always-on     Codex 18.4 KiB of 32 KiB · Claude Code 212 lines
-📡 telemetry     run, mcp, sync, why, read, skill, session → file .harnesspm/events.jsonl
-```
 
 ### Moving from `@tenphi/harnesspm`
 
@@ -157,31 +180,36 @@ npx -y @harnesspm/cli update
 | `1` | Error: invalid harness, failed check. |
 | `2` | `harnesspm run` refused a script ([05-executables.md](05-executables.md#51-scripts)). When a hook calls it, `2` also blocks the event: harnesspm fails closed. |
 
-## 10.5 Doctor
+## 10.5 The report
 
-`npx -y @harnesspm/cli doctor` answers one question: can a person work here with harnesses, the repository's and their own, without per-machine files reaching a commit?
+`npx -y @harnesspm/cli status`, `doctor` and the bare command in a project print one report. It answers three questions: what the project gives its agents, whether a person can work here with harnesses, the repository's and their own, without per-machine files reaching a commit, and what waits for a person.
+
+It opens with one line each for the dependencies, the project's changes, the units that added harnesses change (`✏️ changed here`), the always-on size per agent, and telemetry when the project configures it: on, held or off on this machine. The checks follow:
 
 | Group | Check | Fails when |
 | --- | --- | --- |
 | 🔒 Local files | Every per-machine file on disk is ignored by git and not tracked. The files are the ones harnesspm lists in `.git/info/exclude`, plus `harnesspm.local.json`, `CLAUDE.local.md`, `.claude/settings.local.json` and a telemetry file. Git answers, so `.gitignore`, `.git/info/exclude` and a global excludes file all count. | A file is tracked (fix: `git rm --cached`), or not ignored (fix: `sync` for a file harnesspm writes, otherwise a `.gitignore` entry). When a `!` pattern brings a file back, it names the pattern and its file. Outside a git repository it only warns. |
 | ➕ Harnesses of your own | The clone's exclude file can be written. Each added harness is on this machine. | The exclude file cannot be written, or an added harness is missing. |
-| 📦 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place. `AGENTS.md` fits in Codex's 32 KiB, and Codex reaches every managed block ([4.9](04-outputs.md#49-size-limits)). | A committed output or the lock is out of date. Four problems only warn: missing per-machine outputs, because `sync` writes them; an `AGENTS.md` over 32 KiB; a managed block that Codex never reads, or reads only in part; and an [install hook](#the-install-hook) in the old form, which fails an install without dev dependencies. |
-| 🛡️ Trust | Entries that wait for trust or for a person, with a held telemetry handler: the list that `sync` prints. | Never: these are warnings ([10.4](#104-exit-codes)). |
+| 📝 Outputs | Committed outputs are up to date, as `sync --check` checks. Per-machine links and generated files are in place, with the entries that the default branch records ([6.2](06-trust.md#62-trusting-a-package), rule 4). `AGENTS.md` fits in Codex's 32 KiB, and Codex reaches every managed block ([4.9](04-outputs.md#49-size-limits)). | A committed output or the lock is out of date. These only warn: missing per-machine outputs and entries, because `sync` writes them; an `AGENTS.md` over or close to 32 KiB; a managed block that Codex never reads, or reads only in part, or that starts past line 30; and an [install hook](#the-install-hook) in the old form, which fails an install without dev dependencies. |
+| ⏳ Waiting for a person | Packages that are not trusted, `"pin"` versions that are not approved, and entries that an agent's run held back, a held telemetry handler first: the list that `sync` prints. Each line names the person's step: trust, then `approve`; in a Claude Code cloud session, the line for the setup script ([9.1](09-cloud.md#91-the-repositorys-harness)). | Never: these are not problems ([10.4](#104-exit-codes)). |
 
 ```text
 $ npx -y @harnesspm/cli doctor
+📦 dependencies  @acme/ui 4.2.0 → @acme/colors 2.1.0, @acme/styles 3.4.1
+🏢 project       harnesspm.json: no changes
+📏 always-on     Codex 1.7 KiB of 32 KiB · Claude Code 31 lines
 🔒 Local files
   ❌ CLAUDE.local.md is tracked by git, so a commit can include this machine's files, and harnesspm writes no added harnesses into it. Run `git rm --cached CLAUDE.local.md` and commit.
 ➕ Harnesses of your own
   ✅ .git/info/exclude can be written, so harnesspm keeps per-machine files out of git
   ✅ Added: alex (github:alex/harness, user)
-📦 Outputs
+📝 Outputs
   ✅ Committed outputs are up to date
-  ✅ 14 per-machine outputs in place
-🛡️  Trust
-  ✅ Nothing waits for trust
+  ✅ 40 per-machine outputs in place
+⏳ Waiting for a person
+  - @acme/styles: 1 script, 1 hook (not trusted). A person adds "@acme/styles": true to "trust" in harnesspm.json, then runs `npx -y @harnesspm/cli approve`.
 
 ❌ 1 problem. Each line above says how to fix it.
 ```
 
-`doctor` never edits `.gitignore`, never untracks a file and never writes outputs. `sync` writes, and the person decides the rest.
+`status` exits `0`. `doctor` exits `1` when a check fails, so a job can gate on it. The report never edits `.gitignore`, never untracks a file and never writes outputs. `sync` writes, and the person decides the rest.

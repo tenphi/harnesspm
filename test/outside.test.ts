@@ -64,8 +64,10 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
 
   const help = run(root, '-C', 'work/app', 'help');
   assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /^harnesspm — the harness package manager/);
-  assert.match(help.stdout, /\nThis project: app \(work\/app\)\n/);
+  // In a project, help leads with its packages and points at the commands (spec 10.1).
+  assert.match(help.stdout, /^This project: app \(work\/app\)\n/);
+  assert.doesNotMatch(help.stdout, /harnesspm — the harness package manager/);
+  assert.match(help.stdout, /\nEvery command: `npx -y @harnesspm\/cli --help`\.\n$/);
   // One line per package, with what it covers and the command that prints the rest.
   assert.match(help.stdout, /\n- @acme\/kit — Usage\. 2 rules, docs, 2 tools, 1 MCP server, 1 skill: `npx -y @harnesspm\/cli -C work\/app help @acme\/kit`\n/);
   assert.match(help.stdout, /A tool's options: `npx -y @harnesspm\/cli -C work\/app help <tool>`\. Run a tool: `npx -y @harnesspm\/cli -C work\/app run <tool> \[args\]`\./);
@@ -78,7 +80,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   assert.match(pkg.stdout, /\n### Usage \(kit:rules\/usage\)\n\nAlways on\.\n\nUse the kit\.\n/);
   assert.match(pkg.stdout, /\n### Forms \(kit:rules\/forms\)\n\nWhen editing `\*\*\/\*\.tsx` — Forms\. File: work\/app\/\S+forms\.md\n\nUse Form\.\n/);
   assert.match(pkg.stdout, /## Docs\n\n- work\/app\/\.harnesspm\/docs\/kit\/llms\.txt \(kit:docs\)/);
-  assert.match(pkg.stdout, /## Tools\n\n- `npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]` — Print where it runs \(kit:scripts\/where\)/);
+  assert.match(pkg.stdout, /## Tools\n\n- `npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]` — Print where it runs · no prompt \(kit:scripts\/where\)/);
   assert.match(pkg.stdout, /## MCP servers\n\n- `npx -y @harnesspm\/cli -C work\/app mcp kit:docs` \(kit:mcp\/docs\)/);
   assert.match(pkg.stdout, /## Skills\n\n- kit-review: read work\/app\/\S+\/skills\/kit-review\/SKILL\.md \(kit:skills\/kit-review\)\n {2}Does kit-review\. Use when testing\./);
   // Paths start at the caller's folder, so the agent can read them from there.
@@ -89,7 +91,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   const rule = run(root, '-C', 'work/app', 'help', 'kit:rules/forms').stdout;
   assert.match(rule, /\n# Forms \(kit:rules\/forms\)\n\nWhen editing `\*\*\/\*\.tsx` — Forms\. File: work\/app\/\S+forms\.md\n\nUse Form\.\n$/);
   const tool = run(root, '-C', 'work/app', 'help', 'kit:where').stdout;
-  assert.match(tool, /\nkit:where \(kit:scripts\/where\), from @acme\/kit\n\nPrint where it runs\n\nUsage: <file>\n {7}Prints the folder it runs in, the project and its arguments\.\nRun: {3}npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]\n$/);
+  assert.match(tool, /\nkit:where \(kit:scripts\/where\), from @acme\/kit\n\nPrint where it runs\n\nUsage: <file>\n {7}Prints the folder it runs in, the project and its arguments\.\nAllow: runs without a prompt in a project that trusts its package\.\nRun: {3}npx -y @harnesspm\/cli -C work\/app run kit:where \[args\]\n$/);
   assert.equal(run(root, '-C', 'work/app', 'help', 'kit:scripts/where').stdout, tool, 'the tool ID works too');
   assert.match(run(root, '-C', 'work/app', 'help', 'kit:needs').stdout, /Usage: none declared\./);
   // `help` with a target is a telemetry event of the named project (spec 14.2).
@@ -109,7 +111,7 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
 
   // Inside the project, the same commands without -C.
   const inside = run(app, 'help').stdout;
-  assert.match(inside, /\nThis project: app\n/);
+  assert.match(inside, /^This project: app\n/);
   assert.match(inside, /: `npx -y @harnesspm\/cli help @acme\/kit`/);
   const insidePkg = run(app, 'help', '@acme/kit').stdout;
   assert.equal(events(app).filter((e) => e.type === 'help').at(-1)!['outside'], undefined, 'help inside the project has no outside field');
@@ -137,7 +139,9 @@ test('S18: -C runs the project\'s help and tools from the session folder, in the
   const missing = run(root, '-C', 'work/nope', 'help');
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /-C work\/nope: no such folder/);
-  assert.match(run(root, '-C', 'work', 'help').stdout, /\nwork does not use harnesspm: it has no harnesspm\.json\.\n/);
+  const outside = run(root, '-C', 'work', 'help').stdout;
+  assert.match(outside, /^harnesspm — the harness package manager\n/, 'outside a project, help lists the commands');
+  assert.match(outside, /\nwork does not use harnesspm: it has no harnesspm\.json\.\n/);
 });
 
 test('S18: without an install, run says what is missing, and runs scripts from the fetched packages', () => {
@@ -230,12 +234,12 @@ test('the block starts with the commands, one line per rule and tool, and status
   assert.match(agents, new RegExp(`^<!-- BEGIN:harnesspm[^\\n]*-->\\n\\n${COMMANDS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\n## @acme/kit\\n`));
   assert.match(agents, /\n## @acme\/kit\n\n- Always-on rule: Usage\. Read it with `help @acme\/kit` \(kit:rules\/usage\)\n- When editing `\*\*\/\*\.tsx`, read \S+forms\.md — Forms \(kit:rules\/forms\)\n- Docs: \S+ \(kit:docs\)\n- Tool: `kit:where` — Print where it runs \(kit:scripts\/where\)\n- Tool: `kit:needs` — Needs a dependency \(kit:scripts\/needs\)\n\n<!-- END/);
   assert.doesNotMatch(agents, /Use the kit\./, 'the rule text is not inlined');
-  assert.doesNotMatch(run(app, 'status').stderr, /starts at line/);
+  assert.doesNotMatch(run(app, 'status').stdout, /starts at line/);
 
   writeFiles(app, { 'AGENTS.md': `# App\n\n${Array.from({ length: 40 }, (_, i) => `Line ${i + 1}.`).join('\n')}\n` });
   assert.equal(run(app, 'sync').status, 0);
   const warning = /⚠️ {2}The harness block in AGENTS\.md starts at line 44\. Agents that read only the first 30 lines, such as with `head -30`, miss it\. Move the block to the top of its file, where sync keeps it\./;
-  assert.match(run(app, 'status').stderr, warning);
+  assert.match(run(app, 'status').stdout, warning);
   assert.match(run(app, 'doctor').stdout, /The harness block in AGENTS\.md starts at line 44/);
 });
 
@@ -256,7 +260,7 @@ test('a model run keeps allow rules in the new command form where the earlier fo
 
   const model = runWith(app, MODEL, 'sync');
   assert.equal(model.status, 0, model.stderr);
-  assert.doesNotMatch(model.stdout, /held back/);
+  assert.doesNotMatch(model.stdout, /cannot grant/);
   const allow: string[] = JSON.parse(read(app, '.claude/settings.local.json')).permissions.allow;
   assert.ok(allow.includes('Bash(npx -y @harnesspm/cli run kit:where *)'));
   assert.ok(allow.includes('Bash(npx harnesspm run kit:where *)'));

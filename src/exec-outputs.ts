@@ -13,6 +13,8 @@ export type Group = 'team' | 'added';
 export interface TrustState {
   trusted: boolean;
   reason?: string;
+  /** The person's step that turns the units on. */
+  action?: string;
 }
 
 /** Trust of a package's executable units (spec 6.2). The project and added harnesses are trusted. */
@@ -23,10 +25,10 @@ export function trustOf(pkg: ResolvedPackage, res: Resolution, lock: Lock | unde
   if (value === 'pin') {
     const approved = lock?.packages[pkg.name]?.approved;
     if (approved === undefined || approved === pkg.version) return { trusted: true };
-    return { trusted: false, reason: `version ${pkg.version} is not approved (approved: ${approved}); a person approves it with \`${NPX_ANY} approve ${pkg.name}\`` };
+    return { trusted: false, reason: `version ${pkg.version} is not approved; approved: ${approved}`, action: `A person runs \`${NPX_ANY} approve ${pkg.name}\`.` };
   }
-  // Trust is the person's decision (spec 6.2). The reason says who acts, so an agent does not take it as its next step.
-  return { trusted: false, reason: `not trusted; a person turns it on in "trust" in harnesspm.json` };
+  // Trust is the person's decision (spec 6.2). The action says who acts, so an agent does not take it as its next step.
+  return { trusted: false, reason: 'not trusted', action: `A person adds "${pkg.name}": true to "trust" in harnesspm.json, then runs \`${NPX_ANY} approve\`.` };
 }
 
 export interface HookEntry {
@@ -198,7 +200,8 @@ export function desiredEntries(
 
   for (const [pkg, counts] of pendingCounts) {
     const what = [...counts].map(([kind, n]) => `${n} ${kind}${n === 1 ? '' : 's'}`).join(', ');
-    entries.pending.push(`${pkg.name}: ${what} (${trust(pkg).reason})`);
+    const state = trust(pkg);
+    entries.pending.push(`${pkg.name}: ${what} (${state.reason}). ${state.action}`);
   }
   return entries;
 }

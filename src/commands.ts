@@ -19,7 +19,7 @@ import { checkHarness } from './check.ts';
 import { checkLocalFiles, excludeWritable, formatFinding, type Finding } from './doctor.ts';
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
-import { emptyEntries, heldEntries, trustOf } from './exec-outputs.ts';
+import { emptyEntries, heldEntries, trustOf, type TrustState } from './exec-outputs.ts';
 import { childProjects, childRepos, hasParentOutputs, isParentFolder, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
@@ -27,14 +27,15 @@ import { fetchLocked, locateLocked } from './fetch.ts';
 import { createPatch, createUnit, KINDS, resolveTarget, type Kind } from './new.ts';
 import { reviewedState, type Reviewed } from './reviewed.ts';
 import { runMcp, runScript } from './run.ts';
-import { pathTools } from './outputs.ts';
+import { DOCS_EXCLUDE, DOCS_PROBE, pathTools } from './outputs.ts';
+import { afterInit, EVERY_COMMAND, nextAfterNew, startText, version } from './start.ts';
 import { alwaysOnText, blockRange, helpTarget, ruleBodyWithoutTitle, type PathFor } from './render.ts';
 import { describeMembers, localRuleChanges, resolve, resolvePackageDir, rulesForDirectory, type FinalAgent, type FinalHook, type FinalMcp, type FinalPermissions, type FinalRule, type FinalScript, type FinalSkill, type Resolution, type ResolvedPackage } from './resolve.ts';
 import { demoteHeadings } from './sections.ts';
 import { tryFrontmatter } from './frontmatter.ts';
 import { commandCaller, describeSend, outsideField, readIndex, readTelemetryState, sendEvent, type EventContext } from './telemetry.ts';
 import { migrateSessionHook, userHeld, writeUserOutputs, writeUserSettings, type UserReport } from './user-outputs.ts';
-import { HarnessError, NPX_ANY, OLD_PACKAGE_NAMES, PACKAGE_NAME, PACKAGE_NAMES, addExclude, codexRun, gitExcludeFile, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
+import { HarnessError, NPX_ANY, OLD_PACKAGE_NAMES, PACKAGE_NAME, PACKAGE_NAMES, addExclude, codexRun, gitExclude, gitExcludeFile, gitIgnoreSource, inCloudSession, insideDir, isDir, isFile, isRecord, readJson, readJsonIfExists, readTextIfExists, relPosix, runner, shellWord, writeIfChanged } from './util.ts';
 import { spawnSync } from 'node:child_process';
 
 export interface Output {
@@ -63,13 +64,22 @@ const firstThree = (items: string[]): string => `${items.slice(0, 3).join('; ')}
 const heldList = (report: UserReport): string => `${plural(report.held.length, 'entry', 'entries')} that an agent cannot grant (${firstThree(report.held)})${report.why !== undefined ? `, because ${report.why}` : ''}`;
 const unwrittenList = ({ entries, branch }: NonNullable<UserReport['unwritten']>): string => `${plural(entries.length, 'entry', 'entries')} that ${branch} records (${firstThree(entries)})`;
 
-function printPending(out: Output, report: UserReport, projectDir: string): void {
-  for (const line of [...new Set(report.pending)]) out.log(`⏳ pending: ${line}`);
-  if (report.unwritten) out.log(`⏳ not written yet: ${unwrittenList(report.unwritten)}. Run \`${NPX_ANY} sync\`.`);
-  if (report.held.length > 0) {
-    out.log(`⏳ held back: ${heldList(report)}.`);
-    out.log(`   ${grantStep(projectDir, `Ask the person to run \`${NPX_ANY} sync\` or \`${NPX_ANY} approve\` in their own terminal.`)}`);
-  }
+/** The person's step for everything an agent cannot grant itself (spec 6.2, rule 4). */
+const APPROVE = `A person runs \`${NPX_ANY} approve\` in their own terminal.`;
+const WAITING = '⏳ Waiting for a person';
+
+/**
+ * Everything that waits for a person, one line each with the step that ends the wait: packages to trust or versions to
+ * approve, and entries an agent's run held back (spec 6.2). What any sync writes is not a person's step.
+ */
+function waitingLines(report: UserReport, projectDir: string): string[] {
+  return [...new Set(report.pending), ...(report.held.length > 0 ? [`${heldList(report)}. ${grantStep(projectDir, APPROVE)}`] : [])];
+}
+
+function printWaiting(out: Output, lines: string[]): void {
+  if (lines.length === 0) return;
+  out.log(WAITING);
+  for (const line of lines) out.log(`  - ${line}`);
 }
 
 /** The repository to work on: the nearest folder with harnesspm.json, else the git root, else `cwd`. */
@@ -126,21 +136,44 @@ function resolveAll(projectDir: string, options: { withAdded: boolean; addedOnly
  * so that an install's sync cannot hide a missed sync from a later `sync --check` (spec 6.4, 10.1).
  */
 export function sync(cwd: string, out: Output, options: { check?: boolean; write?: boolean; quiet?: boolean } = {}): number {
-  const projectDir = findProjectDir(cwd);
   if (options.check && options.write) throw new HarnessError('Use either --check or --write, not both.');
-  if (options.check) {
-    const { team, full, warnings } = resolveAll(projectDir, { withAdded: false });
-    const plan = computePlan(team, full);
-    printWarnings(out, [...warnings, ...plan.warnings]);
-    const problems = checkPlan(projectDir, plan);
-    for (const p of problems) out.log(`❌ ${p}`);
-    if (problems.length > 0) {
-      out.log(`Run \`${NPX_ANY} sync\` and commit the result.`);
-      return 1;
-    }
-    out.log('✅ harnesspm outputs are up to date');
-    return 0;
+  if (options.check) return syncCheck(findProjectDir(cwd), out);
+  const done = syncProject(cwd, out, options);
+  printWaiting(out, waitingLines(done.report, done.projectDir));
+  if (options.quiet) return 0;
+  if (done.keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_ANY} sync --check\` compares them, \`sync --write\` writes them.`);
+  out.log(done.changed > 0 ? `harnesspm: ${done.what}. Updated ${plural(done.changed, 'file')}.` : `harnesspm: ${done.what}. Nothing changed.`);
+  return 0;
+}
+
+function syncCheck(projectDir: string, out: Output): number {
+  const { team, full, warnings } = resolveAll(projectDir, { withAdded: false });
+  const plan = computePlan(team, full);
+  printWarnings(out, [...warnings, ...plan.warnings]);
+  const problems = checkPlan(projectDir, plan);
+  for (const p of problems) out.log(`❌ ${p}`);
+  if (problems.length > 0) {
+    out.log(`Run \`${NPX_ANY} sync\` and commit the result.`);
+    return 1;
   }
+  out.log('✅ harnesspm outputs are up to date');
+  return 0;
+}
+
+interface Synced {
+  projectDir: string;
+  /** What waits for a person: `sync` lists it, `init` shows its tools. */
+  report: UserReport;
+  /** What the sync covered, such as "6 rules, 5 skills, 4 docs from 4 packages". */
+  what: string;
+  mode: Resolved['mode'];
+  changed: number;
+  keptCommitted: boolean;
+}
+
+/** Writes every output, as `sync` does, and prints only the warnings. */
+function syncProject(cwd: string, out: Output, options: { write?: boolean }): Synced {
+  const projectDir = findProjectDir(cwd);
   const resolved = resolveAll(projectDir, { withAdded: true });
   const { full, mode } = resolved;
   const warnings = [...resolved.warnings];
@@ -187,17 +220,13 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   if (process.env['CI'] !== 'true' && !model) changed.push(...migrateSessionHook());
   printWarnings(out, warnings);
-  printPending(out, report, projectDir);
-  if (options.quiet) return 0;
-  if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_ANY} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(new Set(full.rules.map((r) => r.id)).size, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
   const above = `Sessions that start here get the hooks of ${plural(children.length, 'project')} below: ${children.map((c) => path.basename(c)).join(', ')}`;
   const gone = 'No projects below this folder any more: removed what an earlier sync wrote for them';
   const below = `Added harnesses in ${plural(applied.length, 'repository', 'repositories')} below: ${applied.join(', ')}`;
   const parts = [...(children.length > 0 ? [above] : parentSync ? [gone] : []), ...(applied.length > 0 ? [below] : [])];
   const what = mode === 'none' ? (parts.length > 0 ? parts.join('. ') : 'Nothing to do in this folder') : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
-  out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
-  return 0;
+  return { projectDir, report, what, mode, changed: changed.length, keptCommitted };
 }
 
 /**
@@ -300,17 +329,76 @@ function harnesspmDependency(pkg: unknown): string | undefined {
 
 const dependsOnHarnesspm = (pkg: unknown): boolean => harnesspmDependency(pkg) !== undefined;
 
-/** Lockfiles that an install changes, with the install that each one asks for. */
-const INSTALLS: Record<string, string> = {
-  'package-lock.json': 'npm ci',
-  'npm-shrinkwrap.json': 'npm ci',
-  'pnpm-lock.yaml': 'pnpm install',
-  'yarn.lock': 'yarn install',
-  'bun.lock': 'bun install',
-  'bun.lockb': 'bun install',
+type Manager = 'npm' | 'pnpm' | 'yarn' | 'bun';
+/** Lockfiles that an install changes, with the package manager that writes each one. */
+const LOCKS: Record<string, Manager> = {
+  'package-lock.json': 'npm',
+  'npm-shrinkwrap.json': 'npm',
+  'pnpm-lock.yaml': 'pnpm',
+  'yarn.lock': 'yarn',
+  'bun.lock': 'bun',
+  'bun.lockb': 'bun',
+};
+/** The install that each package manager's lockfile asks for, and its command that adds a dev dependency. */
+const MANAGERS: Record<Manager, { install: string; add: string }> = {
+  npm: { install: 'npm ci', add: 'npm i -D' },
+  pnpm: { install: 'pnpm install', add: 'pnpm add -D' },
+  yarn: { install: 'yarn install', add: 'yarn add -D' },
+  bun: { install: 'bun install', add: 'bun add -d' },
 };
 /** `init` names the lockfile the project has with the files to commit. */
-const LOCKFILES = Object.keys(INSTALLS);
+const LOCKFILES = Object.keys(LOCKS);
+const lockfileOf = (projectDir: string): string | undefined => LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
+
+/** The project's package manager: by its lockfile, else by its `packageManager` field, else npm. */
+function managerOf(projectDir: string, pkg: Record<string, unknown>): Manager {
+  const lock = lockfileOf(projectDir);
+  if (lock !== undefined) return LOCKS[lock]!;
+  const field = typeof pkg['packageManager'] === 'string' ? /^(npm|pnpm|yarn|bun)@/.exec(pkg['packageManager'])?.[1] : undefined;
+  return (field as Manager | undefined) ?? 'npm';
+}
+
+/**
+ * Yarn 2 and later install with Plug'n'Play unless `.yarnrc.yml` sets another `nodeLinker`. Plug'n'Play writes no
+ * `node_modules`, where harnesspm finds each package's harness, so harnesspm supports Yarn with `nodeLinker: node-modules`.
+ */
+function yarnPnp(projectDir: string): boolean {
+  if (isFile(path.join(projectDir, '.pnp.cjs'))) return true;
+  const rc = readTextIfExists(path.join(projectDir, '.yarnrc.yml'));
+  return rc !== undefined && !/^nodeLinker:\s*["']?node-modules\b/m.test(rc);
+}
+
+/**
+ * Adds harnesspm as a dev dependency with the project's package manager, at this version or a later compatible one
+ * (spec 10.1), and returns the command. A workspace root needs pnpm's `-w` and Yarn 1's `-W`. The package manager's
+ * own output goes to stderr, so the report on stdout stays as `init` prints it.
+ */
+function installHarnesspm(projectDir: string, manager: Manager, pkg: Record<string, unknown>): string {
+  const root = manager === 'pnpm' ? isFile(path.join(projectDir, 'pnpm-workspace.yaml')) : manager === 'yarn' && 'workspaces' in pkg && !isFile(path.join(projectDir, '.yarnrc.yml'));
+  const add = `${MANAGERS[manager].add}${root ? (manager === 'pnpm' ? ' -w' : ' -W') : ''}`;
+  const own = version();
+  const spec = `${PACKAGE_NAME}@${own.includes('-') ? own : `^${own}`}`;
+  const windows = process.platform === 'win32';
+  const [command, ...args] = add.split(' ');
+  const result = spawnSync(windows ? `${add} ${spec}` : command!, windows ? [] : [...args, spec], { cwd: projectDir, stdio: ['ignore', 2, 2], shell: windows });
+  if (result.status !== 0) {
+    throw new HarnessError(`\`${add} ${spec}\` failed${result.error ? ` (${result.error.message})` : ''}, so init stopped before it changed anything. Add ${PACKAGE_NAME} as a dev dependency yourself, then run \`${NPX_ANY} init\` again.`);
+  }
+  return add;
+}
+
+/**
+ * Adds `/.harnesspm/` to the project folder's `.gitignore`, so formatters skip the docs copies (spec 4.3, note 8), unless
+ * a `.gitignore` already ignores the folder. Only `init` edits `.gitignore`, and only this line. False outside git.
+ */
+function ignoreDocsCopies(projectDir: string): boolean {
+  if (gitExclude(projectDir) === undefined) return false;
+  const source = gitIgnoreSource(projectDir, DOCS_PROBE);
+  if (typeof source === 'string' && !path.isAbsolute(source) && path.basename(source) === '.gitignore') return false;
+  const file = path.join(projectDir, '.gitignore');
+  const text = readTextIfExists(file) ?? '';
+  return writeIfChanged(file, `${text}${text === '' || text.endsWith('\n') ? '' : '\n'}${DOCS_EXCLUDE}\n`);
+}
 
 /**
  * The project's install for a Claude Code cloud environment's setup script (spec 9.1), or undefined when it is not
@@ -321,12 +409,12 @@ const LOCKFILES = Object.keys(INSTALLS);
 function setupLine(projectDir: string): string | undefined {
   // A folder above projects: its sync, after the projects' installs (spec 4.10).
   if (isParentFolder(projectDir)) return `cd ${/^[\w./-]+$/.test(projectDir) ? projectDir : `'${projectDir.replaceAll("'", "'\\''")}'`} && ${NPX_ANY} sync`;
-  const lock = LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
+  const lock = lockfileOf(projectDir);
   if (lock === undefined || !isFile(path.join(projectDir, CONFIG_FILE))) return undefined;
   const pkg = readJsonIfExists(path.join(projectDir, 'package.json'));
   const corepack = isRecord(pkg) && typeof pkg['packageManager'] === 'string' ? 'corepack enable && COREPACK_NPM_REGISTRY=https://registry.npmjs.org ' : '';
   const dir = /^[\w./-]+$/.test(projectDir) ? projectDir : `'${projectDir.replaceAll("'", "'\\''")}'`;
-  return `cd ${dir} && ${corepack}${INSTALLS[lock]}`;
+  return `cd ${dir} && ${corepack}${MANAGERS[LOCKS[lock]!].install}`;
 }
 
 /** The committed files (spec 1.7) that git sees as new or changed, in a fixed order. Empty outside git. */
@@ -334,7 +422,7 @@ function filesToCommit(projectDir: string): string[] {
   const { team, full } = resolveAll(projectDir, { withAdded: false });
   const committed = team ? computePlan(team, full).committed : undefined;
   const nested = committed ? [...committed.workspaces.filter((ws) => ws.agentsMd !== undefined).map((ws) => path.join(ws.dir, 'AGENTS.md')), ...committed.claudeMds.map((c) => c.file)] : [];
-  const candidates = [...new Set(['AGENTS.md', 'CLAUDE.md', ...nested.map((file) => relPosix(projectDir, file)), CONFIG_FILE, LOCK_FILE, 'package.json', ...LOCKFILES])];
+  const candidates = [...new Set(['.gitignore', 'AGENTS.md', 'CLAUDE.md', ...nested.map((file) => relPosix(projectDir, file)), CONFIG_FILE, LOCK_FILE, 'package.json', ...LOCKFILES])];
   // The short format shows paths relative to the current folder, also in a subfolder of the repository.
   const result = spawnSync('git', ['status', '--short', '--untracked-files=all', '--', ...candidates], { cwd: projectDir, encoding: 'utf8' });
   if (result.status !== 0) return [];
@@ -342,22 +430,69 @@ function filesToCommit(projectDir: string): string[] {
   return candidates.filter((file) => changed.has(file));
 }
 
+/** More tool lines than this, and `init` lists one line per package instead. */
+const TOOL_LINES = 8;
+
+/**
+ * The executable units of the packages that the project does not trust yet, as `init` lists them: each tool with what
+ * it does and whether it runs without a prompt, the hooks and MCP servers, or one line per package when there are many.
+ */
+function untrustedTools(team: Resolution): { lines: string[]; packages: string[] } {
+  const rows: [string, string][] = [];
+  const perPackage: [string, string][] = [];
+  const packages: string[] = [];
+  for (const pkg of team.packages) {
+    if (pkg.layer !== 'dependencies' || team.config.trust[pkg.name] !== undefined) continue;
+    const scripts = team.scripts.filter((s) => s.pkg === pkg);
+    const hooks = team.hooks.filter((h) => h.pkg === pkg);
+    const servers = team.mcp.filter((m) => m.pkg === pkg);
+    if (scripts.length + hooks.length + servers.length === 0) continue;
+    packages.push(pkg.name);
+    const tools = scripts.filter((s) => s.description !== undefined);
+    for (const s of tools) {
+      const events = [...new Set(hooks.filter((h) => h.run === s.name).map((h) => h.event))];
+      rows.push([pkg.name, `${pkg.plugin}:${s.name} — ${s.description}${s.allow ? ' · no prompt' : ''}${events.length > 0 ? ` · a ${events.join(' and ')} hook runs it` : ''}`]);
+    }
+    for (const h of hooks) if (!tools.some((s) => s.name === h.run)) rows.push([pkg.name, `a ${h.event} hook runs ${pkg.plugin}:${h.run}`]);
+    for (const m of servers) rows.push([pkg.name, `MCP server ${pkg.plugin}:${m.name}`]);
+    const what = [plural(scripts.length, 'script'), plural(hooks.length, 'hook'), plural(servers.length, 'MCP server')].filter((w) => !w.startsWith('0 '));
+    perPackage.push([pkg.name, `${what.join(', ')}: \`${NPX_ANY} help ${helpTarget(pkg)}\``]);
+  }
+  const chosen = rows.length > TOOL_LINES ? perPackage : rows;
+  const width = Math.max(0, ...chosen.map(([name]) => name.length)) + 2;
+  return { lines: chosen.map(([name, text]) => `  ${name.padEnd(width)}${text}`), packages };
+}
+
+/**
+ * `harnesspm init` (spec 10.1): installs harnesspm when the project does not list it, writes the configuration, the
+ * install hook, the import in CLAUDE.md and the `.gitignore` line, syncs, and reports what waits for a person and what
+ * to commit.
+ */
 export function init(projectDir: string, out: Output): number {
   const pkgFile = path.join(projectDir, 'package.json');
-  if (!isFile(pkgFile)) throw new HarnessError('No package.json here. Run `npm init` first.');
-  const raw = readTextIfExists(pkgFile)!;
-  const pkg = readJson(pkgFile);
+  if (!isFile(pkgFile)) throw new HarnessError(`No package.json here, so there is no project to set up. \`${NPX_ANY}\` names the tasks for this folder.`);
+  let pkg = readJson(pkgFile);
   if (!isRecord(pkg)) throw new HarnessError('package.json must be a JSON object');
-  // The script that `init` adds calls the `harnesspm` command. Without the dependency, the next install fails with
-  // "harnesspm: not found" (research/package-managers.md). So stop before anything changes.
-  const dependency = harnesspmDependency(pkg);
-  if (dependency === undefined) {
-    throw new HarnessError(`${PACKAGE_NAME} is not a dependency of this project, so the install script that \`init\` adds would fail. Run \`npm i -D ${PACKAGE_NAME}\` first, then \`${NPX_ANY} init\`.`);
+  const manager = managerOf(projectDir, pkg);
+  if (manager === 'yarn' && yarnPnp(projectDir)) {
+    throw new HarnessError(`This project uses Yarn Plug'n'Play, which writes no node_modules, where harnesspm finds each package's harness. Set \`nodeLinker: node-modules\` in .yarnrc.yml, run \`yarn install\`, then run \`${NPX_ANY} init\` again.`);
   }
+  // The script that `init` adds calls the `harnesspm` command, so the project must list harnesspm: without it, the next
+  // install fails with "harnesspm: not found" (research/package-managers.md). Install it first, before anything changes.
+  let dependency = harnesspmDependency(pkg);
+  if (dependency === undefined) {
+    const add = installHarnesspm(projectDir, manager, pkg);
+    pkg = readJson(pkgFile);
+    dependency = harnesspmDependency(pkg);
+    if (!isRecord(pkg) || dependency === undefined) throw new HarnessError(`\`${add}\` did not list ${PACKAGE_NAME} in package.json. Add it as a dev dependency yourself, then run \`${NPX_ANY} init\` again.`);
+    out.log(`Installed ${PACKAGE_NAME} as a dev dependency (${add})`);
+  }
+  const raw = readTextIfExists(pkgFile)!;
+  const wrote: string[] = [];
   const configFile = path.join(projectDir, CONFIG_FILE);
   if (!isFile(configFile)) {
     writeIfChanged(configFile, `${JSON.stringify({ $schema: CONFIG_SCHEMA }, null, 2)}\n`);
-    out.log(`Created ${CONFIG_FILE}`);
+    wrote.push(CONFIG_FILE);
   }
   // A private package is never installed by others, so `postinstall` is safe there, and Yarn 2+ runs only
   // `postinstall`. A published package uses `prepare`, which does not run when others install it.
@@ -369,7 +504,7 @@ export function init(projectDir: string, out: Output): number {
     const current = typeof scripts[hookName] === 'string' ? (scripts[hookName] as string) : undefined;
     scripts[hookName] = current === undefined ? installHook(dependency) : `${current} && (${installHook(dependency)})`;
     changed = true;
-    out.log(`Added \`harnesspm sync\` to the "${hookName}" script`);
+    wrote.push(`the "${hookName}" script (syncs on every install)`);
   } else {
     for (const name of HOOK_SCRIPTS) {
       const before = scripts[name] as string;
@@ -386,13 +521,34 @@ export function init(projectDir: string, out: Output): number {
     writeIfChanged(pkgFile, `${JSON.stringify(pkg, null, indent)}\n`);
   }
   const claude = claudeImport(projectDir);
-  if (writeIfChanged(claude.file, claude.text)) out.log(`${relPosix(projectDir, claude.file)} now imports AGENTS.md`);
-  const code = sync(projectDir, out, { write: true });
-  // Say which files belong in git, and that the rest stays out of it, so nobody has to work it out from `git status`.
-  const toCommit = filesToCommit(projectDir);
-  if (toCommit.length > 0) out.log(`To commit: ${toCommit.join(', ')}`);
-  if (gitExcludeFile(projectDir) !== undefined) out.log('Links and settings for this machine stay out of git: .git/info/exclude lists them.');
-  return code;
+  if (writeIfChanged(claude.file, claude.text)) wrote.push(`${relPosix(projectDir, claude.file)} (imports AGENTS.md)`);
+  if (ignoreDocsCopies(projectDir)) wrote.push(`.gitignore (${DOCS_EXCLUDE})`);
+  if (wrote.length > 0) out.log(`Wrote ${wrote.join(', ')}`);
+
+  const done = syncProject(projectDir, out, { write: true });
+  out.log(`harnesspm: ${done.what}.${done.mode === 'full' ? ' Agents find them through the block in AGENTS.md.' : ''}`);
+  // What waits for a person, with the tools of each package that is not trusted, so the person can decide on trust.
+  const { team } = resolveAll(projectDir, { withAdded: false });
+  const tools = team ? untrustedTools(team) : { lines: [], packages: [] };
+  const others = waitingLines(done.report, projectDir).filter((line) => !tools.packages.some((name) => line.startsWith(`${name}: `)));
+  const waiting = tools.lines.length + others.length > 0;
+  // Without an installed dependency, the sync wrote no units, and its warning says why.
+  const full = done.mode === 'full';
+  out.log('');
+  if (!waiting) out.log(full ? 'Rules, docs, skills and tools work now. Nothing waits for a person.' : 'Nothing waits for a person.');
+  else {
+    if (full) out.log('Rules, docs and skills work now.');
+    out.log(`${WAITING}${tools.lines.length > 0 ? ': these tools stay off until a person trusts their package.' : ''}`);
+    for (const line of tools.lines) out.log(line);
+    if (tools.lines.length > 0) {
+      const step = inCloudSession() ? `. ${grantStep(projectDir, APPROVE)}` : `, then runs \`${NPX_ANY} approve\` in their own terminal.`;
+      out.log(`  To turn one on, a person adds its package to "trust" in ${CONFIG_FILE}${step} An agent never changes "trust" itself.`);
+    }
+    for (const line of others) out.log(`  - ${line}`);
+  }
+  out.log('');
+  for (const line of afterInit(filesToCommit(projectDir), waiting)) out.log(line);
+  return 0;
 }
 
 /** Directories of editable added harnesses, which agents may write to (spec 8.5). */
@@ -600,53 +756,15 @@ function describeAdded(h: AddedHarness): string {
   return `${h.pkg.plugin} (${h.source.spec}, ${h.scope})${h.entry ? ', with an entry for this repository' : ''}`;
 }
 
+/** `harnesspm status`: the project's report (spec 10.5). It always exits 0. */
 export function status(cwd: string, out: Output): number {
-  const projectDir = findProjectDir(cwd);
-  const resolved = resolveAll(projectDir, { withAdded: true });
-  const res = resolved.team ?? resolved.full;
-  const deps = res.packages.filter((p) => p.layer === 'dependencies');
-  const describe = (name: string, version: string): string => `${name} ${version}`;
-  const tops = deps.filter((p) => p.direct);
-  const parts = tops.map((p) => {
-    const below = deps.filter((d) => p.closure.has(d.name)).map((d) => describe(d.name, d.version));
-    return below.length > 0 ? `${describe(p.name, p.version)} → ${below.join(', ')}` : describe(p.name, p.version);
-  });
-  parts.push(...deps.filter((d) => !d.direct && !tops.some((t) => t.closure.has(d.name))).map((d) => describe(d.name, d.version)));
-  out.log(`📦 dependencies  ${parts.length > 0 ? parts.join(' · ') : 'none'}`);
-
-  const own = res.packages.find((p) => p.layer === 'project');
-  const config = res.config;
-  const counts = [
-    config.exclude.length > 0 ? `${config.exclude.length} exclude` : '',
-    Object.keys(config.replace).length > 0 ? `${Object.keys(config.replace).length} replace` : '',
-    Object.keys(config.patch).length > 0 ? `${Object.keys(config.patch).length} patch` : '',
-  ].filter(Boolean);
-  const projectParts = isFile(path.join(projectDir, CONFIG_FILE)) ? [`${CONFIG_FILE}: ${counts.length > 0 ? counts.join(' · ') : 'no changes'}`] : ['does not use harnesspm'];
-  if (own) projectParts.push(`harness/ (plugin ${own.plugin})`);
-  out.log(`🏢 project       ${projectParts.join(' · ')}`);
-  out.log(`➕ added         ${resolved.added.length > 0 ? resolved.added.map(describeAdded).join(' · ') : 'none'}`);
-
-  const { plan, report } = preview(projectDir, resolved);
-  printPending(out, report, projectDir);
-  if (resolved.team) {
-    const changes = [...new Set(localRuleChanges(resolved.team, resolved.full).map(({ id }) => id))];
-    if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
-    const agents = plan!.committed!.agentsMd;
-    const bytes = Buffer.byteLength(agents);
-    const claudeLines = agents.split('\n').length + (plan!.localMd ?? '').split('\n').length;
-    out.log(`📏 always-on     Codex ${(bytes / 1024).toFixed(1)} KiB of 32 KiB · Claude Code ${claudeLines} lines`);
-    if (bytes > CODEX_LIMIT) out.warn(`⚠️  AGENTS.md is over ${CODEX_OVER}. Move details into on-demand rules or docs.`);
-    else if (bytes > 28 * 1024) out.warn("⚠️  AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs.");
-    for (const miss of [...lateBlocks(projectDir, plan!), ...codexMisses(projectDir, plan!)]) out.warn(`⚠️  ${miss}`);
-  }
-  const telemetry = readTelemetryState(projectDir);
-  if (telemetry.config) {
-    out.log(`📡 telemetry     ${telemetry.send !== undefined ? `${[...telemetry.events].join(', ')} → ${describeSend(telemetry.send)}` : telemetry.off}`);
-  }
-  const local = checkLocalFiles(projectDir, telemetryFiles(projectDir));
-  if (local && local.problems.length > 0) out.log(`🩺 local files   ${plural(local.problems.length, 'problem')}. Run \`${syncCommand(projectDir).replace(/ sync$/, ' doctor')}\`.`);
-  printWarnings(out, resolved.warnings);
+  report(cwd, out);
   return 0;
+}
+
+/** `harnesspm doctor`: the same report, which exits 1 when a check fails; what waits for a person does not fail. */
+export function doctor(cwd: string, out: Output): number {
+  return report(cwd, out) > 0 ? 1 : 0;
 }
 
 /** The command that runs harnesspm here: the installed one in a project that uses it (spec 10). */
@@ -668,14 +786,54 @@ const linkPointsTo = (link: string, target: string): boolean => {
   }
 };
 
+/** The layers and the always-on size: the report's first lines. */
+function summary(projectDir: string, resolved: Resolved, plan: Plan | undefined, out: Output): void {
+  const res = resolved.team ?? resolved.full;
+  const deps = res.packages.filter((p) => p.layer === 'dependencies');
+  const describe = (name: string, version: string): string => `${name} ${version}`;
+  const tops = deps.filter((p) => p.direct);
+  const parts = tops.map((p) => {
+    const below = deps.filter((d) => p.closure.has(d.name)).map((d) => describe(d.name, d.version));
+    return below.length > 0 ? `${describe(p.name, p.version)} → ${below.join(', ')}` : describe(p.name, p.version);
+  });
+  parts.push(...deps.filter((d) => !d.direct && !tops.some((t) => t.closure.has(d.name))).map((d) => describe(d.name, d.version)));
+  out.log(`📦 dependencies  ${parts.length > 0 ? parts.join(' · ') : 'none'}`);
+
+  const own = res.packages.find((p) => p.layer === 'project');
+  const config = res.config;
+  const counts = [
+    config.exclude.length > 0 ? `${config.exclude.length} exclude` : '',
+    Object.keys(config.replace).length > 0 ? `${Object.keys(config.replace).length} replace` : '',
+    Object.keys(config.patch).length > 0 ? `${Object.keys(config.patch).length} patch` : '',
+  ].filter(Boolean);
+  const projectParts = isFile(path.join(projectDir, CONFIG_FILE)) ? [`${CONFIG_FILE}: ${counts.length > 0 ? counts.join(' · ') : 'no changes'}`] : ['does not use harnesspm'];
+  if (own) projectParts.push(`harness/ (plugin ${own.plugin})`);
+  out.log(`🏢 project       ${projectParts.join(' · ')}`);
+  if (resolved.team && plan?.committed) {
+    const changes = [...new Set(localRuleChanges(resolved.team, resolved.full).map(({ id }) => id))];
+    if (changes.length > 0) out.log(`✏️  changed here  ${changes.join(', ')} (by added harnesses; see CLAUDE.local.md)`);
+    const agents = plan.committed.agentsMd;
+    const claudeLines = agents.split('\n').length + (plan.localMd ?? '').split('\n').length;
+    out.log(`📏 always-on     Codex ${kib(Buffer.byteLength(agents))} of 32 KiB · Claude Code ${claudeLines} lines`);
+  }
+  const telemetry = readTelemetryState(projectDir);
+  if (telemetry.config) {
+    out.log(`📡 telemetry     ${telemetry.send !== undefined ? `${[...telemetry.events].join(', ')} → ${describeSend(telemetry.send)}` : telemetry.off}`);
+  }
+}
+
 /**
- * `harnesspm doctor`: whether this repository is ready for harnesses, its own and a person's (spec 10.1).
- * It changes nothing. Exits 1 when a check fails; warnings do not fail.
+ * The project's report, which `status`, `doctor` and the bare command in a project print (spec 10.5): the layers and
+ * sizes, then whether the repository is ready for harnesses, its own and a person's, then what waits for a person. It
+ * changes nothing, and each problem names the command that fixes it. Returns the number of failed checks.
  */
-export function doctor(cwd: string, out: Output): number {
+function report(cwd: string, out: Output): number {
   const projectDir = findProjectDir(cwd);
   const usesHarnesspm = isFile(path.join(projectDir, CONFIG_FILE));
   const sync = syncCommand(projectDir);
+  const resolved = resolveAll(projectDir, { withAdded: true });
+  const { plan, report: waiting } = preview(projectDir, resolved);
+  summary(projectDir, resolved, plan, out);
   const groups: [string, Finding[]][] = [];
 
   // Per-machine files never reach a commit.
@@ -705,11 +863,8 @@ export function doctor(cwd: string, out: Output): number {
 
   // Outputs are in place.
   const outputs: Finding[] = [];
-  const resolved = resolveAll(projectDir, { withAdded: true });
-  const { plan, report } = preview(projectDir, resolved);
-  if (!usesHarnesspm) outputs.push({ level: 'info', text: `This repository does not use harnesspm (no ${CONFIG_FILE}), so only added harnesses apply.` });
-  else if (!resolved.team) outputs.push({ level: 'warn', text: `The dependencies are not installed. Install them, then run \`${sync}\`.` });
-  else {
+  if (usesHarnesspm && !resolved.team) outputs.push({ level: 'warn', text: `The dependencies are not installed. Install them, then run \`${sync}\`.` });
+  else if (usesHarnesspm) {
     const forCheck = resolveAll(projectDir, { withAdded: false });
     const problems = checkPlan(projectDir, computePlan(forCheck.team, forCheck.full));
     for (const p of problems) outputs.push({ level: 'fail', text: /Run `/.test(p) ? p : `${p}. Run \`${sync}\` and commit the result.` });
@@ -722,6 +877,8 @@ export function doctor(cwd: string, out: Output): number {
     for (const [file, content] of plan.generated) if (readTextIfExists(file) !== content) stale++;
     if (stale > 0) outputs.push({ level: 'warn', text: `${plural(stale, 'per-machine output')} missing or out of date. Run \`${sync}\`.` });
     else if (total > 0) outputs.push({ level: 'ok', text: `${plural(total, 'per-machine output')} in place` });
+    // The repository's entries that any sync writes: not a person's step.
+    if (waiting.unwritten) outputs.push({ level: 'warn', text: `${unwrittenList(waiting.unwritten)} are not written yet. Run \`${sync}\`.` });
     if (!plan.codexOurs) outputs.push({ level: 'warn', text: '.codex/ belongs to the repository, so harnesspm writes nothing there and Codex misses some units.' });
     const pkgJson = readJsonIfExists(path.join(projectDir, 'package.json'));
     const dependency = harnesspmDependency(pkgJson) ?? PACKAGE_NAME;
@@ -735,31 +892,32 @@ export function doctor(cwd: string, out: Output): number {
     if (typeof schema === 'string' && OLD_PACKAGE_NAMES.some((n) => schema.includes(`/${n}/`))) outputs.push({ level: 'info', text: `The $schema in ${CONFIG_FILE} names the earlier package. It still works. The current one is ${CONFIG_SCHEMA}.` });
     const bytes = plan.committed !== undefined ? Buffer.byteLength(plan.committed.agentsMd) : 0;
     if (bytes > CODEX_LIMIT) outputs.push({ level: 'warn', text: `AGENTS.md is ${kib(bytes)}, over ${CODEX_OVER}. Move details into on-demand rules or docs.` });
+    else if (bytes > 28 * 1024) outputs.push({ level: 'warn', text: "AGENTS.md is close to Codex's 32 KiB limit. Move details into on-demand rules or docs." });
     for (const miss of [...lateBlocks(projectDir, plan), ...codexMisses(projectDir, plan)]) outputs.push({ level: 'warn', text: miss });
   }
-  if (outputs.length > 0) groups.push(['📦 Outputs', outputs]);
-
-  // Trust: pending entries are not errors (spec 10.4).
-  const trust: Finding[] = [];
-  // Each pending entry already says how to turn it on: trust the package, or approve a pinned version.
-  for (const p of new Set(report.pending)) trust.push({ level: 'warn', text: `Off: ${p}` });
-  if (report.unwritten) trust.push({ level: 'warn', text: `${unwrittenList(report.unwritten)} are not written yet. Run \`${sync}\`.` });
-  if (report.held.length > 0) trust.push({ level: 'warn', text: `${heldList(report)}. ${grantStep(projectDir, `Run \`${NPX_ANY} sync\` in your own terminal.`)}` });
-  const telemetry = readTelemetryState(projectDir);
-  // A held handler is in the list above, as `sync` lists it.
-  const heldHandler = plan?.telemetryHeld !== undefined;
-  if (telemetry.config && telemetry.send === undefined && !heldHandler) trust.push({ level: telemetry.off?.startsWith('held') ? 'warn' : 'info', text: `Telemetry ${telemetry.off}` });
-  if (trust.length === 0 && plan) trust.push({ level: 'ok', text: 'Nothing waits for trust' });
-  if (trust.length > 0) groups.push(['🛡️  Trust', trust]);
+  if (outputs.length > 0) groups.push(['📝 Outputs', outputs]);
 
   for (const [title, findings] of groups) {
     out.log(title);
     for (const finding of findings) out.log(formatFinding(finding));
   }
+  // Each entry says how to turn it on: trust the package, approve a pinned version, or approve what an agent held back.
+  printWaiting(out, waitingLines(waiting, projectDir));
+  printWarnings(out, resolved.warnings);
   const failed = groups.flatMap(([, findings]) => findings).filter((f) => f.level === 'fail').length;
   out.log('');
   out.log(failed > 0 ? `❌ ${plural(failed, 'problem')}. Each line above says how to fix it.` : '✅ Ready. Nothing to fix.');
-  return failed > 0 ? 1 : 0;
+  return failed;
+}
+
+/**
+ * The bare command (spec 10.1): in a project that uses harnesspm, its report; elsewhere, what the folder is and the
+ * tasks for it, each with the one command that starts it.
+ */
+export function start(cwd: string, out: Output): number {
+  if (isFile(path.join(findProjectDir(cwd), CONFIG_FILE))) return status(cwd, out);
+  for (const line of startText(cwd)) out.log(line);
+  return 0;
 }
 
 type ExecUnit = FinalScript | FinalHook | FinalMcp | FinalAgent | FinalPermissions;
@@ -891,8 +1049,8 @@ export function toolCommand(projectDir: string): string {
 
 /** The project's install, from the caller's folder. */
 function installCommand(projectDir: string): string {
-  const lock = LOCKFILES.find((file) => isFile(path.join(projectDir, file)));
-  const install = lock !== undefined ? INSTALLS[lock]! : 'npm install';
+  const lock = lockfileOf(projectDir);
+  const install = lock !== undefined ? MANAGERS[LOCKS[lock]!].install : 'npm install';
   return callerInside(projectDir) ? install : `cd ${fromCaller(projectDir)} && ${install}`;
 }
 
@@ -999,6 +1157,7 @@ interface HelpView {
   /** The project's folder from the caller's, when the caller is outside it. */
   base?: string;
   trusted(pkg: ResolvedPackage): boolean;
+  trust(pkg: ResolvedPackage): TrustState;
   paths: PathFor;
   /** A file of a package, as the caller can open it. */
   file(file: string): string;
@@ -1028,6 +1187,7 @@ function helpView(cwd: string, out: Output): HelpView | undefined {
     command: toolCommand(projectDir),
     ...(base !== undefined ? { base } : {}),
     trusted: (pkg) => trustOf(pkg, res, lock).trusted,
+    trust: (pkg) => trustOf(pkg, res, lock),
     paths: {
       rule: (rule) => shown(existing(projectPaths.rule(rule), rule.source)),
       docsIndex: (pkg) => {
@@ -1054,17 +1214,13 @@ function helpIntro(view: HelpView, out: Output): void {
 const count = (n: number, word: string): string => (n === 1 ? `1 ${word}` : `${n} ${word}s`);
 
 /**
- * The project's part of `help` (spec 10.1): one line per package, across workspaces, with what it covers and the
- * `help <package>` command that prints the rest.
+ * `help` in a project (spec 10.1): one line per package, across workspaces, with what it covers and the
+ * `help <package>` command that prints the rest. Undefined outside a project that uses harnesspm.
  */
-export function projectHelp(cwd: string, out: Output, named: boolean): number {
+export function projectHelp(cwd: string, out: Output): number | undefined {
   const view = helpView(cwd, out);
-  if (view === undefined) {
-    if (named) out.log(`\n${fromCaller(findProjectDir(cwd))} does not use harnesspm: it has no ${CONFIG_FILE}.`);
-    return 0;
-  }
+  if (view === undefined) return undefined;
   const { res, command } = view;
-  out.log('');
   helpIntro(view, out);
   out.log('');
   const lines = res.packages
@@ -1085,8 +1241,15 @@ export function projectHelp(cwd: string, out: Output, named: boolean): number {
       return `- ${name}${covers !== '' ? ` — ${covers}` : ''}. ${parts.length > 0 ? `${parts.join(', ')}: ` : ''}\`${command} help ${helpTarget(pkg)}\``;
     });
   out.log(lines.length > 0 ? lines.join('\n') : 'No harness units yet.');
-  if (lines.length > 0) out.log(`\nA tool's options: \`${command} help <tool>\`. Run a tool: \`${command} run <tool> [args]\`.`);
+  out.log('');
+  if (lines.length > 0) out.log(`A tool's options: \`${command} help <tool>\`. Run a tool: \`${command} run <tool> [args]\`.`);
+  out.log(`${EVERY_COMMAND}.`);
   return 0;
+}
+
+/** Where `help` says that a folder named with `-C` does not use harnesspm. */
+export function notAProject(cwd: string): string {
+  return `${fromCaller(findProjectDir(cwd))} does not use harnesspm: it has no ${CONFIG_FILE}.`;
 }
 
 /** How a rule becomes active, in words (spec 2.5). */
@@ -1110,13 +1273,15 @@ function ruleHelp(view: HelpView, rule: FinalRule, level: number): string {
   return [head, about, ...(body !== '' ? [body] : [])].join('\n\n');
 }
 
-function trustNote(pkg: ResolvedPackage): string {
-  return `Not trusted in this project, so they stay off and \`run\` refuses them. A person turns them on with "${pkg.name}": true in "trust" in ${CONFIG_FILE}.`;
+/** Why a package's tools are off, and the person's step that turns them on (spec 6.2). */
+function trustNote(view: HelpView, pkg: ResolvedPackage): string {
+  const { reason = 'not trusted', action = '' } = view.trust(pkg);
+  return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}, so they stay off in this project and \`run\` refuses them. ${action}`;
 }
 
 function toolLines(view: HelpView, script: FinalScript): string[] {
   const ref = `${script.pkg.plugin}:${script.name}`;
-  const lines = [`- \`${view.command} run ${ref}${script.usage !== undefined && !script.usage.includes('\n') ? ` ${script.usage}` : ' [args]'}\`${script.description !== undefined ? ` — ${script.description}` : ''} (${script.id})`];
+  const lines = [`- \`${view.command} run ${ref}${script.usage !== undefined && !script.usage.includes('\n') ? ` ${script.usage}` : ' [args]'}\`${script.description !== undefined ? ` — ${script.description}` : ''}${script.allow ? ' · no prompt' : ''} (${script.id})`];
   if (script.usage !== undefined && script.usage.includes('\n')) lines.push(...script.usage.split('\n').map((l) => `  ${l}`));
   return lines;
 }
@@ -1142,9 +1307,9 @@ function packageHelp(view: HelpView, pkg: ResolvedPackage): string {
   const index = view.paths.docsIndex(pkg);
   if (index !== undefined) parts.push('## Docs', `- ${index} (${pkg.plugin}:docs)`);
   const scripts = res.scripts.filter((s) => s.pkg === pkg && s.description !== undefined);
-  if (scripts.length > 0) parts.push('## Tools', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...scripts.flatMap((s) => toolLines(view, s))].join('\n'));
+  if (scripts.length > 0) parts.push('## Tools', [...(trusted ? [] : [`⚠️  ${trustNote(view, pkg)}`]), ...scripts.flatMap((s) => toolLines(view, s))].join('\n'));
   const servers = res.mcp.filter((m) => m.pkg === pkg);
-  if (servers.length > 0) parts.push('## MCP servers', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...servers.map((m) => mcpLine(view, m))].join('\n'));
+  if (servers.length > 0) parts.push('## MCP servers', [...(trusted ? [] : [`⚠️  ${trustNote(view, pkg)}`]), ...servers.map((m) => mcpLine(view, m))].join('\n'));
   const skills = res.skills.filter((k) => k.pkg === pkg);
   if (skills.length > 0) {
     const line = (skill: FinalSkill): string => {
@@ -1155,7 +1320,7 @@ function packageHelp(view: HelpView, pkg: ResolvedPackage): string {
     parts.push('## Skills', skills.map(line).join('\n'));
   }
   const hooks = res.hooks.filter((h) => h.pkg === pkg);
-  if (hooks.length > 0) parts.push('## Hooks', [...(trusted ? [] : [`⚠️  ${trustNote(pkg)}`]), ...hooks.map(hookLine)].join('\n'));
+  if (hooks.length > 0) parts.push('## Hooks', [...(trusted ? [] : [`⚠️  ${trustNote(view, pkg)}`]), ...hooks.map(hookLine)].join('\n'));
   if (parts.length === 1) parts.push('No harness units.');
   return parts.join('\n\n');
 }
@@ -1170,8 +1335,9 @@ function scriptHelp(view: HelpView, script: FinalScript): string {
   if (script.usage !== undefined) lines.push(`Usage: ${script.usage.split('\n').join('\n       ')}`);
   else lines.push(`Usage: none declared. Its package can add "usage" next to "description" in its manifest. harnesspm does not run the script to ask.`);
   if (script.answers !== undefined) lines.push(`Exit:  0 is ok. ${script.answers.join(', ')} ${script.answers.length > 1 ? 'are answers' : 'is an answer'}, such as "found problems", not a broken tool. Any other code is a failure.`);
+  if (script.allow) lines.push('Allow: runs without a prompt in a project that trusts its package.');
   lines.push(`Run:   ${view.command} run ${ref} [args]`);
-  if (!view.trusted(script.pkg)) lines.push('', `⚠️  ${trustNote(script.pkg)}`);
+  if (!view.trusted(script.pkg)) lines.push('', `⚠️  ${trustNote(view, script.pkg)}`);
   return lines.join('\n');
 }
 
@@ -1181,7 +1347,7 @@ function scriptHelp(view: HelpView, script: FinalScript): string {
  */
 export function targetHelp(cwd: string, target: string, out: Output): number {
   const view = helpView(cwd, out);
-  if (view === undefined) throw new HarnessError(`No command "${target}", and ${fromCaller(findProjectDir(cwd))} does not use harnesspm, so it has no packages, rules or tools. Run \`harnesspm help\`.`);
+  if (view === undefined) throw new HarnessError(`No command "${target}", and ${fromCaller(findProjectDir(cwd))} does not use harnesspm, so it has no packages, rules or tools. ${EVERY_COMMAND}.`);
   const { res } = view;
   const pkg = res.packages.find((p) => p.name === target || p.plugin === target);
   const rules = pkg === undefined ? view.rules.filter((r) => r.id === target) : [];
@@ -1231,14 +1397,6 @@ export function approve(cwd: string, name: string | undefined, out: Output): num
   return sync(projectDir, out, { write: true });
 }
 
-/** What to do after `new`. `why` and `sync` reach the project's own harness only where the project uses harnesspm. */
-function nextAfterNew(projectDir: string, added: boolean): string {
-  const npx = NPX_ANY;
-  if (added) return `Next: edit it, run \`${npx} sync\`, then save the change the way that harness's own AGENTS.md or CONTRIBUTING.md says.`;
-  if (isFile(path.join(projectDir, CONFIG_FILE))) return `Next: edit it, then run \`${npx} sync\` and \`${npx} check\`.`;
-  return `Next: edit it, then run \`${npx} check\`. To see the harness in this repository's AGENTS.md too, run \`${npx} init\`.`;
-}
-
 export function newUnit(cwd: string, kind: string, name: string, options: { to?: string; entry?: boolean }, out: Output): number {
   const projectDir = findProjectDir(cwd);
   const show = (file: string): string => (file.startsWith(projectDir + path.sep) ? relPosix(projectDir, file) : file);
@@ -1253,7 +1411,7 @@ export function newUnit(cwd: string, kind: string, name: string, options: { to?:
     const files = [...new Set([...target.written, ...createUnit(target, kind as Kind, name)])];
     out.log(`Wrote in ${target.label}:`);
     for (const file of files) out.log(`  ${show(file)}`);
-    out.log(nextAfterNew(projectDir, options.to !== undefined));
+    for (const line of nextAfterNew(projectDir, options.to !== undefined)) out.log(line);
   }
   sync(projectDir, out, { quiet: true, write: true });
   return 0;

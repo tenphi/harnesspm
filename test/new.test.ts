@@ -12,11 +12,12 @@ test('S1: new creates a harness with one rule, and every template is valid', () 
   const dir = project({}, { name: '@acme/widgets', files: ['harness'] }, false);
   const first = run(dir, 'new', 'rule', 'usage');
   assert.equal(first.status, 0, first.stderr);
-  // Every file it wrote, the manifest too, and a next step that works in a library that does not use harnesspm.
-  assert.equal(
+  // Every file it wrote, the manifest too, and the next steps of a library that does not use harnesspm: check, publish, the skill.
+  assert.match(
     first.stdout,
-    "Wrote in the project's own harness (harness/):\n  harness/plugin.json\n  harness/dev.harnesspm/rules/usage.md\nNext: edit it, then run `npx -y @harnesspm/cli check`. To see the harness in this repository's AGENTS.md too, run `npx -y @harnesspm/cli init`.\n",
+    /^Wrote in the project's own harness \(harness\/\):\n  harness\/plugin\.json\n  harness\/dev\.harnesspm\/rules\/usage\.md\nNext: edit it, then run `npx -y @harnesspm\/cli check`\.\nTo publish it, add "harness" to "files" in package\.json, and "prepack": "harnesspm check" with @harnesspm\/cli as a dev dependency\.\nEvery step, and what goes into a harness: the harnesspm-export skill, \S+\/harness\/skills\/harnesspm-export\/SKILL\.md\n$/,
   );
+  assert.doesNotMatch(first.stdout, / init/, 'a library needs no init to share a harness');
   assert.deepEqual(JSON.parse(read(dir, 'harness/plugin.json')), { $schema: PLUGIN_SCHEMA, name: 'widgets' });
   assert.match(read(dir, 'harness/dev.harnesspm/rules/usage.md'), /^# Usage\n/);
   for (const [kind, name] of [['skill', 'review'], ['agent', 'reviewer'], ['script', 'probe'], ['hook', 'fmt'], ['mcp', 'notes']] as const) {
@@ -110,4 +111,18 @@ test('new --to writes into an added harness, and --entry into its entry for this
   assert.match(read(dir, 'CLAUDE.local.md'), /### Local setup \(andrew:rules\/local-setup\)/, 'sync ran');
   assert.match(run(dir, 'new', 'script', 'x', '--to', 'andrew', '--entry').stderr, /A project entry holds rules, skills, sub-agents and docs/);
   assert.match(run(dir, 'new', 'rule', 'x', '--to', 'nobody').stderr, /No added harness with the plugin name "nobody"/);
+});
+
+test('new suggests the next step for the folder: a harness of your own is added by a person, a project syncs', () => {
+  // No package.json: a harness of one's own, which a person adds on their machine.
+  const own = fs.mkdtempSync(path.join(os.tmpdir(), 'harnesspm-own-'));
+  spawnSync('git', ['init', '-q'], { cwd: own });
+  const result = run(own, 'new', 'rule', 'workflow');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\nNext: edit it, run `npx -y @harnesspm\/cli check`, and commit\.\nA person adds it on their machine, in their own terminal: `npx -y @harnesspm\/cli add \S+`, or `add github:<owner>\/<repo>` once it is pushed\.\n$/);
+  assert.doesNotMatch(result.stdout, /init|prepack/);
+
+  // A project that uses harnesspm: sync shows the unit in the block.
+  const app = project();
+  assert.match(run(app, 'new', 'rule', 'style').stdout, /\nNext: edit it, then run `npx -y @harnesspm\/cli sync` and `npx -y @harnesspm\/cli check`\.\n$/);
 });

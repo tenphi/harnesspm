@@ -37,16 +37,18 @@ test('the block summarizes an always-on rule by its sections; help <package> pri
   const help = run(dir, 'help', '@acme/kit');
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /### Kit \(kit:rules\/usage\)\n\nAlways on\.\n\n#### Components\n\nUse kit components\.\n\n##### Buttons\n\nOne primary button\.\n\n#### Colors\n\nUse tokens\.\n/);
-  assert.match(help.stdout, /## Tools\n\n⚠️ {2}Not trusted in this project, so they stay off and `run` refuses them\. A person turns them on with "@acme\/kit": true in "trust" in harnesspm\.json\.\n- `npx -y @harnesspm\/cli run kit:tokens <part of a name> \[--json\]` — Find a token \(kit:scripts\/tokens\)\n/);
+  assert.match(help.stdout, /## Tools\n\n⚠️ {2}Not trusted, so they stay off in this project and `run` refuses them\. A person adds "@acme\/kit": true to "trust" in harnesspm\.json, then runs `npx -y @harnesspm\/cli approve`\.\n- `npx -y @harnesspm\/cli run kit:tokens <part of a name> \[--json\]` — Find a token · no prompt \(kit:scripts\/tokens\)\n/);
   assert.doesNotMatch(help.stdout, /kit:fmt` —/, 'a script without a description is not a tool');
   assert.match(help.stdout, /## Hooks\n\n⚠️ {2}Not trusted[^\n]*\n- PostToolUse, Claude Code on `Edit\|Write` and Codex on `apply_patch`: runs `kit:fmt` \(kit:hooks\/fmt\)\n/);
   assert.match(help.stdout, /## Skills\n\n- kit-review: read node_modules\/\.harnesspm\/pkgs\/@acme\/kit\/harness\/skills\/kit-review\/SKILL\.md \(kit:skills\/kit-review\)/);
 
   const tool = run(dir, 'help', 'kit:tokens');
   assert.equal(tool.status, 0, tool.stderr);
-  assert.match(tool.stdout, /Usage: <part of a name> \[--json\]\nRun: {3}npx -y @harnesspm\/cli run kit:tokens \[args\]\n\n⚠️ {2}Not trusted/);
+  // The package asks that agents run the tool without a prompt (spec 5.4), so help says so where the person decides on trust.
+  assert.match(tool.stdout, /Usage: <part of a name> \[--json\]\nAllow: runs without a prompt in a project that trusts its package\.\nRun: {3}npx -y @harnesspm\/cli run kit:tokens \[args\]\n\n⚠️ {2}Not trusted/);
   const hookScript = run(dir, 'help', 'kit:fmt').stdout;
   assert.match(hookScript, /No description: hooks and MCP servers use it, agents do not run it themselves\./);
+  assert.doesNotMatch(hookScript, /Allow:/, 'a script without "allow" asks for the usual prompt');
 
   // Trusted, the tool line in the block and in help lose the warning.
   writeFiles(dir, { 'harnesspm.json': JSON.stringify({ trust: { '@acme/kit': true } }) });

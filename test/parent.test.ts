@@ -192,14 +192,14 @@ test("S20: an agent's sync in the folder writes the block, and holds hooks that 
   run(app, 'sync');
   const model = runWith(root, MODEL, 'sync');
   assert.equal(model.status, 0);
-  assert.match(model.stdout, /held back: .*kit:check-styles/);
+  assert.match(model.stdout, /entr(?:y|ies) that an agent cannot grant \(.*kit:check-styles/);
   assert.equal(settings(root).hooks, undefined);
   assert.match(read(root, 'AGENTS.md'), /`app`/, 'the block grants nothing, so an agent writes it');
 
   // After a person's sync, an agent's sync keeps what is there.
   run(root, 'sync');
   const before = settings(root);
-  assert.doesNotMatch(runWith(root, MODEL, 'sync').stdout, /held back/);
+  assert.doesNotMatch(runWith(root, MODEL, 'sync').stdout, /cannot grant/);
   assert.deepEqual(settings(root), before);
 
   // The agent clones a repository whose default branch records its hooks. Its install writes them in the clone, as a
@@ -212,7 +212,7 @@ test("S20: an agent's sync in the folder writes the block, and holds hooks that 
   git(cloned, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(cloned, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
   const install = runWith(cloned, MODEL, 'sync');
-  assert.match(install.stdout, /held back: .*-C .*cloned run --agent claude kit:check-styles/);
+  assert.match(install.stdout, /entr(?:y|ies) that an agent cannot grant \(.*-C .*cloned run --agent claude kit:check-styles/);
   assert.ok(commands(cloned, 'PostToolUse').some((c) => c.endsWith('run --agent claude kit:check-styles')), 'the reviewed state writes the clone\'s own hooks');
   assert.ok(!JSON.stringify(settings(root)).includes(cloned), 'nothing of the clone in the parent folder');
   assert.match(read(root, 'AGENTS.md'), /`cloned`/, 'the block names it: a pointer grants nothing');
@@ -225,7 +225,7 @@ test("S20: an agent's sync event names the hooks it held back above the project,
   run(root, 'sync');
   // Without the record of what a person wrote above the project, the agent's sync may not write it again.
   fs.rmSync(path.join(homeOf(root), '.harnesspm/state/parents'), { recursive: true, force: true });
-  assert.match(runWith(app, MODEL, 'sync').stdout, /held back: .*-C /);
+  assert.match(runWith(app, MODEL, 'sync').stdout, /entr(?:y|ies) that an agent cannot grant \(.*-C /);
   const sync = events(app).filter((e) => e.type === 'sync').at(-1)!;
   assert.ok(sync.held.includes('Claude Code hook: harnesspm run --agent claude kit:check-styles'), JSON.stringify(sync.held));
   assert.ok(!JSON.stringify(sync).includes(root), 'no local path');
