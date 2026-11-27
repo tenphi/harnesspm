@@ -503,7 +503,8 @@ test('the runner refuses a package whose installed version differs from the lock
   fs.writeFileSync(pkgFile, JSON.stringify({ name: '@acme/kit', version: '1.0.1' }));
   const refused = run(dir, 'run', 'kit:probe');
   assert.equal(refused.status, 2);
-  assert.match(refused.stderr, /@acme\/kit 1\.0\.1 is installed, but the lock has 1\.0\.0\. Run `npx harnesspm sync`/);
+  // Either side can be stale, so the refusal names both remedies: a sync would write an old install into the lock.
+  assert.match(refused.stderr, /@acme\/kit 1\.0\.1 is installed, but the lock has 1\.0\.0: reinstall the project's dependencies when the install is out of date, or run `npx -y @tenphi\/harnesspm sync` when the lock is\./);
 });
 
 test('added harnesses: executables at user level, and the runner finds their scripts', () => {
