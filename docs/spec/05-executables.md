@@ -103,7 +103,7 @@ harnesspm writes a hook only for the agents that support its event.
 1. The script reads the agent's own JSON on stdin. `HARNESSPM_AGENT` says which agent sent it.
 2. Exit `0` continues. Exit `2` blocks, for events that support blocking, with the reason on stderr.
 3. JSON on stdout, such as `hookSpecificOutput.permissionDecision`, follows the agent's own format.
-4. A hook may run in a session that starts in a parent folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). harnesspm then runs it in its project, as in a session there, and does not run it for a file outside the project, which such a session also edits. A file the hook's JSON does not name, such as in a Codex `apply_patch`, reaches the script: it checks `HARNESSPM_PROJECT_DIR`.
+4. A hook may run in a session that starts in a parent folder ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). harnesspm then runs it in its project, as in a session there, and does not run it when its JSON names files and none is in the project, as such a session also edits other repositories. A file the hook's JSON does not name, such as in a Codex `apply_patch`, reaches the script: it checks `HARNESSPM_PROJECT_DIR`. A repository's own hooks, which harnesspm did not write, run there the same way, through a wrapper.
 
 Agent Plugins has an open proposal for portable hooks ([PR #89](https://github.com/agentplugins/agent-plugins-spec/pull/89)). If it becomes part of the standard, harnesspm reads the standard file as well and keeps its own format working during a migration period.
 

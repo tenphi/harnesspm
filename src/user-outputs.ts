@@ -9,11 +9,19 @@ import { removeBlock, renderSections, sectionsFor, upsertBlock, wrapBlock } from
 import { resolve, type Resolution } from './resolve.ts';
 import { NPX_ANY, npxRunner, ensureDir, exists, isDir, isRecord, isSymlink, linkIfChanged, readJsonIfExists, readTextIfExists, realpath, writeIfChanged } from './util.ts';
 
-/** The user-level `SessionStart` hook: it fetches the added harnesses and rewrites the outputs (spec 7.5). */
-export const HOOK_COMMAND = `${NPX_ANY} update`;
+/**
+ * The user-level `SessionStart` hook: it fetches the added harnesses and rewrites the outputs (spec 7.5). `--hook` makes
+ * the run a hook's in Codex too, which marks no hook, so it never opts a parent folder in (spec 4.10).
+ */
+export const HOOK_COMMAND = `${NPX_ANY} update --hook`;
 
-/** The hook that harnesspm 0.14 and earlier installed. It synced without fetching. A sync replaces it (spec 7.5). */
-const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`];
+/**
+ * The hooks that earlier versions installed: 0.14 and earlier synced without fetching, 0.15 updated without `--hook`. A
+ * sync replaces them (spec 7.5). A Codex session runs a 0.15 hook that is not replaced yet as a person's run, once: that
+ * run may opt the folder the session starts in in to its repositories' own hooks (spec 4.10), then replaces the hook.
+ * Nothing guards that one run.
+ */
+const OLD_HOOK_COMMANDS = [`${NPX_ANY} sync`, `${NPX_ANY} update`];
 
 const isHookCommand = (command: string | undefined): boolean => command === HOOK_COMMAND || OLD_HOOK_COMMANDS.includes(command ?? '');
 

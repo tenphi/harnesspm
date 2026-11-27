@@ -39,7 +39,15 @@ A session with more than one repository starts in `/home/user`, above the clones
 cd /home/user && npx -y @tenphi/harnesspm sync || true
 ```
 
-It writes each repository's hooks into `/home/user/.claude/settings.local.json`, and a block in `/home/user/AGENTS.md` that names each repository, its `AGENTS.md` and its `help` command. Later installs of a repository keep its entries there current. A session with one repository starts in its clone and runs that clone's own hooks. It also sees the block, because Claude Code reads `CLAUDE.md` files above the folder a session starts in.
+It copies each repository's hooks into `/home/user/.claude/settings.local.json`: the hooks of its harness, and its own, such as a session-start script or a lint on each edit. Each runs in its repository, as in a session there, and only for that repository's files. For a project with a harness, it also writes a block in `/home/user/AGENTS.md` that names the project, its `AGENTS.md` and its `help` command. Later installs of a project keep its entries there current. A session with one repository starts in its clone and runs that clone's own hooks. It also sees the block, because Claude Code reads `CLAUDE.md` files above the folder a session starts in.
+
+When you also add your own harness, one line does both, because `add` syncs the folder it runs in:
+
+```bash
+cd /home/user && npx -y @tenphi/harnesspm add github:<owner>/<repo> || true
+```
+
+The setup script runs as you, so its sync opts `/home/user` in to the repositories' own hooks. harnesspm copies those only in a folder where you ran it yourself, never just because a session started there. The folder runs the hooks as the last sync saw them. A hook that the agent adds to a repository during a session waits for the next sync that the agent does not run. When two repositories' `SessionStart` hooks set the same environment variable, such as a Node.js version, the one written last wins.
 
 ### For a team
 

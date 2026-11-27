@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import type { Output } from './commands.ts';
 import * as path from 'node:path';
-import { HarnessError, isDir, readJson } from './util.ts';
+import { HOOK_RUN, HarnessError, isDir, readJson } from './util.ts';
 
 async function main(): Promise<void> {
   const commands = await import('./commands.ts');
@@ -45,7 +45,7 @@ Harnesses on top of the repository's (your team's, your own)
   harnesspm add <source> [--local] [--no-hook]
                                  add a harness: github:<owner>/<repo>, git:<url>, npm:<name> or a folder
   harnesspm remove <source> [--local]
-  harnesspm update               fetch new versions of added harnesses
+  harnesspm update [--hook]      fetch new versions of added harnesses; --hook: run by the session hook
 
 Authors
   harnesspm check [<folder>]     validate a harness before publishing
@@ -149,7 +149,9 @@ function dispatch(argvIn: string[], { add, approve, check, doctor, fetch, init, 
       return remove(cwd, args[0], out, { local: flags.has('--local') });
     }
     case 'update':
-      unknown([]);
+      unknown(['--hook']);
+      // The user-level session hook: a hook's run, also in Codex, which marks no hook (spec 7.5).
+      if (flags.has('--hook')) process.env[HOOK_RUN] = '1';
       return update(cwd, out);
     case 'new': {
       const flagArgs = rest.filter((a, i) => a === '--to' || rest[i - 1] === '--to' || a === '--entry');

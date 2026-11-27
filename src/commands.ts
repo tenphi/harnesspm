@@ -18,7 +18,7 @@ import { checkLocalFiles, excludeWritable, formatFinding, type Finding } from '.
 import { CONFIG_FILE, CONFIG_SCHEMA } from './config.ts';
 import { loadHarnessPackage, NS } from './manifest.ts';
 import { emptyEntries, heldEntries, trustOf } from './exec-outputs.ts';
-import { childProjects, childRepos, hasParentOutputs, isParentFolder, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
+import { childProjects, childRepos, hasParentOutputs, isParentFolder, optIn, parentToSync, removeGone, writeParent, writePointer } from './parent.ts';
 import { buildLock, LOCK_FILE, readLock, serializeLock, type Lock } from './lock.ts';
 import { applyPlan, checkPlan, claudeImport, computePlan, repoStateFile, STATE_DIR, type Plan } from './outputs.ts';
 import { fetchLocked, locateLocked } from './fetch.ts';
@@ -168,19 +168,29 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
     changed.push(...written.changed.map((file) => (path.isAbsolute(file) ? file : `${name}/${file}`)));
     applied.push(name);
   }
-  // Sync in a parent folder: the projects' hooks and a pointer to their harness, for sessions that start here, and
-  // nothing left of projects that are gone (spec 4.10).
+  // Sync in a parent folder: the hooks of the repositories below, their projects' and their own, and a pointer to the
+  // projects' harness, for sessions that start here, and nothing left of repositories that are gone (spec 4.10).
   const parentSync = mode === 'none' && parentToSync(projectDir);
   const children = parentSync ? childProjects(projectDir) : [];
-  for (const child of children) {
-    const sub = resolveAll(child, { withAdded: false });
-    warnings.push(...sub.warnings.map((w) => `${path.basename(child)}: ${w}`));
-    const plan = sub.team ? computePlan(sub.team, sub.full, { widen: !model }) : undefined;
+  const mirrored = parentSync ? [...new Set([...children, ...childRepos(projectDir)])].sort() : [];
+  // A person's run opts the folder in to the repositories' own hooks; a hook's or the model's never does (spec 4.10, rule 1).
+  if (mirrored.length > 0 && caller() === 'person') optIn(projectDir);
+  // The projects, and the other repositories that have hooks; and what the folder lost.
+  const named: string[] = [];
+  const cleaned: string[] = [];
+  for (const child of mirrored) {
+    const name = path.basename(child);
+    const sub = children.includes(child) ? resolveAll(child, { withAdded: false }) : undefined;
+    const plan = sub?.team ? computePlan(sub.team, sub.full, { widen: !model }) : undefined;
     const written = writeParent(projectDir, child, plan?.exec.team ?? emptyEntries(), runner(child, NPX_LOCAL).shell, !model);
+    warnings.push(...[...(sub?.warnings ?? []), ...written.warnings].map((w) => `${name}: ${w}`));
     changed.push(...written.changed);
     report.held.push(...written.held);
+    if (sub !== undefined || written.hooks > 0) named.push(name);
+    else cleaned.push(...written.changed);
   }
-  if (parentSync) changed.push(...removeGone(projectDir, children), ...writePointer(projectDir));
+  if (parentSync) cleaned.push(...removeGone(projectDir, mirrored), ...writePointer(projectDir));
+  changed.push(...cleaned);
   if (resolved.team) syncEvent(resolved.team, before, readLock(projectDir), report);
   if (process.env['CI'] !== 'true') changed.push(...writeUserOutputs(resolved.added, warnings, report));
   if (process.env['CI'] !== 'true' && !model) changed.push(...migrateSessionHook());
@@ -189,10 +199,10 @@ export function sync(cwd: string, out: Output, options: { check?: boolean; write
   if (options.quiet) return 0;
   if (keptCommitted) out.log(`CI: committed outputs left as they are; \`${NPX_LOCAL} sync --check\` compares them, \`sync --write\` writes them.`);
   const counts = `${plural(new Set(full.rules.map((r) => r.id)).size, 'rule')}, ${plural(full.skills.length, 'skill')}, ${plural(full.docs.length, 'doc')} from ${plural(full.packages.length, 'package')}`;
-  const above = `Sessions that start here get the hooks of ${plural(children.length, 'project')} below: ${children.map((c) => path.basename(c)).join(', ')}`;
-  const gone = 'No projects below this folder any more: removed what an earlier sync wrote for them';
+  const above = `Sessions that start here get the hooks of ${plural(named.length, 'repository', 'repositories')} below: ${named.join(', ')}`;
+  const gone = 'No hooks of repositories below this folder any more: removed what an earlier sync wrote for them';
   const below = `Added harnesses in ${plural(applied.length, 'repository', 'repositories')} below: ${applied.join(', ')}`;
-  const parts = [...(children.length > 0 ? [above] : parentSync ? [gone] : []), ...(applied.length > 0 ? [below] : [])];
+  const parts = [...(named.length > 0 ? [above] : cleaned.length > 0 ? [gone] : []), ...(applied.length > 0 ? [below] : [])];
   const what = mode === 'none' ? (parts.length > 0 ? parts.join('. ') : 'Nothing to do in this folder') : mode === 'added-only' ? `Added harnesses only: ${counts}` : counts;
   out.log(changed.length > 0 ? `harnesspm: ${what}. Updated ${plural(changed.length, 'file')}.` : `harnesspm: ${what}. Nothing changed.`);
   return 0;
@@ -211,6 +221,7 @@ function writeProject(
   const { model } = options;
   const changed: string[] = [];
   const plan = computePlan(resolved.team, resolved.full, { widen: !model });
+  const warnings = [...plan.warnings];
   const reviewed = model ? reviewedFor(projectDir, resolved.team, plan) : undefined;
   const applied = applyPlan(projectDir, plan, { committed: !options.keepCommitted, reviewed: reviewed?.ok === true });
   changed.push(...applied.changed);
@@ -224,8 +235,9 @@ function writeProject(
     const written = writeParent(parent, projectDir, plan.exec.team, runner(projectDir, NPX_LOCAL).shell, !model);
     changed.push(...written.changed, ...writePointer(parent));
     report.held.push(...written.held);
+    warnings.push(...written.warnings);
   }
-  return { changed, warnings: plan.warnings, keptCommitted: options.keepCommitted && plan.committed !== undefined };
+  return { changed, warnings, keptCommitted: options.keepCommitted && plan.committed !== undefined };
 }
 
 /** Where events about a resolved project go (spec chapter 14). */
@@ -252,7 +264,10 @@ function syncEvent(team: Resolution, before: Lock | undefined, after: Lock | und
     changed: Object.keys(units).filter((id) => old[id] !== undefined && old[id].hash !== units[id]!.hash),
     pending: pending.map((p) => p.name),
     // A hook above the project names it with `-C <its path>`; events carry no local paths (spec 14.2).
-    ...(report.held.length > 0 ? { held: report.held.map((entry) => entry.replace(/ -C (?:'(?:[^']|'\\'')*'|"[^"]*"|\S+)/g, '')), reason: report.why } : {}),
+    // A repository's own hook may name paths anywhere, so it is sent without its command.
+    ...(report.held.length > 0
+      ? { held: report.held.map((entry) => entry.replace(/ -C (?:'(?:[^']|'\\'')*'|"[^"]*"|\S+)/g, '').replace(/^Claude Code hook of .*$/s, 'Claude Code hook of a repository')), reason: report.why }
+      : {}),
   });
 }
 
@@ -915,15 +930,18 @@ function hookInput(): Buffer {
   }
 }
 
-/** Whether a hook's JSON names a file, such as the one an `Edit` changed, that is outside the project. */
+/**
+ * Whether a hook's JSON names files, such as the one an `Edit` changed, and none is in the project. The wrapper of a
+ * repository's own hooks applies the same rule (spec 4.10, rule 7).
+ */
 function fileOutside(input: Buffer, projectDir: string): boolean {
   try {
     const payload: unknown = JSON.parse(input.toString('utf8'));
-    if (!isRecord(payload) || !isRecord(payload['tool_input'])) return false;
-    const file = payload['tool_input']['file_path'] ?? payload['tool_input']['notebook_path'];
-    if (typeof file !== 'string' || file === '') return false;
+    if (!isRecord(payload)) return false;
+    const tool = isRecord(payload['tool_input']) ? payload['tool_input'] : {};
+    const files = [tool['file_path'], tool['notebook_path'], tool['path'], payload['file_path']].filter((f): f is string => typeof f === 'string' && f !== '');
     const base = typeof payload['cwd'] === 'string' ? payload['cwd'] : process.cwd();
-    return !insideDir(projectDir, path.resolve(base, file));
+    return files.length > 0 && !files.some((file) => insideDir(projectDir, path.resolve(base, file)));
   } catch {
     return false;
   }

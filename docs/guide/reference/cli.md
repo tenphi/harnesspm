@@ -52,7 +52,7 @@ Both `new` forms take `--to <plugin>` to write into an added harness, and `--to 
 | --- | --- |
 | `harnesspm add <source> [--local] [--no-hook]` | Adds a harness on top of the repository's: with user scope, or for this repository with `--local`. Installs a `SessionStart` hook unless `--no-hook`, and prints the added always-on rules. |
 | `harnesspm remove <source> [--local]` | Removes it and its outputs. With the last harness of user scope, the hook goes too. |
-| `harnesspm update` | Fetches new versions of added harnesses and prints what changed. Skips working copies with uncommitted changes or unpushed commits. The `SessionStart` hook runs it, and a fetch that fails there only warns. |
+| `harnesspm update [--hook]` | Fetches new versions of added harnesses and prints what changed. Skips working copies with uncommitted changes or unpushed commits. The `SessionStart` hook runs it with `--hook`, and a fetch that fails there only warns. `--hook` marks a run of that hook, which never opts a parent folder in to its repositories' own hooks. |
 
 A source is `github:<owner>/<repo>`, `git:<url>`, `npm:<name>` or a folder.
 

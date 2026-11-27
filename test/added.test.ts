@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { normalizeRemote } from '../src/added.ts';
+import { caller, HOOK_RUN } from '../src/util.ts';
 import { homeOf, installPackage, isLink, PLUGIN_SCHEMA, project, read, run, runInput, runWith, skill, writeFiles } from './helpers.ts';
 
 /** A harness folder outside any project, such as a person's own or a team's. */
@@ -65,9 +66,9 @@ test('S9: add with user scope writes user-level outputs, the hook and write acce
   assert.ok(fs.existsSync(home(dir, '.agents/skills/andrew-release/SKILL.md')));
 
   const settings = JSON.parse(fs.readFileSync(home(dir, '.claude/settings.json'), 'utf8'));
-  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update');
+  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update --hook');
   assert.deepEqual(settings.permissions.additionalDirectories, [mine]);
-  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update');
+  assert.equal(JSON.parse(fs.readFileSync(home(dir, '.codex/hooks.json'), 'utf8')).hooks.SessionStart[0].hooks[0].command, 'npx -y @tenphi/harnesspm update --hook');
 
   // Nothing of the added harness enters the repository: its own units are user-level.
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.local.md')));
@@ -283,21 +284,47 @@ test('the SessionStart hook updates: a fetch that fails warns, and the session s
   assert.deepEqual(fs.existsSync(copies) ? fs.readdirSync(copies) : [], [], 'no half-cloned folder is left behind');
 });
 
-test('the hook of an older harnesspm, which only synced, becomes the fetching hook at the next sync by a person or a hook', () => {
-  const { dir, hook } = appWithGitHarness();
-  const files = [home(dir, '.claude/settings.json'), home(dir, '.codex/hooks.json')];
-  const commandIn = (file: string): string => JSON.parse(fs.readFileSync(file, 'utf8')).hooks.SessionStart[0].hooks[0].command;
-  for (const file of files) fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('harnesspm update', 'harnesspm sync'));
+test('the hook of an older harnesspm, `sync` (0.14) or `update` without --hook (0.15), becomes `update --hook` at the next sync by a person or a hook', () => {
+  for (const old of ['npx -y @tenphi/harnesspm sync', 'npx -y @tenphi/harnesspm update']) {
+    const { dir, hook } = appWithGitHarness();
+    const files = [home(dir, '.claude/settings.json'), home(dir, '.codex/hooks.json')];
+    const commandIn = (file: string): string => JSON.parse(fs.readFileSync(file, 'utf8')).hooks.SessionStart[0].hooks[0].command;
+    const mine = { hooks: [{ type: 'command', command: 'echo mine' }] };
+    for (const file of files) {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      data.hooks.SessionStart[0].hooks[0].command = old;
+      data.hooks.SessionStart.push(mine);
+      data.env = { KEEP: '1' };
+      fs.writeFileSync(file, JSON.stringify(data));
+    }
 
-  // The agent's model never changes it: the new command also fetches.
-  assert.equal(runWith(dir, { AI_AGENT: 'claude-code_2-1-0_agent' }, 'sync').status, 0);
-  for (const file of files) assert.equal(commandIn(file), 'npx -y @tenphi/harnesspm sync');
+    // The agent's model never changes it.
+    assert.equal(runWith(dir, { AI_AGENT: 'claude-code_2-1-0_agent' }, 'sync').status, 0);
+    for (const file of files) assert.equal(commandIn(file), old);
 
-  assert.equal(hook('sync').status, 0);
-  for (const file of files) assert.equal(commandIn(file), 'npx -y @tenphi/harnesspm update');
-  const groups = JSON.parse(fs.readFileSync(files[0]!, 'utf8')).hooks.SessionStart;
-  assert.equal(groups.length, 1, 'replaced in place, not added');
-  assert.equal(groups[0].hooks[0].timeout, 120);
+    assert.equal(hook('sync').status, 0);
+    for (const file of files) {
+      assert.equal(commandIn(file), 'npx -y @tenphi/harnesspm update --hook', old);
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      assert.equal(data.hooks.SessionStart.length, 2, 'replaced in place, not added');
+      assert.deepEqual(data.hooks.SessionStart[1], mine, "the person's own hook stays");
+      assert.deepEqual(data.env, { KEEP: '1' });
+    }
+    assert.equal(JSON.parse(fs.readFileSync(files[0]!, 'utf8')).hooks.SessionStart[0].hooks[0].timeout, 120);
+    // Idempotent: the next run changes nothing.
+    const before = files.map((file) => fs.readFileSync(file, 'utf8'));
+    assert.equal(run(dir, 'sync').status, 0);
+    assert.deepEqual(files.map((file) => fs.readFileSync(file, 'utf8')), before);
+  }
+});
+
+test("--hook makes a run a hook's, also where Codex marks no hook; a model run that passes it stays a model run", () => {
+  assert.equal(caller({}), 'person');
+  assert.equal(caller({ [HOOK_RUN]: '1' }), 'hook');
+  assert.equal(caller({ [HOOK_RUN]: '1', CODEX_CI: '1' }), 'model');
+  assert.equal(caller({ [HOOK_RUN]: '1', CODEX_TOOL_CALL_ID: 'call_1' }), 'model');
+  assert.equal(caller({ [HOOK_RUN]: '1', AI_AGENT: 'claude-code_2-1-0_agent', CLAUDECODE: '1' }), 'model');
+  assert.equal(caller({ [HOOK_RUN]: '1', CLAUDECODE: '1' }), 'model');
 });
 
 test('user-level pointers of a git source are absolute, so an agent opens them from any folder', () => {

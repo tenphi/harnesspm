@@ -2,7 +2,7 @@
 
 **In short**
 
-- 13.1 to 13.8 are **decided**. They stay here as a record of why. A cloud probe settled 13.8.
+- 13.1 to 13.8 and 13.14 are **decided**. They stay here as a record of why. A cloud probe settled 13.8.
 - 13.9 to 13.11 are **open**. Each names the test or signal that settles it.
 - 13.12 lists options that were removed and may come back.
 
@@ -45,6 +45,10 @@ A team cannot mark a rule as one a person cannot exclude. Nothing could enforce 
 
 Not needed. A cloud probe in November 2026 showed that a `.claude/settings.local.json` written in the clone, also by a `SessionStart` hook, is read in the same session: its `env` applies and its hooks fire. Team hooks and permissions stay in that per-machine file.
 
+### 13.14 Entry hooks in a parent folder (decided)
+
+**Decision:** a sync in a parent folder that a person opted into copies every repository's own hooks into the folder's settings, the hooks of added harnesses' project entries among them, each through a wrapper that runs it in its repository and only for that repository's files ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). Permissions stay in the repository. The trigger was a cloud session with two repositories whose hand-written `SessionStart` and lint hooks did not run ([research](https://github.com/tenphi/harnesspm/blob/main/docs/research/agent-capabilities.md#cloud-sessions)). A user-level hook that read each repository's settings at every event was the other option. It would have run harnesspm's own hooks a second time, and a hook an agent writes into a repository would have run at once, before any sync by a person.
+
 ## Open
 
 ### 13.9 Upgrade report
@@ -71,10 +75,6 @@ Every ❓ in [research/agent-capabilities.md](https://github.com/tenphi/harnessp
 A hook run may add entries ([6.2](06-trust.md#62-trusting-a-package), rule 4). So the `SessionStart` hook that `harnesspm add` installs ([7.5](07-added.md#75-applying-in-every-repository)) grants what the working tree holds, including an agent's edit from an earlier session. Checks 1 and 2 of the reviewed state could apply to hook runs too, but that changes what a hook run may grant. **Signal:** an agent's own harness edit is granted through that hook in a real session. **Then:** apply the reviewed-state check to the repository's entries in hook runs.
 
 Since the hook runs `update`, it also grants what arrives through a fetch: a push to an added harness's remote is granted at the next session start, as `"trust": true` grants a team package's upgrade. Holding such entries for one run would not last, because the next session's hook grants what the working copy then holds. A lasting hold needs a per-source record of the commit a person last granted, much like the lock records a `"pin"` approval. **Signal:** people add harnesses whose pushes they do not control, beyond an npm source with a fixed version. **Then:** record the granted commit per git source, and hold executables that arrive through the hook until `approve`.
-
-### 13.14 Entry hooks in a parent folder
-
-A session that starts in a parent folder reads the project entries' rules and skills, but not their hooks and permissions, which sit in each repository's `.claude/settings.local.json` ([4.10](04-outputs.md#410-sessions-that-start-in-a-parent-folder)). Writing them into the parent folder's settings would make them apply to every repository below it, as the projects' own hooks already do there with `-C` and a check of the edited file. **Signal:** a person needs an entry's hook, such as a lint on edit, in sessions with several repositories. **Then:** write entry hooks into the parent folder's settings with `-C <repository>`, as 4.10 does for projects, and leave entry permissions in the repository.
 
 ## 13.12 Removed in review
 

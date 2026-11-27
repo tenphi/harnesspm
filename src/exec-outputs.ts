@@ -6,7 +6,7 @@ import { AGENTS, WIDENING_AGENT_KEYS, type Agent } from './exec-units.ts';
 import type { Lock } from './lock.ts';
 import { tomlString } from './render.ts';
 import { skillAuthor, type Resolution, type ResolvedPackage } from './resolve.ts';
-import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeIfChanged, type Runner } from './util.ts';
+import { ensureDir, isFile, isRecord, readJsonIfExists, readTextIfExists, writeAtomic, writeIfChanged, type Runner } from './util.ts';
 
 export type Group = 'team' | 'added';
 
@@ -228,7 +228,7 @@ function writeOwned(stateFile: string, state: StateFile): void {
   writeIfChanged(stateFile, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${h.command}`;
+export const hookKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${h.command}`;
 
 /**
  * What a hook command of harnesspm runs, without the runner prefix, such as `harnesspm run --agent claude kit:check`.
@@ -241,7 +241,7 @@ const RUNNER_PREFIX = new RegExp(String.raw`^(?:npx harnesspm|npx -y @tenphi\/ha
 const hookTask = (command: string): string => command.replace(RUNNER_PREFIX, 'harnesspm ');
 
 /** What a hook grants. A new runner prefix, such as the installed CLI file in place of npx, grants nothing new. */
-const grantKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${hookTask(h.command)}`;
+export const grantKey = (h: HookEntry): string => `${h.event}\u0000${h.matcher ?? ''}\u0000${hookTask(h.command)}`;
 
 /** Keeps what a model run may keep: entries it already had. Returns the entries and what is held back. */
 function limit<T>(wanted: T[], had: T[], key: (t: T) => string, widen: boolean): { kept: T[]; held: T[] } {
@@ -337,8 +337,8 @@ function editJson(file: string, edit: (data: Record<string, unknown>) => void): 
     fs.rmSync(file, { force: true });
     return true;
   }
-  ensureDir(path.dirname(file));
-  fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
+  // Atomic: Claude Code reloads a settings file when it changes, and a sync may run during a session (spec 7.5).
+  writeAtomic(file, `${JSON.stringify(data, null, 2)}\n`);
   return true;
 }
 
@@ -371,6 +371,11 @@ export interface Applied {
   codexMcp: Record<string, Record<string, unknown>>;
   /** Files the outputs wrote, for .git/info/exclude. */
   files: string[];
+}
+
+/** The Claude Code hooks that a state file records for a group: the ones harnesspm wrote. */
+export function ownedHooks(stateFile: string, group: Group): HookEntry[] {
+  return readOwned(stateFile)[group]?.claude.hooks ?? [];
 }
 
 /** The entries that a sync by the agent's model would hold back now, without writing anything. */

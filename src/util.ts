@@ -121,6 +121,20 @@ export function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+/**
+ * Writes a file through a temporary file and a rename, so a reader at the same time, such as Claude Code reloading a
+ * settings file or a hook starting the hook wrapper, sees the old file or the new one, never a part. A link stays a
+ * link: the file it points to is replaced, with its mode.
+ */
+export function writeAtomic(file: string, content: string): void {
+  const target = fs.existsSync(file) ? fs.realpathSync(file) : file;
+  ensureDir(path.dirname(target));
+  const tmp = `${target}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, content);
+  if (fs.existsSync(target)) fs.chmodSync(tmp, fs.statSync(target).mode);
+  fs.renameSync(tmp, target);
+}
+
 /** Writes a file only when its content changes. Returns true when it wrote. */
 export function writeIfChanged(file: string, content: string): boolean {
   if (readTextIfExists(file) === content) return false;
@@ -332,9 +346,15 @@ export function listDir(dir: string): string[] {
 
 export type Caller = 'model' | 'hook' | 'person';
 
+/** Set by `--hook`, which the user-level session hook passes (spec 7.5): the run is a hook's, whatever else the environment says. */
+export const HOOK_RUN = 'HARNESSPM_HOOK_RUN';
+
 /**
  * Who runs harnesspm (spec 6.2, rule 4). Claude Code marks model commands (`AI_AGENT=…_agent`) and hooks
- * (`…_harness`). Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` only in commands the model runs.
+ * (`…_harness`). Codex sets `CODEX_CI=1` and `CODEX_TOOL_CALL_ID` only in commands the model runs, and marks no hook,
+ * so the session hook says it with `--hook`. The model's marks are checked first, so a model run that passes `--hook`
+ * stays a model run. The other order would be safe too: `--hook` only turns a person's run into a hook's, which grants
+ * less, as a hook's run never opts a folder in (spec 4.10).
  */
 export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
   const agent = env['AI_AGENT'] ?? '';
@@ -342,6 +362,7 @@ export function caller(env: NodeJS.ProcessEnv = process.env): Caller {
   if (agent.endsWith('_harness')) return 'hook';
   if (agent === '' && env['CLAUDECODE'] === '1') return 'model';
   if (codexRun(env)) return 'model';
+  if (env[HOOK_RUN] === '1') return 'hook';
   return 'person';
 }
 
