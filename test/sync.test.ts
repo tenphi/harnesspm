@@ -701,6 +701,23 @@ test('an override of a unit that does not exist is a warning', () => {
   assert.match(run(dir, 'sync').stderr, /exclude names tasty:rules\/renamed, which does not exist/);
 });
 
+test('sync removes the package links it no longer writes, such as an earlier name of a package', () => {
+  const dir = chain();
+  assert.equal(run(dir, 'sync').status, 0);
+  const pkgs = path.join(dir, 'node_modules/.harnesspm/pkgs');
+  // A link for a package's earlier name, which leads nowhere once the package moved, and one for a dropped dependency.
+  fs.symlinkSync('../../../@tenphi/harnesspm', path.join(pkgs, '@tenphi/harnesspm'), 'dir');
+  fs.mkdirSync(path.join(pkgs, '@old'));
+  fs.symlinkSync('../../../../node_modules/@cube-dev/ui-kit', path.join(pkgs, '@old/kit'), 'dir');
+  writeFiles(pkgs, { 'notes/kept.txt': 'not a link\n' });
+  const result = run(dir, 'sync');
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(!isLink(pkgs, '@tenphi/harnesspm'), 'the stale link is gone');
+  assert.ok(!fs.existsSync(path.join(pkgs, '@old')), 'and so is the scope folder it emptied');
+  assert.ok(isLink(pkgs, '@tenphi/tasty') && isLink(pkgs, '@cube-dev/ui-kit'), 'the links of installed packages stay');
+  assert.equal(read(pkgs, 'notes/kept.txt'), 'not a link\n', 'what is not a link stays');
+});
+
 /** Lists and installs harnesspm in the project, as `npm i -D @harnesspm/cli` does. */
 function withHarnesspm(dir: string, field = 'devDependencies', name = '@harnesspm/cli'): string {
   const pkg = JSON.parse(read(dir, 'package.json'));
@@ -791,6 +808,22 @@ test('init uses postinstall in a private package, and keeps an existing script',
   run(dir, 'init');
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.postinstall, `patch-package && (${HOOK})`);
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.prepare, undefined);
+});
+
+test('init adds no install hook when a Yarn plugin in .yarnrc.yml runs harnesspm', () => {
+  // A project may sync after every install with a Yarn plugin; the hook would then sync a second time (spec 10.1).
+  const rc = 'nodeLinker: node-modules\n\nplugins:\n  # A comment in the list\n  - path: .yarn/patches/plugin-harnesspm-sync.cjs\n\nenableTelemetry: false\n';
+  const dir = withHarnesspm(project({}, { private: true }, false));
+  writeFiles(dir, { '.yarnrc.yml': rc, 'yarn.lock': '' });
+  const result = run(dir, 'init');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Added no install hook: the Yarn plugin \.yarn\/patches\/plugin-harnesspm-sync\.cjs in \.yarnrc\.yml runs harnesspm, and the hook would sync a second time on each install/);
+  assert.equal(JSON.parse(read(dir, 'package.json')).scripts, undefined);
+  // Another plugin, or harnesspm named outside the plugin list, still gets the hook.
+  const other = withHarnesspm(project({}, { private: true }, false));
+  writeFiles(other, { '.yarnrc.yml': 'nodeLinker: node-modules\nplugins:\n  - path: .yarn/plugins/@yarnpkg/plugin-workspace-tools.cjs\n# harnesspm syncs through postinstall\n', 'yarn.lock': '' });
+  assert.equal(run(other, 'init').status, 0);
+  assert.equal(JSON.parse(read(other, 'package.json')).scripts.postinstall, HOOK);
 });
 
 test('the install hook runs the sync when harnesspm is installed, and skips it without dev dependencies', () => {

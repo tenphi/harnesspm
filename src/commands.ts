@@ -371,6 +371,20 @@ function yarnPnp(projectDir: string): boolean {
 }
 
 /**
+ * The path or spec of a Yarn plugin in `.yarnrc.yml` that names harnesspm, such as one that syncs after every install
+ * (spec 10.1). With one, the install hook would sync a second time on each install.
+ */
+function yarnSyncPlugin(projectDir: string): string | undefined {
+  const rc = readTextIfExists(path.join(projectDir, '.yarnrc.yml'));
+  const section = rc === undefined ? undefined : /^plugins:[ \t]*\r?\n((?:(?:[ \t]+[^\r\n]*|[ \t]*)(?:\r?\n|$))*)/m.exec(rc)?.[1];
+  for (const line of section?.split(/\r?\n/) ?? []) {
+    const entry = /^\s*-?\s*(?:(?:path|spec):\s*)?["']?([^"'\s#]*harnesspm[^"'\s#]*)/.exec(line)?.[1];
+    if (entry !== undefined) return entry;
+  }
+  return undefined;
+}
+
+/**
  * Adds harnesspm as a dev dependency with the project's package manager, at this version or a later compatible one
  * (spec 10.1), and returns the command. A workspace root needs pnpm's `-w` and Yarn 1's `-W`. The package manager's
  * own output goes to stderr, so the report on stdout stays as `init` prints it.
@@ -502,7 +516,10 @@ export function init(projectDir: string, out: Output): number {
   const hookName = pkg['private'] === true ? 'postinstall' : 'prepare';
   const has = (name: string): boolean => typeof scripts[name] === 'string' && (scripts[name] as string).includes(OLD_HOOK);
   let changed = false;
-  if (!HOOK_SCRIPTS.some(has)) {
+  const hooked = HOOK_SCRIPTS.some(has);
+  const plugin = hooked ? undefined : yarnSyncPlugin(projectDir);
+  if (plugin !== undefined) out.log(`Added no install hook: the Yarn plugin ${plugin} in .yarnrc.yml runs harnesspm, and the hook would sync a second time on each install`);
+  else if (!hooked) {
     const current = typeof scripts[hookName] === 'string' ? (scripts[hookName] as string) : undefined;
     scripts[hookName] = current === undefined ? installHook(dependency) : `${current} && (${installHook(dependency)})`;
     changed = true;
