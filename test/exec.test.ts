@@ -363,11 +363,11 @@ test('sync, status and doctor count the same held-back entries, Codex rules and 
 test('in a Claude Code cloud session, held-back entries point to the setup script, with the install by absolute path', () => {
   const dir = app(true);
   const cloud = { ...MODEL, CLAUDE_CODE_REMOTE: 'true' };
-  const setup = (install: string): string => `In a Claude Code cloud session, ask the person to run ${install}, or their own \`npx -y @harnesspm/cli add <source>\`, in the environment's setup script. New sessions then start with these entries.`;
+  const setup = (install: string): string => `A Claude Code cloud session gives the person no terminal, so the environment's setup script grants this before each new session: ask them to add ${install}, or their own \`npx -y @harnesspm/cli add <source>\`, to it.`;
   // Without a lockfile, the install is not known.
   const sync = runWith(dir, cloud, 'sync');
   assert.match(sync.stdout, /14 entries that an agent cannot grant/);
-  assert.ok(sync.stdout.includes(setup('the install')), sync.stdout);
+  assert.ok(sync.stdout.includes(setup("the project's install")), sync.stdout);
   assert.doesNotMatch(sync.stdout, /own terminal/);
 
   // The setup script does not start in the clone, so the line names the project's folder.
