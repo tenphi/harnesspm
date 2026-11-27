@@ -31,6 +31,17 @@ export default defineDocsConfig({
       },
     ],
   },
+  // Page view analytics with Umami, on every page of the site.
+  head: [
+    {
+      tag: 'script',
+      attrs: {
+        defer: true,
+        src: 'https://umami.tenphi.me/script.js',
+        'data-website-id': 'f0b144c3-e6cc-4a38-9b09-8f62578cc74d',
+      },
+    },
+  ],
   editLink: {
     baseUrl: 'https://github.com/tenphi/harnesspm/edit/main/',
   },
