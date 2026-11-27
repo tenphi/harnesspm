@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.17.0
+
+### Minor Changes
+
+- [#90](https://github.com/tenphi/harnesspm/pull/90) [`581562b`](https://github.com/tenphi/harnesspm/commit/581562b204c2d843fdf7f68ff581f1f739138995) Thanks [@tenphi](https://github.com/tenphi)! - harnesspm moved to the npm package `@harnesspm/cli`. The command is still `harnesspm`. To move a project, run `npm i -D @harnesspm/cli && npm rm @tenphi/harnesspm`, then `npx -y @harnesspm/cli init`; `doctor` reminds you. On each machine with an added harness, run `npx -y @harnesspm/cli update` once: the user-level `SessionStart` hook still runs `@tenphi/harnesspm`, which cannot rewrite itself. Every text, message, managed block and hook now uses one form, `npx -y @harnesspm/cli`, never the bare `npx harnesspm`, also as the fallback of hooks and MCP servers. The block's first line changes, so `sync --check` fails once in CI: run `sync` and commit `AGENTS.md`. Until harnesspm 1.0, the earlier name and the bare form keep working: the installed `@tenphi/harnesspm`, its hooks and allow rules, and the install script carry over at the next sync, and nothing needs approving again.
+
+### Patch Changes
+
+- [#92](https://github.com/tenphi/harnesspm/pull/92) [`bc9525d`](https://github.com/tenphi/harnesspm/commit/bc9525de219341080e5d9a4f8532fa6feec54d12) Thanks [@tenphi](https://github.com/tenphi)! - The docs site has one guide for people and their agents, in place of a part for each. Get started, Share a harness from your library and Add your own harness each open with the prompt for your agent and then have every step. The README links to them, and the old `/getting-started`, `/share` and `/bring-your-own` pages redirect there.
+
 ## 0.16.0
 
 ### Minor Changes
