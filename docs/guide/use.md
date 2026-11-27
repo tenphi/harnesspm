@@ -10,7 +10,7 @@ description: What a project gets from the harness of its dependencies, how upgra
 - Your agents read rules and pointers in `AGENTS.md`, and skills, sub-agents and tools in their own folders.
 - Upgrades show up in pull requests as changes to the managed block and the lock.
 
-Set the project up first with [Set up a project](./setup.md).
+Set the project up first with [Get started](./setup.md).
 
 ## Which packages count
 
@@ -71,9 +71,7 @@ cd ~/work && npx -y @harnesspm/cli sync
 
 ## Upgrades
 
-- A full install (`npm install`, `npm ci`, `pnpm install`, `yarn`) runs `harnesspm sync` for you.
-- `npm install <pkg>`, `npm uninstall <pkg>`, `pnpm add <pkg>` and `pnpm remove <pkg>` run no scripts. Run `npx -y @harnesspm/cli sync` after them.
-- Yarn 4 runs `postinstall` but not `prepare`. In a published package, where `init` uses `prepare`, run `yarn harnesspm sync` after installs. See [package managers](https://github.com/tenphi/harnesspm/blob/main/docs/research/package-managers.md).
+A full install runs `harnesspm sync` for you. [Keep it current](./setup.md#5-keep-it-current) lists the installs that run no script, and what to run after them.
 
 The pull request shows the change. The lock records each package's version and every unit's hash. The block names no versions, so it changes only when a rule, a doc or a tool does. Here `@acme/ui` 4.3.0 changed only its `tokens` script:
 

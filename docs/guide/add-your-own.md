@@ -1,18 +1,23 @@
 ---
-description: Add your team's or your own rules, notes, skills and tools on top of any repository, without committing them.
+description: Keep how you or your team work in a harness of your own, with rules, notes, skills and tools, and add it with harnesspm on top of every repository, without a commit there.
 ---
 
 # Add your own or your team's harness
 
 **In short**
 
-- `npx -y @harnesspm/cli add <source>` adds a harness on top of the repository's, on your machine only. It is never committed.
-- With user scope, it applies in every repository on the machine. With `--local`, in one repository.
+- Your own harness is a git repository of rules, notes and skills about how you work. A team's harness is the same thing, owned by a team. Ask your agent to start one.
+- You add it once per machine, in your own terminal, with `npx -y @harnesspm/cli add <source>`. It applies on top of every repository on the machine, or of one with `--local`, and nothing from it is committed there.
+- Two things stay with you: adding it, which trusts its tools, and what goes into its always-on rules.
 - `npx -y @harnesspm/cli doctor` checks that your per-machine files stay out of git.
+
+This page is for your own way of working. To give a project the harness of its dependencies, see [Get started](./setup.md). To ship a harness with a library, see [Share a harness from your library](./share.md).
 
 An **added harness** is an ordinary harness, with a `plugin.json` and units, in a git repository, a folder or an npm package. A team's harness and a person's own harness work the same way. Only their owners differ.
 
 ## What goes in it
+
+Your harness costs context in every session, in every repository, so the choice is yours. Keep always-on rules to what you would tell every agent, such as your commit style, and put the rest where it loads only when needed:
 
 | Content | Unit kind | Example |
 | --- | --- | --- |
@@ -23,6 +28,29 @@ An **added harness** is an ordinary harness, with a `plugin.json` and units, in 
 | Changes for one repository | Project entry | A local staging address, a replaced team rule |
 
 To give a harness to everyone who works on a repository, make it a dependency instead: a harness-only package in `devDependencies`.
+
+## Ask your agent
+
+Paste this into Claude Code or Codex, in any folder:
+
+```text
+Start a harness of my own with harnesspm
+in ~/dev/my-harness. It holds how I work,
+for every repository.
+
+1. Run harnesspm as `npx -y @harnesspm/cli`.
+   Do not install it anywhere.
+2. Follow "Start one" in
+   https://harnesspm.tenphi.me/guides/add-your-own.
+3. Draft one short always-on rule about how I work,
+   from what you know. I will correct it.
+4. Commit it, and show me the harness.
+   Do not add it yourself.
+```
+
+Your agent knows nothing about harnesspm in that folder. So the prompt names harnesspm, and says where the steps are. Keep both when you write your own.
+
+Your agent does [Start one](#start-one) below. The rule it writes is a draft: you know how you work. Then you [add it](#add-one) in your own terminal.
 
 ## Start one
 
@@ -43,6 +71,9 @@ npx -y @harnesspm/cli new rule workflow
 ```shell
 npx -y @harnesspm/cli add github:<owner>/<repo>
 ```
+
+- **You** run it, once per machine. An agent that runs `add` gets the rules and skills, and the tools wait for you.
+- Adding a harness is your trust decision: its scripts, hooks and MCP servers run as you, in every repository.
 
 | Source | Example | Where it lives |
 | --- | --- | --- |
@@ -123,11 +154,22 @@ When a file is tracked or not ignored, `doctor` fails and names the fix, such as
 
 ## Change it later
 
-- Ask your agent to "remember" something, and it can write a rule into your harness with `npx -y @harnesspm/cli new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent).
-- `npx -y @harnesspm/cli update` fetches new versions of your added harnesses. It skips a working copy with uncommitted changes or unpushed commits, and says so.
+Grow your harness as you work. Ask your agent, and name harnesspm:
+
+```text
+Remember this in my own harnesspm harness:
+I review pull requests with the checklist in my notes.
+```
+
+- Your agent writes a rule or a note into your harness, such as with `npx -y @harnesspm/cli new rule <name> --to <plugin>`. It saves the change the way your harness's `AGENTS.md` says, such as a commit. See [Change upstream units](./change-upstream.md#improve-a-harness-with-an-agent). Without the word harnesspm, an agent may keep the note in its own memory, on one machine and for one agent.
+- `npx -y @harnesspm/cli update` fetches new versions of your added harnesses, and the hook that `add` installs runs it when a session starts. It skips a working copy with uncommitted changes or unpushed commits, and says so.
 - `npx -y @harnesspm/cli remove <source>` removes a harness and its outputs.
+
+## In cloud sessions
+
+A Claude Code cloud session starts on a clean machine, without your harness. Put the `add` command into the setup script of your own environment, and each new session starts with it. [Cloud sessions](./cloud.md#your-own-harness) has the details, also for private repositories.
 
 ## More
 
 - [Added harnesses](https://github.com/tenphi/harnesspm/blob/main/docs/spec/07-added.md) in the specification: the full rules.
-- [Cloud sessions](./cloud.md): the same harness in Claude Code cloud sessions.
+- [Ask your agent](./ask-your-agent.mdx): prompts for the tasks after setup.

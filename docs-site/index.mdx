@@ -7,10 +7,10 @@ hero:
   tagline: A harness is the set of rules, docs, skills and tools that a coding agent needs to use a library well. A library ships it in its npm package. harnesspm gives it to Claude Code and Codex on every install, for the version you installed.
   actions:
     - text: Get started
-      link: /getting-started
+      link: /guides/setup
       variant: primary
     - text: Share from your library
-      link: /share
+      link: /guides/share
       variant: secondary
 ---
 
@@ -148,23 +148,23 @@ npx -y @harnesspm/cli add \
   github:<owner>/<repo>
 ```
 
-It applies in every repository on your machine, and one line in a setup script brings it to Claude Code cloud sessions. `npx -y @harnesspm/cli doctor` checks that its files stay out of git. [Bring your own harness](/bring-your-own) shows how to start one.
+It applies in every repository on your machine, and one line in a setup script brings it to Claude Code cloud sessions. `npx -y @harnesspm/cli doctor` checks that its files stay out of git. [Add your own harness](/guides/add-your-own) shows how to start one.
 
 ## Start where you are
 
 <CardGrid>
-  <Card title="Use" href="/getting-started">
+  <Card title="Use" href="/guides/setup">
     Your project gets the harness of its dependencies. One prompt or two commands, then every install keeps it current.
   </Card>
-  <Card title="Share" href="/share">
+  <Card title="Share" href="/guides/share">
     Your library ships rules, docs, skills and tools in its npm package, and passes on the harness of the libraries it builds on.
   </Card>
-  <Card title="Bring your own" href="/bring-your-own">
+  <Card title="Add your own" href="/guides/add-your-own">
     Your team's or your own workflow, notes and skills, on top of any repository and never committed.
   </Card>
 </CardGrid>
 
-You say what you want, and your agent does the steps. [For AI agents](/agents) has every step in detail, for your agent and for you.
+You say what you want, and your agent does the steps. Each of these guides opens with a prompt to give your agent, then has every step, for your agent and for you.
 
 Every format, rule and command is in [the specification](https://github.com/tenphi/harnesspm/blob/main/docs/spec/README.md), on GitHub. It also ships in the npm package, so your agents read the version you installed.
 
